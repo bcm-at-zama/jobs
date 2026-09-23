@@ -122,5 +122,513 @@
   "https://www.google.com/about/careers/applications/jobs/results/142936327518593734-staff-software-engineer-infrastructure-google-cloud-security-and-privacy": {
     "score": 0,
     "reason": "Security infrastructure focus, not a technical role"
+  },
+  "https://jobs.ashbyhq.com/openai/ca7e4019-bf93-42fd-8f15-fac59c6e237c": {
+    "score": 10,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/566a5565-925c-4367-9912-6b64841beba2": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/6a7cedbd-0a7c-4f3e-8389-55357ad444b3": {
+    "score": 10,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/21ee6dd3-dcd0-425a-91e9-34a23ab3e434": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/577e6673-0a4a-491b-9a0d-facbdd3bdf3c": {
+    "score": 10,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/5df9e349-f8e1-4cfd-ba20-ec9e4115d564": {
+    "score": 2,
+    "reason": "At OpenAI, there's a codex-style role; however, it's an Engineering Manager, Client Platform Engineering, not a direct Codex-style role. Applies to applied cryptography (+2) due to the secure by default focus, and to product security (+1) due to the focus on delivering trusted devices."
+  },
+  "https://jobs.ashbyhq.com/openai/5839b9a2-7d92-452a-8b56-06f8c3f97b75": {
+    "score": 4,
+    "reason": "Doesn't strongly match top priority 1 AI-powered vulnerability remediation; team focus is identity infrastructure, not code/security. +1 for location in USA, +1 for OpenAI, but not enough to overcome lack of code/security focus."
+  },
+  "https://jobs.ashbyhq.com/openai/2d7f1028-ce9b-49c7-acc8-782714ca1cf4": {
+    "score": 3,
+    "reason": "No direct match in AI-powered vulnerability remediation or applied cryptography. The role seems to be more focused on product security and agent enablement, which doesn't strongly align with the rubric priorities."
+  },
+  "https://jobs.ashbyhq.com/openai/88654e7f-4e23-4e75-8e54-18c10d09b093": {
+    "score": 8,
+    "reason": "Matches AI-powered vulnerability remediation interest (Codex-style role at a frontier AI lab). Positive match for product security/appsec focus and location in US. Code-security focus is strong, but lacks direct 'codex' or 'vulnerability remediation' match."
+  },
+  "https://jobs.ashbyhq.com/openai/b28b990c-54e4-4be4-a33a-d5518dc3e117": {
+    "score": 10,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). Strongly matches applied AI engineering with emphasis on building effective AI applications. Location in US a plus."
+  },
+  "https://jobs.ashbyhq.com/openai/cc203d0d-96cd-4615-b5f1-3f25d6b08a95": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/c442eab0-b8b4-40f6-b0f2-0fc91aea294a": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (AI-powered security solutions), has a clear technical focus (Product Engineer), and is at a frontier AI lab (Defense Factory). Location fits, but not a top-priority match."
+  },
+  "https://jobs.ashbyhq.com/openai/793964ae-d40b-45e3-9798-84f4b6da48c5": {
+    "score": 9,
+    "reason": "Strong title match (Research Engineer, Codex), and the role seems to involve training models behind Codex's frontier agents, which aligns with top-priority interest in AI-powered vulnerability remediation and applied cryptography."
+  },
+  "https://jobs.ashbyhq.com/openai/cc434f5b-dc0b-42fd-97ec-e0171545c6e9": {
+    "score": 7,
+    "reason": "Matches +3 for \"Codex\", +1 for \"OpenAI\" and \"AGI\", +1 for \"San Francisco\" and \"USA\", and +1 for \"Privacy Engineering\". Title mentions \"Research Engineer\" which doesn't match any priority, but overall fit is good."
+  },
+  "https://jobs.ashbyhq.com/openai/66e76c14-bb6e-4e26-a333-744bbe35abbb": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (specifically model safety and preparedness for OpenAI). Researcher role involves analyzing and mitigating risks resulting from model capabilities, a strong match for the prioritized domain."
+  },
+  "https://jobs.ashbyhq.com/openai/e9bea775-7eb6-438a-ab96-27d5f941e69d": {
+    "score": 9,
+    "reason": "High-scoring role in an AI-powered vulnerability remediation domain (agentic AI security at OpenAI), with clear technical focus on security policies, frameworks, and controls."
+  },
+  "https://jobs.ashbyhq.com/openai/1e110226-448a-4c0b-b0e4-d0f5df579fbf": {
+    "score": 7,
+    "reason": "Partially matches 'product security' and 'appsec' domains (appsec role at OpenAI), but not explicitly AI security or vulnerability remediation. Also not at a frontier AI lab or big-tech AI org. Location in USA is a positive, but not a strong enough positive to offset the lack of direct matches."
+  },
+  "https://jobs.ashbyhq.com/openai/ec5a5d98-6314-44d9-9466-8d4d7ee866f6": {
+    "score": 0,
+    "reason": "No match on title (only \"Application Security\" which is too broad), no strong intersection with AI-powered vulnerability remediation or applied cryptography, and no explicit mention of frontier AI lab or AI safety aligned role."
+  },
+  "https://jobs.ashbyhq.com/openai/2d54a2c3-3fc5-4492-bfe3-724357977379": {
+    "score": 7,
+    "reason": "Matches AI security domain, mentions classified work and national security, but lacks specific details about vulnerability remediation or code/security intersection. Location in USA is a plus, but not enough to reach a higher score."
+  },
+  "https://jobs.ashbyhq.com/openai/f6278b60-dd42-4aa8-a3cd-c105f75ae8ae": {
+    "score": 5,
+    "reason": "Product security / appsec mentioned; at a big tech AI org; location in USA; not directly related to vulnerability remediation or AI safety. Some tech aspects, but role seems people-manager-only."
+  },
+  "https://jobs.ashbyhq.com/openai/7ade7a12-845c-4e3a-af23-c028420bd181": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/eefeb527-4e36-432e-a787-88e4672e29e1": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). +3 for Codex title, +3 for security focus, +3 for remote-friendly location, +1 for location in US, +1 for frontier AI lab (OpenAI)"
+  },
+  "https://jobs.ashbyhq.com/openai/89f58eb2-519f-4a36-8be0-2e594724e1bc": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://jobs.ashbyhq.com/openai/d1c6cb87-a44d-4d04-92a8-dc40eccd090e": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). Strongly technical role with coding responsibilities, and potential for proactive task delegation."
+  },
+  "https://jobs.ashbyhq.com/openai/c15d4e1b-adcf-4809-91d5-17ba6b789092": {
+    "score": 3,
+    "reason": "Partial match - mentions AI and consumer devices, but no direct reference to vulnerability remediation, AI security, or applied cryptography. Role is primarily focused on product development and design, with limited scope for security engineering."
+  },
+  "https://jobs.ashbyhq.com/openai/1c48f39f-60ea-4636-87ed-8b4b4f5243e5": {
+    "score": 4,
+    "reason": "While the title mentions 'Security', the primary focus is on developing AI-native silicon and systems, which doesn't directly align with the AI-powered vulnerability remediation interest. The location and company match, but the role doesn't seem to be technical enough given the job title and the emphasis on hardware development."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5183044008": {
+    "score": 9,
+    "reason": "Strong fit for AI safety and security interests; Anthropic is a frontier AI lab working on reliable and steerable AI systems, aligning with priority 1. Remote-friendly option and flexible work arrangement also align with the rubric priorities."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5418402008": {
+    "score": 6,
+    "reason": "Company fits domain interests (AI safety, Anthropic), but lacks technical scope (Engineering Manager, Business Technology), no mention of AI-powered vulnerability remediation, applied crypto, or model security"
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5405548008": {
+    "score": 3,
+    "reason": "Partially matches AI safety interest, but focuses on hardware platform security rather than AI-powered vulnerability remediation or applied cryptography."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5431374008": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5389773008": {
+    "score": 5,
+    "reason": "No direct match on Codex-style role; focuses on AI system development. Some aspects align with AI safety and model security (e.g., safe AI systems), but role is primarily construction to operations, which doesn't fit top priorities."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5316565008": {
+    "score": 2,
+    "reason": "Matches some 'product security / appsec / offensive' (+1), has a 'Platform Security' title that mentions 'security' (+1), but lacks direct AI-powered vulnerability remediation or applied cryptography (+1 each) and doesn't explicitly mention 'AI' or a Codex-style role, which are top-priority matches."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5290426008": {
+    "score": 2,
+    "reason": "Does not match +3 codex-style role as the title is more general 'Platform Security Engineering', but the company mission mentions 'reliable, interpretable, and steerable AI systems' which could be seen as aligned with the AI security interest."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5397319008": {
+    "score": 3,
+    "reason": "Partial match: AI safety / alignment / model security (Anthropic's mission and team emphasis on safe and beneficial AI). However, role is not directly related to vulnerability remediation or applied cryptography, and primary focus is on corporate security (not aligned with personal priority 1 and 2)."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/4982193008": {
+    "score": 4,
+    "reason": "Title does not match any top priority matches (e.g. 'codex', 'codemender', 'vulnerability remediation', 'AI security'), but the company is Anthropic (frontier AI lab), which is a plus (+2). Role description emphasizes 'reliable, interpretable, and steerable AI systems', which aligns with AI safety interests, but is not a direct match."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5418977008": {
+    "score": 4,
+    "reason": "Security Engineer role, but not directly focused on AI-powered vulnerability remediation or applied cryptography. Does mention Anthropic's mission to create safe and beneficial AI systems, but not explicitly matching priority 1, 2, or 3. Location is in USA, but not a priority 1 location."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/4887959008": {
+    "score": 6,
+    "reason": "Product security / appsec / offensive security (+1), at a frontier AI lab (Anthropic) (+1), and a positive location (San Francisco, USA) (+1). The title doesn't match any top priority but shows a strong focus on AI security. The role description emphasizes safety and beneficial AI systems, aligning with the AI safety / alignment / model security priority, though it's more focused on the broader mi"
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5098092008": {
+    "score": 0,
+    "reason": "Doesn't align with top priority 1 (AI-powered vulnerability remediation); primary focus is on network security, not security engineering; location in USA, but no mention of Codex-style role or secure code analysis."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5324758008": {
+    "score": 7,
+    "reason": "Partial match on AI safety interest (Anthropic's mission emphasizes safe and beneficial AI), but not directly on codex-style roles or vulnerability remediation. Manager role and infrastructure focus, but location and AI lab are a plus."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5022845008": {
+    "score": 9,
+    "reason": "Title matches 'Security Engineering' and includes 'Staff' which indicates senior track. Location in London, UK fits within desired locations. Description emphasizes 'safe and beneficial' AI systems aligning with AI safety priority 3. Role is technical with a focus on AI-powered security, suggesting a codex-style role."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5311463008": {
+    "score": 9,
+    "reason": "Strong match in job title (\u2014+3\u2019), role involves application security (\u2002+1\u2002), and company is Anthropic, a frontier AI lab (\u2001\u2001\u2001\u2001\u2001\u2001\u2001\u2001\u2001\u2001\u2001\u2001\u2001\u2001), with a mission aligned to AI safety and beneficial AI systems. Remote-friendly with travel required."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5385217008": {
+    "score": 9,
+    "reason": "Directly matches the AI safety interest (mission-driven role at Anthropic, focuses on creating reliable and steerable AI systems). Strong technical component as Capabilities Researcher role, with opportunities for collaboration with diverse teams."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5250052008": {
+    "score": 5,
+    "reason": "No direct match for AI-powered vulnerability remediation or applied cryptography. However, the role aligns with the AI safety and model security interest, as it involves risk engineering for AI systems. The location fits and the company is a frontier AI lab."
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5063007008": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at Anthropic, US-based). Strong IC track and applied crypto adjacency via secure code analysis. Location in US and frontier AI lab (Anthropic) score well."
+  },
+  "https://jobs.ashbyhq.com/mistral.ai/647be1ec-19d1-421c-9c49-6bbf12c0c93a": {
+    "score": 4,
+    "reason": "Company profile matches (Mistral), location in FR (in scope), and some mention of AI engineer role, but lacks specific AI security / remediation focus, which is top priority, and title does not contain desired keywords (+0), and does not mention Frontier AI labs or big tech (+0), but some mention of security, which is close (+1)"
+  },
+  "https://jobs.ashbyhq.com/mistral.ai/fb6dce2f-5198-4327-b26c-93d407a781d0": {
+    "score": 4,
+    "reason": "Matches job title \"CyberSecurity\" but not the AI-powered vulnerability remediation interest. No indication of applied crypto or model security. Location in Canada fits but domain doesn't align with the rubric priorities."
+  },
+  "https://jobs.ashbyhq.com/mistral.ai/dcf889f0-2f46-45e6-9394-51f9b62f3fe9": {
+    "score": 3,
+    "reason": "Partially matches the AI-powered vulnerability remediation interest (some overlap with AI security), but primary focus is on full-stack AI solutions rather than vulnerability remediation, and lacks clear technical scope (people-manager-only). Location fits but domain doesn't align with the rubric priorities."
+  },
+  "https://jobs.ashbyhq.com/mistral.ai/94097082-dd90-439e-8685-0dd07df0bb1d": {
+    "score": 4,
+    "reason": "No direct match on codex-related titles, but mentions AI solutions and enterprise partnerships, which aligns with interests. Location in France fits, but the focus on platform security rather than AI-powered vulnerability remediation or applied cryptography scores a -1"
+  },
+  "https://jobs.ashbyhq.com/mistral.ai/d5d4567a-1a71-4769-86df-10c9f7e87583": {
+    "score": 6,
+    "reason": "Deputy Director role, no direct technical focus on AI or security; however, the HQ Safety & Security department might have some AI-powered vulnerability remediation aspects, and Mistral is a frontier AI lab. Additionally, the location in Paris, France, is in scope."
+  },
+  "https://jobs.ashbyhq.com/mistral.ai/b19778b5-bba5-4428-bfbe-51800597b8b7": {
+    "score": 4,
+    "reason": "Partial match: location in FR (in scope), but no direct mention of AI-powered vulnerability remediation, applied crypto, or AI safety, and primary focus on enterprise applications rather than security engineering."
+  },
+  "https://jobs.ashbyhq.com/cohere/1599cc22-313e-49c9-ac69-b365f5f8f227": {
+    "score": 3,
+    "reason": "Management role; does not fit the tech-heavy, security-focused interests; and not explicitly at a frontier AI lab or big-tech AI org, which are strong priorities."
+  },
+  "https://jobs.ashbyhq.com/cohere/1f7cc5e6-5f31-40d8-ad49-fe22c98a3ea4": {
+    "score": 5,
+    "reason": "Matches domain 'AI safety / alignment / model security' with red-teaming of models. Location in DE / FR / US / CH with a mix of technical and security tracks. However, the role does not explicitly mention AI-powered vulnerability remediation or applied crypto, which are top priorities."
+  },
+  "https://jobs.ashbyhq.com/cohere/a10a96b5-f772-466d-9297-f021f78ca9c0": {
+    "score": 2,
+    "reason": "Matches title 'Security' (partially), location includes North America (partial), and company is a frontier AI lab (some relevance), but title doesn't explicitly mention codex or vulnerability remediation, and location doesn't include all desired countries (Germany, France, Switzerland not mentioned)"
+  },
+  "https://jobs.ashbyhq.com/cohere/1b909aeb-1221-476f-88fe-8300a2065975": {
+    "score": 4,
+    "reason": "Incorporates AI security interest (security-first enterprise AI company) but lacks explicit connection to vulnerability remediation, applied cryptography, or model security. Company profile is a plus, but the role's focus on end-to-end products seems more product-oriented than technical."
+  },
+  "https://jobs.ashbyhq.com/hcompany/807f7430-1b17-4ff2-a51b-c92bca0cbcd4": {
+    "score": 4,
+    "reason": "No explicit technical focus, only infrastructure role; role doesn't fit any top priority domains (AI-powered vulnerability remediation, applied cryptography, AI safety/model security); location in FR fits, but no clear plus for this candidate."
+  },
+  "https://jobs.ashbyhq.com/hcompany/8ef0a8b6-40e1-40da-a337-4454ad39b66a": {
+    "score": 3,
+    "reason": "No clear fit with primary interests in AI-powered vulnerability remediation or applied cryptography; role focus is on model inference & serving, which doesn't directly align with the rubric priorities. However, the organization's mission to push the boundaries of superintelligence with agentic AI aligns with some aspects of the AI safety interests."
+  },
+  "https://jobs.ashbyhq.com/hcompany/dd1fdec1-2943-456e-ac9a-517d19a58fd6": {
+    "score": 8,
+    "reason": "Agentic AI role, aligns with interest in AI-powered vulnerability remediation and AI safety (H is pushing boundaries of superintelligence, automating complex tasks, which resonates with goal of mitigating risks in AI systems). Location is in scope (Paris, New York, London, and SF/Bay Area). +1 for location and +1 for frontier AI lab (H). No clear deal-breaker."
+  },
+  "https://jobs.ashbyhq.com/ami/df8b17c5-97e6-49e7-abb9-c21a39e4162a": {
+    "score": 0,
+    "reason": "No direct match on job title or description, and location doesn't explicitly align with the rubric priorities."
+  },
+  "https://jobs.ashbyhq.com/ami/7d58ea84-fd76-4ac7-ad6e-1424f76c42f9": {
+    "score": 2,
+    "reason": "Location in FR, but no direct match to priority 1 or 2 domains. +1 for location in EU. No explicit mention of AI security, vulnerability remediation, or applied crypto. Company is global, but not explicitly in AI research or big-tech AI org."
+  },
+  "https://jobs.ashbyhq.com/ami/9f59ac61-f20b-4d33-9343-9603f693523f": {
+    "score": 2,
+    "reason": "No direct codex-style AI-powered vulnerability remediation or applied crypto relevance; location in Singapore and global company profile fit, but don't match strong interest domains."
+  },
+  "https://jobs.apple.com/en-us/details/200678781-0836/compiler-security-engineer-c-c-languages-runtimes": {
+    "score": 0,
+    "reason": "No direct match on primary interests (AI-powered vulnerability remediation, applied cryptography, AI safety/model security). Limited to C/C++ languages, but no explicit connection to AI or code/security. Does mention a compiler, but role seems more focused on security tools than code security."
+  },
+  "https://jobs.apple.com/en-us/details/200676699-0836/global-security-senior-manager-executive-protection": {
+    "score": 0,
+    "reason": "No match in AI-powered vulnerability remediation or applied cryptography; role focuses on executive protection and people security, with no direct connection to AI or code/security, and location (US) is outside of priority locations."
+  },
+  "https://jobs.apple.com/en-us/details/200675872-0836/global-security-specialist-executive-protection": {
+    "score": 2,
+    "reason": "No technical focus; primarily executive protection role with little emphasis on AI-powered vulnerability remediation or applied cryptography, but does fit within the company profile (Apple) and location (US)."
+  },
+  "https://jobs.apple.com/en-us/details/200681216-0836/ios-engineer-apple-pay-security": {
+    "score": 0,
+    "reason": "No direct matches with job priority domains (no AI security, vulnerability remediation, or applied crypto); lacks technical scope (people-manager-only role)."
+  },
+  "https://jobs.apple.com/en-us/details/200682084-3760/logic-library-development-lead": {
+    "score": 3,
+    "reason": "Partial match due to hardware engineering focus, but lacks AI-powered vulnerability remediation and applied cryptography, and doesn't align with AI safety interests. Role requires turning imaginative ideas into reality, not directly addressing AI security or research."
+  },
+  "https://jobs.apple.com/en-us/details/200683450-2911/offensive-security-researcher-server-platform-secure-computing-sear": {
+    "score": 8,
+    "reason": "Matches AI security interest (research) and secure computing interest, with a clear technical focus (offensive security). No location, but location is not a deal-breaker. However, the title lacks Codex-style role keywords, so the score is not maximum."
+  },
+  "https://jobs.apple.com/en-us/details/200682965-3337/product-security-engineer-sear": {
+    "score": 3,
+    "reason": "Role title mentions SEAR, a style of vulnerability remediation (similar to Codex), but no explicit mention of AI or model security. Product Security role does intersect with AI-powered remediation, but the domain doesn't directly align."
+  },
+  "https://jobs.apple.com/en-us/details/200683652-0157/security-infrastructure-software-engineer-sear": {
+    "score": 0,
+    "reason": "Primary focus is on security infrastructure, which is a deal-breaker. No direct match to desired domains (AI-powered vulnerability remediation, applied cryptography, AI safety/model security, or product/application security)."
+  },
+  "https://jobs.apple.com/en-us/details/200673282-3337/senior-security-engineer": {
+    "score": 2,
+    "reason": "No clear match with high-priority interests (AI-powered vulnerability remediation, applied cryptography, AI safety/model security), and role does not explicitly mention cloud or infra/SE as primary focus. Title mentions "
+  },
+  "https://jobs.apple.com/en-us/details/200673234-3337/senior-security-engineer-red-team": {
+    "score": 0,
+    "reason": "Lacks technical focus; red team and security engineer roles not emphasized, focusing on people-management and unclear whether the role is technical enough."
+  },
+  "https://jobs.apple.com/en-us/details/200685182-0836/senior-security-software-engineer-secure-transports": {
+    "score": 0,
+    "reason": "Does not match any of the top-priority domains (AI-powered vulnerability remediation, applied cryptography, AI safety/model security, product security/appsec). Also, not at a frontier AI lab or big-tech AI org."
+  },
+  "https://jobs.apple.com/en-us/details/200682687-3337/senior-software-engineer-security-frameworks": {
+    "score": 4,
+    "reason": "No direct match on codex-style role, but 'Security Frameworks' mentions security, which is a subset of the primary interest. However, the role doesn't seem to intersect with AI and code/security strongly enough to warrant a higher score."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556983893": {
+    "score": 0,
+    "reason": "No direct matches to the AI-powered vulnerability remediation, applied cryptography, AI safety, or model security interests. Also, no explicit mention of remote work or frontier AI lab involvement. Title mentions Microsoft Security, but it's a broad term that doesn't align with the rubric priorities."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556866763": {
+    "score": 0,
+    "reason": "Does not match any prioritized domain (AI-powered vulnerability remediation, applied cryptography, AI safety/model security, product/security). Remote-friendly but does not indicate specific technical role, which is a deal-breaker."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556866764": {
+    "score": 2,
+    "reason": "No explicit mention of AI-powered vulnerability remediation or applied cryptography, which are top priorities. However, it does mention "
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393557007173": {
+    "score": 0,
+    "reason": "No direct match on title, AI-powered vulnerability remediation, applied crypto, or model security. Does not mention cloud security or architecture role in a way that suggests a technical fit. Additionally, location in Belgium does not align with the candidate's desired locations."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556980190": {
+    "score": 0,
+    "reason": "No match for AI-powered vulnerability remediation interest; role focuses on general digital security, not AI-powered vulnerability remediation or codex-style role."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556992403": {
+    "score": 0,
+    "reason": "Doesn't match any of the desired domains (AI-powered vulnerability remediation, applied cryptography, AI safety/model security, product/application security), and is not at a frontier AI lab or big-tech AI org."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556979039": {
+    "score": 3,
+    "reason": "Title has a security-related keyword, but the primary focus is on Cloud Solution Architect, which doesn't directly align with the desired AI-powered vulnerability remediation or applied cryptography interests. Location is in scope, though."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556986900": {
+    "score": 0,
+    "reason": "Not a match - title does not include AI-powered vulnerability remediation, applied cryptography, AI safety, or product/application security keywords. Also not a technical role with a focus on security, and location outside priority regions."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556868893": {
+    "score": 0,
+    "reason": "Role is not technical enough (people-manager-only)"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556986822": {
+    "score": 0,
+    "reason": "No direct matches with job title, domain priorities, or location; title mentions physical security but not vulnerability remediation or applied crypto, and no location falls within candidate's preferred areas (DE/FR/US/CH)."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556998883": {
+    "score": 7,
+    "reason": "Job title matches security engineer; multiple locations in USA and Japan included. However, the role is more management-focused, with no explicit mention of AI security or vulnerability remediation, which are top priorities."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556939342": {
+    "score": 5,
+    "reason": "Not a direct match for AI-powered vulnerability remediation or applied cryptography, but has a security engineering manager role which may align with some aspects of the interests. Location is in USA, which fits, but the job description does not explicitly mention AI security or model security, so only a partial match."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393557004865": {
+    "score": 0,
+    "reason": "No indication of AI-powered vulnerability remediation, applied cryptography, AI safety, or product security; primarily a security operations role with management responsibilities."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556943561": {
+    "score": 0,
+    "reason": "No direct mention of AI-powered vulnerability remediation or applied cryptography, and primary focus is on security operations engineering, which doesn't match the candidate's interest in product/app security or AI safety. Limited location flexibility to Germany, France, or Switzerland."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556953096": {
+    "score": 6,
+    "reason": "Redevelopment of AI-powered vulnerability remediation skills and experience in security research, while location in USA is a good fit, the lack of explicit mention of Codex-, Codemender-, SEAR-style roles and focus on security research instead of remediation might make it a partial match."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556994705": {
+    "score": 4,
+    "reason": "Remote-friendly location in USA, no direct match to AI-powered vulnerability remediation or applied crypto interests, but job cart is open to all filters, and title 'Security' is somewhat related to security interests. Also, location 'Multiple Locations' includes DE, FR, US, CH, which are in scope."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556942260": {
+    "score": 0,
+    "reason": "No clear technical match (security consulting without specific AI security focus), no location in prioritized regions, and a non-founding title in TITLE_BLACKLIST (Secops, Security Consultant)"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556988227": {
+    "score": 2,
+    "reason": "No technical role title matches 'codex', 'codemender', 'SEAR', 'vulnerability remediation', or 'AI security' (research-and-code intersection). No applied crypto or AI safety signal. Location in USA and one of the major hubs (Seattle, CA, India) but does not align with the rubric priorities."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556955881": {
+    "score": 2,
+    "reason": "No direct matches on title or keywords; no location in Germany, France, USA, or Switzerland; no mentions of AI-powered vulnerability remediation, applied cryptography, or AI safety. Role is more general 'Security Researcher' without specific technical focus."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556985593": {
+    "score": 2,
+    "reason": "No clear indication of technical focus (researcher role at a general tech company) or AI-related domain (security researcher at a tech company, not specifically focusing on AI or vulnerability remediation). Location in USA is a plus (+1), but not enough to offset lack of technical relevance (+2), thus score 2."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556866457": {
+    "score": 4,
+    "reason": "Product security / appsec / offensive is present (+1), but the title does not directly match codex, codemender, SEAR, or vulnerability remediation (+0). No direct match for AI-powered vulnerability remediation, applied cryptography, AI safety, or model security. Remote-friendly location, and a big-tech company, but primary focus is on infrastructure (SREs / netsec / cloud sec ops), which is a deal"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556953730": {
+    "score": 0,
+    "reason": "No technical focus on AI security, vulnerability remediation, or applied crypto; primarily a management role; does not align with priority domains or companies."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556972838": {
+    "score": 2,
+    "reason": "Location in Tokyo, Japan matches one of the user's priority locations. However, the job title and description do not indicate a strong match with the user's interests in AI-powered vulnerability remediation, applied cryptography, or AI safety/model security."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556984844": {
+    "score": 0,
+    "reason": "Does not match AI-powered vulnerability remediation interest; security engineer role does not have a clear intersection with AI and code/security. Also, not at a frontier AI lab or big-tech AI org."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556998783": {
+    "score": 4,
+    "reason": "Partial match in location (FR), but not in other critical areas: title doesn't hint at security engineering or vulnerability remediation, and experience level is not senior, which aligns with the IC senior track priority."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556864063": {
+    "score": 2,
+    "reason": "Does not match title black list, but does not contain keywords for priority 1 (AI-powered vulnerability remediation or applied cryptography). Location is acceptable but does not align with the rubric priorities (priority 1: AI-powered vulnerability remediation, priority 2: applied cryptography)."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556997829": {
+    "score": 2,
+    "reason": "Job title contains 'Security Design Engineer' but no explicit reference to AI, vulnerability remediation, or applied cryptography. While the role may have some intersection, it's not a direct match to the top-priority domains. Additionally, remote availability is unclear."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393557004869": {
+    "score": 2,
+    "reason": "Product security / appsec / offensive role at a big tech company. Location in USA, but not a match for the top priority locations (DE/FR/US/CH). No direct connection to AI-powered vulnerability remediation or applied cryptography."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556988838": {
+    "score": 0,
+    "reason": "No direct match to job seeker's priorities (not a codex-style, AI-powered vulnerability remediation role; location in Romania doesn't fit; doesn't have applied crypto or AI safety/alignment focus; primarily infra/SE focus)"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556942050": {
+    "score": 9,
+    "reason": "Strong title match for AI-powered vulnerability remediation (codex-, Codemender-, SEAR-style roles), plus location in USA and experience level (Senior Software Engineer) which fits the IC senior track, and company profile (Microsoft), which is a big tech AI org."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556866772": {
+    "score": 2,
+    "reason": "Some areas of security expertise (e.g., security infrastructure) may be in focus, but no direct intersection with AI-powered vulnerability remediation or applied cryptography. Role is not at a frontier AI lab or big-tech AI org, which is a \u00b11 bonus, but not enough to outweigh lack of direct technical match."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556866771": {
+    "score": 0,
+    "reason": "No clear technical alignment with the AI-powered vulnerability remediation or applied cryptography interest, and the role is more focused on data security infrastructure, which is a deal-breaker according to the rubric."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556866530": {
+    "score": 5,
+    "reason": "Partial match - mentions 'security' in title, but no explicit reference to AI-powered vulnerability remediation, applied cryptography, or AI safety. Location spans multiple countries, including USA, which aligns with the candidate's location preferences, but doesn't address the technical focus."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556998761": {
+    "score": 0,
+    "reason": "Title does not match codex/codemender/SEAR/vulnerability remediation, nor does it emphasize AI-powered security; primary focus is on solution engineering; location is in India, outside of desired locations (DE/FR/US/CH)"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556998573": {
+    "score": 0,
+    "reason": "No company profile or domain match, and no mention of AI-powered vulnerability remediation, applied cryptography, or AI safety; blocked request without further information."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556988136": {
+    "score": 2,
+    "reason": "No clear technical focus, primarily sales or delivery role. Role is in USA, but location is not within the preferred DE, FR, US, CH, or explicitly remote options. Does not align with top priorities, but +1 for location."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/72656262604432070-director-operational-technology-security": {
+    "score": 3,
+    "reason": "Title contains 'Security' but no direct match with AI-powered vulnerability remediation or applied cryptography interests. Role is in OT, not a traditional tech role, and primary focus is on security operations, not technical engineering or research."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/140791915845952198-director-product-management-enterprise-security": {
+    "score": 2,
+    "reason": "-1 (unclear whether the role is technical enough) and -1 (primary focus is infrastructure, although product security is mentioned)"
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/79950457102836422-director-trust-and-safety-trusted-experiences-google-deepmind": {
+    "score": 2,
+    "reason": "Location in US (Sunnyvale, GA, etc.) and role title mentions 'Trust and Safety' aligns with interests, but lacks direct connection to AI security, vulnerability remediation, or applied cryptography, and has a strong management scope"
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/141371780454326982-manager-security-consulting": {
+    "score": 1,
+    "reason": "No direct title match, unclear if the role is technical enough (people-manager-only), and primary focus on security consulting which is not in the desired domains."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/113569430650135238-senior-director-engineering-secops-google-cloud-security": {
+    "score": 4,
+    "reason": "Partial match: +3 location in US, +2 at a big-tech AI org. No direct title match for vulnerability remediation or AI security. Description mentions SecOps, which aligns with the IC senior track interest, but lacks a strong signal for the top-priority match priorities."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/123383946317570758-senior-software-engineering-manager-hardware-and-infrastructure-platform-security": {
+    "score": 0,
+    "reason": "No direct match to AI-powered vulnerability remediation or applied cryptography interests; primarily focuses on platform security and hardware infrastructure."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/86316465145160390-software-engineer-manager-ssd-security-software": {
+    "score": 0,
+    "reason": "No direct matches with priority areas. Role focuses on management rather than technical engineering, and lacks explicit security or AI focus."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/88457452655125190-software-engineering-manager-cloud-and-thirdparty-platform-security": {
+    "score": 4,
+    "reason": "No direct matches for primary interest areas (AI-powered vulnerability remediation, applied cryptography, AI safety). Does mention cloud and third-party platform security, which is a related domain. Scored -1 for location (Singapore), as it's not in priority locations. Scored +1 for being at a big-tech AI org (Google). Scored -2 for primary focus being on infrastructure (SREs/netsec/cloud-sec-ops)"
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/141734532318405318-software-engineering-manager-denial-of-service-security-sre": {
+    "score": 0,
+    "reason": "Title doesn't match any priority domains (no codex-style roles, no applied crypto, no AI security); primary focus on SRE, not engineering or security; role is people-manager-only, not technical; location is company address, not location in scope; no match with frontier AI lab or big-tech AI org; deal-breaker due to lack of technical scope."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/96438154726122182-software-engineering-manager-gmail-security-and-safety": {
+    "score": 0,
+    "reason": "Title does not match any priority 1, 2, or 3 interests (no 'codex' or 'vulnerability remediation' keywords). Also, 'domain' expertise doesn't align with desired areas of focus."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/100095164759843526-staff-security-engineer-cloud": {
+    "score": 4,
+    "reason": "Partial match; no clear indication of AI-powered vulnerability remediation, applied crypto, or model security focus. Cloud security experience is a plus, but role doesn't seem to be at a frontier AI lab or big-tech AI org."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/123372786381923014-staff-security-engineer-manager": {
+    "score": 0,
+    "reason": "Title doesn't match Codex- or Codemender-style, and doesn't mention vulnerability remediation or AI security. Management track, but not directly related to IC senior track or AI safety interest."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/117841477853160134-staff-security-engineer-security-research": {
+    "score": 9,
+    "reason": "Directly matches the AI-powered vulnerability remediation interest (Staff Security Engineer role at Google, USA-based). No management scope but strong IC track and applies to security research."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/142870302060094150-staff-software-engineer-aiml-securityprivacy": {
+    "score": 3,
+    "reason": "Partial match: 'AI' and 'security' domains; however, 'Staff Software Engineer' title doesn't explicitly mention AI or security, and location is not specified. Doesn't fit the priority 1 match criteria, but could be a partial interest match."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/125015659154154182-staff-software-engineer-cloud-security": {
+    "score": 4,
+    "reason": "Technical role at Cloud Security, but no direct match to AI-powered vulnerability remediation or applied cryptography interests. However, the domain of cloud security is relevant to product security/appsec, so a +1 score for that."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/117065748777444038-staff-software-engineer-google-one-security-development": {
+    "score": 2,
+    "reason": "Location in IN (India) not in desired locations DE/FR/US/CH or explicitly remote; role lacks domain-specific keyword "
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/84855766095143622-staff-software-engineer-pixel-system-security": {
+    "score": 9,
+    "reason": "Title matches 'Pixel System Security' which has a strong signal in the rubric, as well as the title having 'Staff Software Engineer' which aligns with the IC senior track priority."
+  },
+  "https://jobs.world.luccasoftware.com/arturia-france/6-prospective-application--candidature-spontanee-dc118e66-5db8-4f7d-967b-ef781b371ba3": {
+    "score": 2,
+    "reason": "-1 (clearly non-technical role, people-manager-only; no direct match to IC senior track or applied crypto adjacency)"
+  },
+  "https://jobs.world.luccasoftware.com/arturia-france/developpeur-it-25d6dca9-dbcf-4566-ab84-05d4c07f8970": {
+    "score": 2,
+    "reason": "-1 (unclear whether the role is technical enough, people-manager-only)"
   }
 }

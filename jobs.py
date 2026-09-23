@@ -73,7 +73,7 @@ SERVE_PORT = 8765
 SCORER = "ollama"
 CLAUDE_MODEL = "claude-sonnet-4-6"
 OLLAMA_URL = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "qwen2.5:7b"
+OLLAMA_MODEL = "llama3.2:latest"
 SCORE_BATCH_SIZE = 1   # qwen consistently outputs 1 object per call; batch=1 = 100% coverage
 SCORE_DESC_CHARS = 400
 SCORE_PARALLEL = 6     # concurrent calls to Ollama/Claude
@@ -633,6 +633,9 @@ def _fetch_description_via_page(page, url):
         return ""
 
 
+_desc_cache_lock = threading.Lock()
+
+
 def _load_desc_cache():
     try:
         with open(DESC_CACHE, "r", encoding="utf-8") as f:
@@ -641,19 +644,26 @@ def _load_desc_cache():
         return {}
 
 
-def _save_desc_cache(cache):
-    try:
-        with open(DESC_CACHE, "w", encoding="utf-8") as f:
-            json.dump(cache, f)
-    except Exception:
-        pass
+def _save_desc_cache_merge(new_entries):
+    """Reload the on-disk cache, merge in-memory additions, save atomically.
+    Guarded by a lock so parallel Playwright fetchers don't clobber each other."""
+    with _desc_cache_lock:
+        merged = _load_desc_cache()
+        merged.update(new_entries)
+        try:
+            with open(DESC_CACHE, "w", encoding="utf-8") as f:
+                json.dump(merged, f)
+        except Exception:
+            pass
 
 
 def _fetch_descriptions(page, jobs, source_name):
     n = len(jobs)
     if not n:
         return
-    cache = _load_desc_cache()
+    with _desc_cache_lock:
+        cache = _load_desc_cache()
+    new_entries = {}
     fetched = 0
     for i, j in enumerate(jobs, 1):
         url = j.get("url") or ""
@@ -662,13 +672,18 @@ def _fetch_descriptions(page, jobs, source_name):
         else:
             j["description"] = _fetch_description_via_page(page, url)
             if url:
-                cache[url] = j["description"]
+                new_entries[url] = j["description"]
             fetched += 1
         if i % 10 == 0 or i == n:
             sys.stdout.write(
                 f"[{source_name}] {i}/{n} ({fetched} fetched, {i - fetched} cached)\n"
             )
-    _save_desc_cache(cache)
+            # Incremental save so a Ctrl-C mid-source doesn't lose everything.
+            if new_entries:
+                _save_desc_cache_merge(new_entries)
+                new_entries = {}
+    if new_entries:
+        _save_desc_cache_merge(new_entries)
 
 
 def _render(page, url, wait_selector=None, timeout=12000, debug_path=None):
@@ -1263,22 +1278,30 @@ def score_jobs(jobs):
     def _process(batch, idx):
         results = _score_safely(batch)
         with cache_lock:
+            new_entries = False
             for j in batch:
                 r = results.get(j["url"])
                 if r:
                     j["score"] = r["score"]
                     j["score_reason"] = r["reason"]
                     cache[j["url"]] = r
+                    new_entries = True
             completed[0] += 1
             got = sum(1 for j in batch if j["url"] in results)
             sys.stdout.write(
                 f"[score] batch {completed[0]}/{n_batches}: {got}/{len(batch)} scored\n"
             )
+            # Incremental save every 5 batches (or every batch if serial) so
+            # Ctrl-C doesn't lose everything.
+            if new_entries and completed[0] % max(1, SCORE_PARALLEL) == 0:
+                _save_score_cache(cache)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=SCORE_PARALLEL) as ex:
-        for i, batch in enumerate(batches):
-            ex.submit(_process, batch, i)
-    _save_score_cache(cache)
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=SCORE_PARALLEL) as ex:
+            for i, batch in enumerate(batches):
+                ex.submit(_process, batch, i)
+    finally:
+        _save_score_cache(cache)
 
 
 _LOC_SPLIT_RE = re.compile(r"\s*[;|]\s*")
@@ -1500,7 +1523,9 @@ def _flatten_locations(locs):
         if country and ckey not in promoted:
             promoted[ckey] = country
         # Known city → country override wins over ambiguous promotion.
-        if city.lower() in _CITY_TO_COUNTRY:
+        if ckey in _CITY_TO_COUNTRY:
+            promoted[ckey] = _CITY_TO_COUNTRY[ckey]
+        elif city.lower() in _CITY_TO_COUNTRY:
             promoted[ckey] = _CITY_TO_COUNTRY[city.lower()]
 
     # Second pass: dedupe by (city_key, resolved-country).
