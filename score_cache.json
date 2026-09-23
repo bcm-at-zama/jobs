@@ -1,1 +1,126 @@
-{}
+{
+  "https://jobs.ashbyhq.com/openai/de06790a-7243-4e33-a6f1-e7bd34009588": {
+    "score": 9,
+    "reason": "Strong AI security fit, relevant title, location in USA"
+  },
+  "https://jobs.ashbyhq.com/openai/e1d8b590-8a91-42bb-ba2e-64b99c87e4ac": {
+    "score": 8,
+    "reason": "Strong AI-security fit, Codex match"
+  },
+  "https://jobs.ashbyhq.com/openai/5ebd5f66-75db-4a96-8d39-babc14f1c582": {
+    "score": 8,
+    "reason": "Matches strong interest in AI security"
+  },
+  "https://jobs.ashbyhq.com/openai/5ed99d32-eed1-4679-b7b4-037de073e57c": {
+    "score": 2,
+    "reason": "Full stack, not technical enough for Benoit"
+  },
+  "https://jobs.ashbyhq.com/openai/0322d6d8-6588-4209-a304-83e768063a25": {
+    "score": 3,
+    "reason": "Security role, not technical enough"
+  },
+  "https://jobs.ashbyhq.com/openai/fff02c39-1185-427c-bf89-70d7eaa5e3db": {
+    "score": 9,
+    "reason": "Strong AI-security fit"
+  },
+  "https://jobs.ashbyhq.com/openai/07153f7c-7e8b-4283-a879-cb07a224e083": {
+    "score": 3,
+    "reason": "Security-focused, but not AI or cryptography"
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5236531008": {
+    "score": 3,
+    "reason": "Manager role, not technical"
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5271346008": {
+    "score": 3,
+    "reason": "Security role, not AI-powered vulnerability remediation"
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/4595463008": {
+    "score": 3,
+    "reason": "Location not ideal, not focused on AI security"
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/4502508008": {
+    "score": 3,
+    "reason": "Security role, but not AI-powered vulnerability remediation"
+  },
+  "https://job-boards.greenhouse.io/anthropic/jobs/5120512008": {
+    "score": 6,
+    "reason": "Applied cybersecurity, not AI-powered vulnerability remediation"
+  },
+  "https://jobs.ashbyhq.com/mistral.ai/5749843e-8469-4703-901b-c98b6fe0fc20": {
+    "score": 6,
+    "reason": "Partial match in cybersecurity, but not AI-security"
+  },
+  "https://jobs.ashbyhq.com/cohere/cb981ecd-a161-482c-8d8e-5f19bb6e7fdd": {
+    "score": 7,
+    "reason": "Potential for AI security, location in USA"
+  },
+  "https://jobs.ashbyhq.com/hcompany/554643f8-60cf-409b-899a-ba7761def97f": {
+    "score": 8,
+    "reason": "AI security fit, Paris location"
+  },
+  "https://jobs.ashbyhq.com/ami/34d3053f-381f-4350-9c9b-172e5d6a6b70": {
+    "score": 0,
+    "reason": "General application, no specific domain fit"
+  },
+  "https://jobs.apple.com/en-us/details/200682975-2114/ios-software-engineer-security": {
+    "score": 2,
+    "reason": "iOS role, not technical enough for Benoit"
+  },
+  "https://jobs.apple.com/en-us/details/200670724-0836/security-software-engineer-secure-transports-sear": {
+    "score": 8,
+    "reason": "Strong AI-security fit, mentions SEAR"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393557001498": {
+    "score": 7,
+    "reason": "AI security role, technical focus, USA location"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556943287": {
+    "score": 0,
+    "reason": "No clear technical focus, location not in scope"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556866735": {
+    "score": 2,
+    "reason": "Security focus, but not explicitly technical role."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556950856": {
+    "score": 7,
+    "reason": "Manager role, location match, potential for technical focus"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556959366": {
+    "score": 8,
+    "reason": "AI security role at Microsoft"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556990379": {
+    "score": 0,
+    "reason": "No clear technical role"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556998545": {
+    "score": 2,
+    "reason": "No clear technical focus, multiple locations"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556947404": {
+    "score": 0,
+    "reason": "No clear technical focus, location out of scope"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556999983": {
+    "score": 2,
+    "reason": "Title mentions security but not specific domain interest."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/76249380704658118-principal-engineer-google-compute-platform-security": {
+    "score": 2,
+    "reason": "Security infrastructure focus, not aligned"
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/86769603522241222-software-engineering-manager-cloud-security-identity-and-access-management": {
+    "score": 2,
+    "reason": "Security infrastructure focus, not ideal"
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/123324367068111558-staff-security-engineer-product-security-engineering-cloud-ciso": {
+    "score": 3,
+    "reason": "Security infrastructure focus, not aligned with interests"
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/142936327518593734-staff-software-engineer-infrastructure-google-cloud-security-and-privacy": {
+    "score": 0,
+    "reason": "Security infrastructure focus, not a technical role"
+  }
+}

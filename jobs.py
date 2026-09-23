@@ -4,6 +4,52 @@ jobs.py — aggregate job postings from multiple career boards into a single
 HTML page with reject/persistence and client-side filters.
 
 Everything you may want to tweak lives in the CONFIG section below.
+
+Pipeline
+--------
+Step 1 — Load state
+    Read `rejected.json`, `liked.json`, `score_cache.json`, `desc_cache.json`,
+    `PROFILE.md`. Parse env-var knobs (JOBS_ONLY / JOBS_SKIP /
+    JOBS_SKIP_PLAYWRIGHT / JOBS_SKIP_SCORING) to decide which sources run.
+
+Step 2 — Fetch (parallel across sources)
+    A ThreadPoolExecutor calls `collect(source)` on each active SOURCE:
+      • Ashby / Greenhouse       → plain HTTP GET on the public JSON board.
+      • Apple / Google / Microsoft → Playwright + Chromium: render the SPA,
+        extract job links + titles from the DOM, then hit each detail page
+        for descriptions (with `desc_cache.json` to skip already-fetched URLs).
+      • Ableton / Arturia / Neural DSP / Steinberg → Playwright, then regex
+        on the rendered HTML for their bespoke URL schemes.
+    Each fetcher returns `{"jobs": [...], "spontaneous_url": Optional[str]}`.
+
+Step 3 — Normalize per job
+    - Split locations on `;`/`|`, strip `+ N more`, `Hybrid `/`Remote ` prefixes.
+    - Detect city vs country (handles Microsoft's reverse order).
+    - Fold accents, normalize US states → USA, CA provinces → Canada.
+    - Dedupe city variants (`NYC`, `New York, NY`, `New York City` → one).
+    Then apply TITLE_BLACKLIST and LOCATION_BLACKLIST filters.
+
+Step 4 — Score against PROFILE.md
+    All non-rejected jobs are batched (SCORE_BATCH_SIZE) and sent to the LLM
+    (Ollama local by default, or Anthropic Claude). Results cached to
+    `score_cache.json`. Failed batches split recursively down to size 1.
+
+Step 5 — Render HTML
+    Per source: an <h1> with the board name (linking to the public board),
+    query pills, visible/rejected counters, optional Spontaneous ✉ link, then
+    a <ul> where each <li> has: × reject, +1 like, score badge, title with
+    highlighted keywords, seniority badge, locations. Descriptions are
+    dropped inside a <details>. Sort key: liked → score DESC → seniority.
+    Filter bar (seniority checkboxes, per-country location panel, text
+    inputs) uses localStorage to persist your choices across refreshes.
+
+Step 6 — Serve
+    Start a local HTTP server on SERVE_HOST:SERVE_PORT, auto-open in your
+    default browser (macOS-friendly). Two endpoints:
+      • GET /            → jobs.html
+      • POST /reject     → append URL to rejected.json
+      • POST /like       → append URL to liked.json (with /unlike inverse)
+    Client-side JS in the page calls these on × / +1 clicks.
 """
 
 # =============================================================================
@@ -15,6 +61,7 @@ REJECTED_DB = "rejected.json"
 LIKED_DB = "liked.json"
 PROFILE_FILE = "PROFILE.md"
 SCORE_CACHE = "score_cache.json"
+DESC_CACHE = "desc_cache.json"
 
 SERVE_HOST = "127.0.0.1"
 SERVE_PORT = 8765
@@ -27,8 +74,9 @@ SCORER = "ollama"
 CLAUDE_MODEL = "claude-sonnet-4-6"
 OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = "qwen2.5:7b"
-SCORE_BATCH_SIZE = 20
-SCORE_DESC_CHARS = 800
+SCORE_BATCH_SIZE = 1   # qwen consistently outputs 1 object per call; batch=1 = 100% coverage
+SCORE_DESC_CHARS = 400
+SCORE_PARALLEL = 6     # concurrent calls to Ollama/Claude
 
 # Words highlighted in titles and descriptions (case-insensitive).
 HIGHLIGHTS = ["Security", "Manager", "Codex", "Codemender", "Cyber", "SEAR", "DeepMind", "Researcher"]
@@ -423,12 +471,12 @@ def fetch_ashby(source):
     try:
         raw = http_get_json(url)
     except Exception as e:
-        sys.stderr.write(f"[{source['name']}] Ashby fetch failed: {e}\n")
+        sys.stdout.write(f"[{source['name']}] Ashby fetch failed: {e}\n")
         return {"jobs": [], "spontaneous_url": None}
     all_jobs = normalize_ashby(raw)
     matched = [j for j in all_jobs if matches(j, source["queries"])]
     if not matched and all_jobs:
-        sys.stderr.write(
+        sys.stdout.write(
             f"[{source['name']}] Ashby returned {len(all_jobs)} jobs but 0 matched "
             f"queries {source['queries']!r}. Set queries=[] to see them all.\n"
         )
@@ -440,7 +488,7 @@ def fetch_greenhouse(source):
     try:
         raw = http_get_json(url)
     except Exception as e:
-        sys.stderr.write(f"{source['name']} fetch failed: {e}\n")
+        sys.stdout.write(f"{source['name']} fetch failed: {e}\n")
         return {"jobs": [], "spontaneous_url": None}
     all_jobs = normalize_greenhouse(raw)
     return {
@@ -585,21 +633,49 @@ def _fetch_description_via_page(page, url):
         return ""
 
 
+def _load_desc_cache():
+    try:
+        with open(DESC_CACHE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_desc_cache(cache):
+    try:
+        with open(DESC_CACHE, "w", encoding="utf-8") as f:
+            json.dump(cache, f)
+    except Exception:
+        pass
+
+
 def _fetch_descriptions(page, jobs, source_name):
     n = len(jobs)
     if not n:
         return
+    cache = _load_desc_cache()
+    fetched = 0
     for i, j in enumerate(jobs, 1):
-        j["description"] = _fetch_description_via_page(page, j.get("url", ""))
+        url = j.get("url") or ""
+        if url in cache:
+            j["description"] = cache[url]
+        else:
+            j["description"] = _fetch_description_via_page(page, url)
+            if url:
+                cache[url] = j["description"]
+            fetched += 1
         if i % 10 == 0 or i == n:
-            sys.stderr.write(f"[{source_name}] fetched {i}/{n} descriptions\n")
+            sys.stdout.write(
+                f"[{source_name}] {i}/{n} ({fetched} fetched, {i - fetched} cached)\n"
+            )
+    _save_desc_cache(cache)
 
 
 def _render(page, url, wait_selector=None, timeout=12000, debug_path=None):
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=timeout)
     except Exception as e:
-        sys.stderr.write(f"[render] {url} nav failed: {e}\n")
+        sys.stdout.write(f"[render] {url} nav failed: {e}\n")
     selector_ok = False
     if wait_selector:
         try:
@@ -615,7 +691,7 @@ def _render(page, url, wait_selector=None, timeout=12000, debug_path=None):
     try:
         content = page.content()
     except Exception as e:
-        sys.stderr.write(f"[render] content read failed: {e}\n")
+        sys.stdout.write(f"[render] content read failed: {e}\n")
         return ""
     if debug_path:
         try:
@@ -628,7 +704,7 @@ def _render(page, url, wait_selector=None, timeout=12000, debug_path=None):
 
 def fetch_apple(source):
     if not HAS_PLAYWRIGHT:
-        sys.stderr.write(
+        sys.stdout.write(
             "[Apple] Playwright not installed. Run:\n"
             "  pip install playwright && playwright install chromium\n"
         )
@@ -648,7 +724,7 @@ def fetch_apple(source):
                 from_links = _apple_extract_from_links(text, source["queries"])
                 jobs = from_json or from_links
                 if pnum == 1:
-                    sys.stderr.write(
+                    sys.stdout.write(
                         f"[Apple] q='{q}' rendered {len(text)}B, "
                         f"json={len(from_json)}, links={len(from_links)} "
                         f"(HTML dumped to {debug})\n"
@@ -714,7 +790,7 @@ def _google_extract_from_ld(text):
 
 def fetch_google(source):
     if not HAS_PLAYWRIGHT:
-        sys.stderr.write(
+        sys.stdout.write(
             "[Google] Playwright not installed. Run:\n"
             "  pip install playwright && playwright install chromium\n"
         )
@@ -737,7 +813,7 @@ def fetch_google(source):
                 ld = _google_extract_from_ld(text)
                 urls = set(_GOOGLE_JOB_RE.findall(text))
                 if pnum == 1:
-                    sys.stderr.write(
+                    sys.stdout.write(
                         f"[Google] q='{q}' rendered {len(text)}B, "
                         f"ld={len(ld)}, urls={len(urls)} "
                         f"(HTML dumped to {debug})\n"
@@ -782,7 +858,7 @@ _MICROSOFT_JOB_RE = re.compile(
 
 def fetch_microsoft(source):
     if not HAS_PLAYWRIGHT:
-        sys.stderr.write(
+        sys.stdout.write(
             "[Microsoft] Playwright not installed. Run:\n"
             "  pip install playwright && playwright install chromium\n"
         )
@@ -805,7 +881,7 @@ def fetch_microsoft(source):
                 )
                 urls = _MICROSOFT_JOB_RE.findall(text)
                 if pnum == 0:
-                    sys.stderr.write(
+                    sys.stdout.write(
                         f"[Microsoft] q='{q}' rendered {len(text)}B, "
                         f"urls={len(urls)} (HTML dumped to {debug})\n"
                     )
@@ -842,7 +918,7 @@ def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a
     """Render `url` with Playwright, then extract hrefs matching `link_re_pattern`.
     Titles are derived from the last URL segment. Returns list of job dicts."""
     if not HAS_PLAYWRIGHT:
-        sys.stderr.write(f"[{source_name}] Playwright not installed\n")
+        sys.stdout.write(f"[{source_name}] Playwright not installed\n")
         return []
     debug = f"debug-{slug(source_name)}-1.html"
     p, browser, page = _open_browser()
@@ -851,7 +927,7 @@ def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a
     finally:
         browser.close()
         p.stop()
-    sys.stderr.write(f"[{source_name}] rendered {len(text)}B (dumped {debug})\n")
+    sys.stdout.write(f"[{source_name}] rendered {len(text)}B (dumped {debug})\n")
     link_re = re.compile(link_re_pattern, re.IGNORECASE)
     uuid_tail = re.compile(
         r"([-_][A-Fa-f0-9]{8}[-_][A-Fa-f0-9]{4}[-_][A-Fa-f0-9]{4}[-_][A-Fa-f0-9]{4}[-_][A-Fa-f0-9]{12})/?$",
@@ -878,7 +954,7 @@ def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a
 
 def fetch_ableton(source):
     if not HAS_PLAYWRIGHT:
-        sys.stderr.write("[Ableton] Playwright not installed\n")
+        sys.stdout.write("[Ableton] Playwright not installed\n")
         return {"jobs": [], "spontaneous_url": None}
     url = source.get("search_url") or "https://www.ableton.com/en/jobs/"
     debug = "debug-ableton-1.html"
@@ -888,7 +964,7 @@ def fetch_ableton(source):
     finally:
         browser.close()
         p.stop()
-    sys.stderr.write(f"[Ableton] rendered {len(text)}B (dumped {debug})\n")
+    sys.stdout.write(f"[Ableton] rendered {len(text)}B (dumped {debug})\n")
     pattern = re.compile(
         r'<a[^>]+href="(/[a-z]{2}/jobs/apply/\d+/?)"[^>]*>'
         r'(?:\s*<span[^>]*>)?\s*([^<]+?)\s*(?:</span>)?\s*</a>',
@@ -923,7 +999,7 @@ def fetch_lucca(source):
 def fetch_pw_generic(source):
     """Generic Playwright link scraper. Requires `search_url`, `link_re`, `origin` on source."""
     if not source.get("search_url") or not source.get("link_re"):
-        sys.stderr.write(f"[{source['name']}] missing search_url/link_re\n")
+        sys.stdout.write(f"[{source['name']}] missing search_url/link_re\n")
         return {"jobs": [], "spontaneous_url": None}
     jobs = _pw_scrape_links(
         source["name"],
@@ -963,15 +1039,25 @@ def board_url_for(source):
 
 
 SCORING_SYSTEM = """You score job postings against a candidate profile.
-Return ONLY a JSON array — no prose, no markdown fences. Each element:
-{"url": "<exact url provided>", "score": <integer 0-10>, "reason": "<one short sentence>"}
 
-Scoring guidance:
-- 9-10: strong match to top-priority interests (see profile rubric)
-- 6-8: solid fit, some priority interests
-- 3-5: partial fit
-- 0-2: weak/no fit
-Use the rubric in the profile. Preserve URLs exactly. Do not invent jobs."""
+Return ONLY a JSON array with ONE ELEMENT PER JOB you were given. If 5 jobs are
+provided, the array MUST contain 5 elements. Never merge, summarize, or skip.
+
+Each element:
+  {"i": <index from the numbered list>, "score": <integer 0-10>,
+   "reason": "<detailed reason: 2-3 sentences, ~100-400 characters, "
+             "say what fits or doesn't per the rubric>"}
+
+Example (for 3 jobs):
+  [
+    {"i": 1, "score": 8, "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."},
+    {"i": 2, "score": 3, "reason": "Sales/GTM role, not technical. Team focuses on account expansion rather than security engineering; location fits but domain doesn't align with the rubric priorities."},
+    {"i": 3, "score": 6, "reason": "Model security research at DeepMind is close to the AI safety interest; description emphasizes red-teaming and adversarial ML which matches priority 3, though it's more research-only with fewer engineering hooks."}
+  ]
+
+Scoring rubric: 9-10 top-priority match, 6-8 solid, 3-5 partial, 0-2 weak.
+The reason field is critical: it's what the user reads to decide whether to
+open the posting, so be specific about which rubric items match and which don't."""
 
 
 def _load_profile():
@@ -996,13 +1082,12 @@ def _save_score_cache(cache):
 
 
 def _make_batch_prompt(batch):
-    lines = ["Score these jobs (return JSON array only):", ""]
+    lines = ["Score these jobs (return JSON array only, one entry per job):", ""]
     for i, j in enumerate(batch, 1):
         desc = re.sub(r"<[^>]+>", " ", j.get("description") or "")
         desc = re.sub(r"\s+", " ", desc).strip()[:SCORE_DESC_CHARS]
         locs = ", ".join(j.get("locations") or []) or "N/A"
         lines.append(f"[{i}]")
-        lines.append(f"url: {j['url']}")
         lines.append(f"title: {j['title']}")
         lines.append(f"location: {locs}")
         if desc:
@@ -1011,36 +1096,68 @@ def _make_batch_prompt(batch):
     return "\n".join(lines)
 
 
-def _parse_score_response(text, url_set):
+_SCORE_DEBUG = {"first": True}
+
+
+def _parse_score_response(text, batch):
+    orig = text
     text = text.strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.DOTALL)
+    data = None
     try:
         data = json.loads(text)
     except Exception:
         m = re.search(r"\[.*\]", text, re.DOTALL)
-        if not m:
-            return {}
-        try:
-            data = json.loads(m.group(0))
-        except Exception:
-            return {}
+        if m:
+            try:
+                data = json.loads(m.group(0))
+            except Exception:
+                pass
+    if isinstance(data, dict):
+        for k in ("scores", "results", "jobs", "data"):
+            if k in data and isinstance(data[k], list):
+                data = data[k]
+                break
+        else:
+            # Single-object response (qwen sometimes returns one JSON object per
+            # call instead of an array). Wrap so the loop below handles it.
+            if any(k in data for k in ("i", "index", "id", "score")):
+                data = [data]
     out = {}
     for item in data if isinstance(data, list) else []:
         if not isinstance(item, dict):
             continue
-        u = item.get("url", "")
-        if u not in url_set:
-            continue
+        idx = item.get("i") or item.get("index") or item.get("id")
         try:
-            out[u] = {"score": int(item.get("score", 0)), "reason": str(item.get("reason", ""))[:280]}
+            idx = int(idx) - 1
         except Exception:
             continue
+        if not (0 <= idx < len(batch)):
+            continue
+        url = batch[idx]["url"]
+        try:
+            out[url] = {"score": int(item.get("score", 0)), "reason": str(item.get("reason", ""))[:400]}
+        except Exception:
+            continue
+    if not out:
+        # Always dump when a batch produces zero scores. Rotated file so
+        # we can inspect multiple failures side by side.
+        try:
+            n = _SCORE_DEBUG.setdefault("n", 0) + 1
+            _SCORE_DEBUG["n"] = n
+            with open(f"debug-score-response-{n}.txt", "w", encoding="utf-8") as f:
+                f.write(orig)
+            sys.stdout.write(
+                f"[score] batch parsed 0 items → dumped raw response to "
+                f"debug-score-response-{n}.txt ({len(orig)} chars)\n"
+            )
+        except Exception:
+            pass
     return out
 
 
 def _score_batch_claude(batch, profile_text, client):
-    urls = {j["url"] for j in batch}
     resp = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=4000,
@@ -1051,11 +1168,10 @@ def _score_batch_claude(batch, profile_text, client):
         messages=[{"role": "user", "content": _make_batch_prompt(batch)}],
     )
     text = resp.content[0].text if resp.content else ""
-    return _parse_score_response(text, urls)
+    return _parse_score_response(text, batch)
 
 
 def _score_batch_ollama(batch, profile_text):
-    urls = {j["url"] for j in batch}
     payload = {
         "model": OLLAMA_MODEL,
         "stream": False,
@@ -1076,7 +1192,7 @@ def _score_batch_ollama(batch, profile_text):
         body = e.read().decode("utf-8", errors="replace")[:500]
         raise RuntimeError(f"HTTP {e.code}: {body}") from None
     text = data.get("message", {}).get("content", "") or data.get("response", "")
-    return _parse_score_response(text, urls)
+    return _parse_score_response(text, batch)
 
 
 def score_jobs(jobs):
@@ -1086,7 +1202,7 @@ def score_jobs(jobs):
         return
     profile = _load_profile()
     if not profile:
-        sys.stderr.write(f"[score] no {PROFILE_FILE} — skipping\n")
+        sys.stdout.write(f"[score] no {PROFILE_FILE} — skipping\n")
         return
     cache = _load_score_cache()
     todo = [j for j in jobs if j["url"] and j["url"] not in cache]
@@ -1101,34 +1217,307 @@ def score_jobs(jobs):
     client = None
     if SCORER == "claude":
         if not HAS_ANTHROPIC:
-            sys.stderr.write("[score] anthropic SDK missing. pip install anthropic\n")
+            sys.stdout.write("[score] anthropic SDK missing. pip install anthropic\n")
             return
         if not os.environ.get("ANTHROPIC_API_KEY"):
-            sys.stderr.write("[score] ANTHROPIC_API_KEY not set\n")
+            sys.stdout.write("[score] ANTHROPIC_API_KEY not set\n")
             return
         client = anthropic.Anthropic()
 
-    sys.stderr.write(f"[score] {SCORER}: {len(todo)} jobs to rate\n")
-    for i in range(0, len(todo), SCORE_BATCH_SIZE):
-        batch = todo[i:i + SCORE_BATCH_SIZE]
+    def _score(batch):
+        if SCORER == "claude":
+            return _score_batch_claude(batch, profile, client)
+        if SCORER == "ollama":
+            return _score_batch_ollama(batch, profile)
+        return {}
+
+    def _score_safely(batch):
+        """Score a batch; on exception split in half, on partial result retry
+        the missing jobs individually."""
         try:
-            if SCORER == "claude":
-                results = _score_batch_claude(batch, profile, client)
-            elif SCORER == "ollama":
-                results = _score_batch_ollama(batch, profile)
-            else:
-                results = {}
+            results = _score(batch)
         except Exception as e:
-            sys.stderr.write(f"[score] batch {i//SCORE_BATCH_SIZE} failed: {e}\n")
-            continue
-        for j in batch:
-            r = results.get(j["url"])
-            if r:
-                j["score"] = r["score"]
-                j["score_reason"] = r["reason"]
-                cache[j["url"]] = r
-        sys.stderr.write(f"[score] batch {i//SCORE_BATCH_SIZE + 1}/{(len(todo)-1)//SCORE_BATCH_SIZE + 1} done\n")
+            if len(batch) <= 1:
+                sys.stdout.write(f"[score] gave up on 1 job ({batch[0]['url']}): {e}\n")
+                return {}
+            sys.stdout.write(f"[score] batch of {len(batch)} failed ({e}); splitting\n")
+            mid = len(batch) // 2
+            return {**_score_safely(batch[:mid]), **_score_safely(batch[mid:])}
+        missing = [j for j in batch if j["url"] not in results]
+        if 0 < len(missing) < len(batch):
+            # qwen often returns 1 object instead of an array; retry the rest 1 by 1.
+            for j in missing:
+                more = _score_safely([j])
+                results.update(more)
+        return results
+
+    batches = [todo[i:i + SCORE_BATCH_SIZE] for i in range(0, len(todo), SCORE_BATCH_SIZE)]
+    n_batches = len(batches)
+    sys.stdout.write(
+        f"[score] {SCORER}: {len(todo)} jobs / {n_batches} batches "
+        f"(parallel={SCORE_PARALLEL})\n"
+    )
+    cache_lock = threading.Lock()
+    completed = [0]
+
+    def _process(batch, idx):
+        results = _score_safely(batch)
+        with cache_lock:
+            for j in batch:
+                r = results.get(j["url"])
+                if r:
+                    j["score"] = r["score"]
+                    j["score_reason"] = r["reason"]
+                    cache[j["url"]] = r
+            completed[0] += 1
+            got = sum(1 for j in batch if j["url"] in results)
+            sys.stdout.write(
+                f"[score] batch {completed[0]}/{n_batches}: {got}/{len(batch)} scored\n"
+            )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=SCORE_PARALLEL) as ex:
+        for i, batch in enumerate(batches):
+            ex.submit(_process, batch, i)
     _save_score_cache(cache)
+
+
+_LOC_SPLIT_RE = re.compile(r"\s*[;|]\s*")
+_PLUS_MORE_RE = re.compile(r"\s*\+\s*\d+\s*more\s*$", re.IGNORECASE)
+
+# City aliases used to collapse "NYC", "New York City", "New York" to one entry.
+_CITY_ALIASES = {
+    "nyc": "new york",
+    "new york city": "new york",
+    "new york, ny": "new york",
+    "sf": "san francisco",
+    "sfo": "san francisco",
+    "sf bay": "san francisco",
+    "sfbay": "san francisco",
+    "san francisco bay": "san francisco",
+    "san francisco bay area": "san francisco",
+    "la": "los angeles",
+    "dc": "washington",
+    "washington dc": "washington",
+    "washington d.c.": "washington",
+    "us remote": "remote",
+    "usa remote": "remote",
+    "remote us": "remote",
+    "remote usa": "remote",
+    "friendly": "remote friendly",
+    "friendly (travel required)": "remote friendly (travel required)",
+}
+
+# Cities we always want in a specific country group (defends against
+# ambiguity like Ontario/CA state vs Ontario province).
+_CITY_TO_COUNTRY = {
+    # USA
+    "san francisco": "USA", "new york": "USA", "seattle": "USA",
+    "washington": "USA", "boston": "USA", "chicago": "USA",
+    "los angeles": "USA", "austin": "USA", "denver": "USA",
+    "redmond": "USA", "cupertino": "USA", "mountain view": "USA",
+    "san jose": "USA", "palo alto": "USA", "sunnyvale": "USA",
+    "atlanta": "USA", "dallas": "USA", "philadelphia": "USA",
+    "miami": "USA", "houston": "USA", "portland": "USA",
+    "us remote": "USA", "remote us": "USA", "remote usa": "USA",
+    # UK
+    "london": "UK", "manchester": "UK", "edinburgh": "UK", "glasgow": "UK",
+    "cambridge": "UK", "oxford": "UK", "bristol": "UK", "leeds": "UK",
+    # France
+    "paris": "France", "lyon": "France", "toulouse": "France",
+    "grenoble": "France", "nice": "France", "bordeaux": "France",
+    # Germany
+    "berlin": "Germany", "munich": "Germany", "hamburg": "Germany",
+    "frankfurt": "Germany", "cologne": "Germany", "stuttgart": "Germany",
+    # Netherlands / Ireland
+    "amsterdam": "Netherlands", "rotterdam": "Netherlands", "dublin": "Ireland",
+    # Canada
+    "toronto": "Canada", "montreal": "Canada", "vancouver": "Canada",
+    "ottawa": "Canada", "calgary": "Canada", "quebec": "Canada",
+    "ontario": "Canada",
+    # Switzerland
+    "zurich": "Switzerland", "geneva": "Switzerland", "basel": "Switzerland",
+    # Others
+    "madrid": "Spain", "barcelona": "Spain",
+    "milan": "Italy", "rome": "Italy",
+    "sydney": "Australia", "melbourne": "Australia",
+    "tokyo": "Japan", "osaka": "Japan",
+    "singapore": "Singapore",
+    "tel aviv": "Israel",
+}
+
+# Known country names / codes. If the FIRST segment matches, the location is
+# in Microsoft's reverse order (country, state, city).
+_US_STATES = {
+    "al","ak","az","ar","ca","co","ct","de","fl","ga","hi","id","il","in",
+    "ia","ks","ky","la","me","md","ma","mi","mn","ms","mo","mt","ne","nv",
+    "nh","nj","nm","ny","nc","nd","oh","ok","or","pa","ri","sc","sd","tn",
+    "tx","ut","vt","va","wa","wv","wi","wy","dc",
+    "alabama","alaska","arizona","arkansas","california","colorado","connecticut",
+    "delaware","florida","georgia","hawaii","idaho","illinois","indiana","iowa",
+    "kansas","kentucky","louisiana","maine","maryland","massachusetts","michigan",
+    "minnesota","mississippi","missouri","montana","nebraska","nevada",
+    "new hampshire","new jersey","new mexico","new york","north carolina",
+    "north dakota","ohio","oklahoma","oregon","pennsylvania","rhode island",
+    "south carolina","south dakota","tennessee","texas","utah","vermont",
+    "virginia","washington","west virginia","wisconsin","wyoming",
+    "district of columbia",
+}
+
+_COUNTRY_ALIASES = {
+    "united states": "USA", "usa": "USA", "us": "USA", "u.s.": "USA",
+    "u.s.a.": "USA", "u.s.a": "USA", "united states of america": "USA",
+    "united kingdom": "UK", "uk": "UK", "u.k.": "UK", "great britain": "UK",
+    "england": "UK", "scotland": "UK", "wales": "UK",
+    "canada": "Canada", "can": "Canada",
+    "deutschland": "Germany", "france": "France", "germany": "Germany",
+    "spain": "Spain", "italy": "Italy",
+    "japan": "Japan", "china": "China", "india": "India",
+    "australia": "Australia", "netherlands": "Netherlands",
+    "switzerland": "Switzerland", "ireland": "Ireland",
+    "singapore": "Singapore", "brazil": "Brazil",
+}
+
+
+_CA_PROVINCES = {
+    "ab", "bc", "mb", "nb", "nl", "ns", "nt", "nu", "on", "pe", "qc", "sk", "yt",
+    "alberta", "british columbia", "manitoba", "new brunswick",
+    "newfoundland", "newfoundland and labrador", "nova scotia", "ontario",
+    "quebec", "saskatchewan", "yukon", "northwest territories", "nunavut",
+    "prince edward island",
+}
+
+
+def _normalize_country(country):
+    if not country:
+        return ""
+    n = re.sub(r"[.\-']", "", country.lower().strip())
+    n = re.sub(r"\s+", " ", n)
+    if n in _COUNTRY_ALIASES:
+        return _COUNTRY_ALIASES[n]
+    if n in _US_STATES:
+        return "USA"
+    if n in _CA_PROVINCES:
+        return "Canada"
+    return country.strip()
+
+
+_KNOWN_COUNTRIES = {
+    "united states", "usa", "us", "u.s.", "u.s.a.",
+    "united kingdom", "uk", "u.k.",
+    "france", "germany", "spain", "italy", "canada", "mexico", "japan",
+    "china", "india", "brazil", "australia", "netherlands", "sweden",
+    "norway", "denmark", "finland", "switzerland", "austria", "belgium",
+    "poland", "portugal", "ireland", "singapore", "south korea", "korea",
+    "argentina", "chile", "colombia", "new zealand", "south africa",
+    "russia", "turkey", "greece", "czechia", "czech republic",
+    "hungary", "romania", "ukraine", "vietnam", "thailand", "philippines",
+    "indonesia", "malaysia", "taiwan", "hong kong", "israel", "uae",
+    "united arab emirates", "saudi arabia", "egypt", "nigeria", "kenya",
+    "luxembourg", "estonia", "latvia", "lithuania", "iceland", "malta",
+    "cyprus", "bulgaria", "slovakia", "slovenia", "croatia", "serbia",
+}
+
+
+# Strips "Hybrid <city>", "Onsite <city>", etc. so those match plain "<city>".
+# Deliberately NOT stripping "Remote" — "Remote", "Remote-Friendly (Travel
+# Required)" etc. are meaningful locations on their own.
+_WORK_MODE_PREFIX_RE = re.compile(
+    r"^\s*(?:hybrid|on[- ]site|onsite)\s*[-–—:,]?\s*",
+    re.IGNORECASE,
+)
+
+# Simple ASCII fold for common accented chars (é, è → e etc.).
+try:
+    import unicodedata
+    def _fold(s): return "".join(
+        c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c)
+    )
+except Exception:
+    def _fold(s): return s
+
+
+def _clean_loc(part):
+    """Strip UI artifacts like ' + N more' suffixes and work-mode prefixes
+    (Hybrid, Remote, Onsite …)."""
+    s = _PLUS_MORE_RE.sub("", part).strip()
+    s = _WORK_MODE_PREFIX_RE.sub("", s).strip()
+    return s
+
+
+def _city_key(city):
+    n = _fold(city).lower().strip()
+    n = re.sub(r"[.']", "", n)                  # remove . and '
+    n = re.sub(r"[-–—]+", " ", n)               # dashes → space
+    n = re.sub(r"\s+", " ", n)
+    n = re.sub(r"\s+city$", "", n)
+    n = re.sub(r"\s+area$", "", n)
+    return _CITY_ALIASES.get(n, n)
+
+
+def _parse_loc(part):
+    """Return (city, country, canonical_display) for a raw location string.
+    Handles both Western order (city, state, country) and Microsoft's
+    reverse order (country, state, city) via a known-country probe."""
+    cleaned = _clean_loc(part)
+    segments = [s.strip() for s in cleaned.split(",") if s.strip()]
+    if not segments:
+        return "", "", cleaned
+    if len(segments) == 1:
+        s = segments[0]
+        if s.lower() in _KNOWN_COUNTRIES:
+            c = _normalize_country(s)
+            return c, c, c
+        return s, "", s
+    first, last = segments[0], segments[-1]
+    if first.lower() in _KNOWN_COUNTRIES and last.lower() not in _KNOWN_COUNTRIES:
+        # Microsoft-style: country, state, city
+        city, country_raw = last, first
+    else:
+        city, country_raw = first, last
+    country = _normalize_country(country_raw)
+    display = f"{city}, {country}" if country and country.lower() != city.lower() else city
+    return city, country, display
+
+
+def _flatten_locations(locs):
+    """Split on `;`/`|`, strip '+ N more' suffixes, normalize city/country
+    order, and dedupe variants of the same city. If some entries have no
+    country and another entry with the same city has one, promote it."""
+    parsed = []
+    for loc in locs or []:
+        if not loc:
+            continue
+        for part in _LOC_SPLIT_RE.split(loc):
+            part = part.strip()
+            if not part:
+                continue
+            city, country, display = _parse_loc(part)
+            parsed.append((_city_key(city), city, country, display))
+
+    # First pass: find a country for each city_key when at least one entry has one.
+    promoted = {}
+    for ckey, city, country, _display in parsed:
+        if country and ckey not in promoted:
+            promoted[ckey] = country
+        # Known city → country override wins over ambiguous promotion.
+        if city.lower() in _CITY_TO_COUNTRY:
+            promoted[ckey] = _CITY_TO_COUNTRY[city.lower()]
+
+    # Second pass: dedupe by (city_key, resolved-country).
+    best = {}
+    order = []
+    for ckey, city, country, display in parsed:
+        if not country and ckey in promoted:
+            country = promoted[ckey]
+            display = f"{city}, {country}"
+        key = (ckey, country.lower())
+        score = (display.count(","), len(display))
+        if key not in best:
+            order.append(key)
+            best[key] = (score, display)
+        elif score > best[key][0]:
+            best[key] = (score, display)
+    return [best[k][1] for k in order]
 
 
 def dedup_by_url(jobs):
@@ -1155,8 +1544,11 @@ def is_location_blacklisted(job):
 
 def collect(source):
     result = FETCHERS[source["kind"]](source)
+    raw_jobs = result["jobs"]
+    for j in raw_jobs:
+        j["locations"] = _flatten_locations(j.get("locations"))
     jobs = [
-        j for j in result["jobs"]
+        j for j in raw_jobs
         if not is_title_blacklisted(j) and not is_location_blacklisted(j)
     ]
     jobs = dedup_by_url(jobs)
@@ -1305,7 +1697,14 @@ def _group_locations(locations):
         if "," in loc:
             country = loc.rsplit(",", 1)[1].strip()
         else:
-            country = "Other"
+            # Country-only entries (e.g. "Canada") go in that country's group.
+            normalized = _normalize_country(loc)
+            if normalized and normalized.lower() != loc.strip().lower():
+                country = normalized
+            elif loc.strip().lower() in _KNOWN_COUNTRIES:
+                country = normalized
+            else:
+                country = "Other"
         groups.setdefault(country, []).append(loc)
     for k in groups:
         groups[k] = sorted(set(groups[k]))
@@ -1317,6 +1716,15 @@ def _render_location_picker(locations):
         return ""
     blocks = []
     for country, locs in _group_locations(locations):
+        # Drop entries where the "city" segment is just the country name
+        # (e.g. "USA" bare) — those are noise as a city checkbox.
+        locs = [
+            l for l in locs
+            if (l.rsplit(",", 1)[0].strip() if "," in l else l).strip().lower()
+            != country.strip().lower()
+        ]
+        if not locs:
+            continue
         checks = "".join(
             f'<label class="loc-check"><input type="checkbox" class="loc-cb" '
             f'data-value="{html.escape(l, quote=True)}"> '
@@ -2025,13 +2433,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         if self.path == "/reject":
             s = load_rejected(); s.add(url); save_rejected(s)
-            sys.stderr.write(f"rejected: {url}\n")
+            sys.stdout.write(f"rejected: {url}\n")
         elif self.path == "/like":
             s = load_liked(); s.add(url); save_liked(s)
-            sys.stderr.write(f"liked:    {url}\n")
+            sys.stdout.write(f"liked:    {url}\n")
         elif self.path == "/unlike":
             s = load_liked(); s.discard(url); save_liked(s)
-            sys.stderr.write(f"unliked:  {url}\n")
+            sys.stdout.write(f"unliked:  {url}\n")
         self.send_response(204)
         self._cors()
         self.end_headers()
@@ -2042,33 +2450,75 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def main():
     t0 = time.perf_counter()
+
+    # Debug knobs via env vars — set to run parts of the pipeline in isolation:
+    #   JOBS_ONLY=OpenAI,Google   → fetch only those sources
+    #   JOBS_SKIP=Apple,Microsoft → skip these sources
+    #   JOBS_SKIP_SCORING=1       → don't call the LLM
+    #   JOBS_SKIP_PLAYWRIGHT=1    → skip Apple/Google/Microsoft/Ableton/…
+    only  = {s.strip() for s in os.environ.get("JOBS_ONLY", "").split(",") if s.strip()}
+    skip  = {s.strip() for s in os.environ.get("JOBS_SKIP", "").split(",") if s.strip()}
+    skip_pw = os.environ.get("JOBS_SKIP_PLAYWRIGHT") == "1"
+    skip_score = os.environ.get("JOBS_SKIP_SCORING") == "1"
+    pw_kinds = {"apple", "google", "microsoft", "ableton", "lucca", "pw"}
+    active_sources = [
+        s for s in SOURCES
+        if (not only or s["name"] in only)
+        and s["name"] not in skip
+        and not (skip_pw and s["kind"] in pw_kinds)
+    ]
+    if len(active_sources) != len(SOURCES):
+        skipped = [s["name"] for s in SOURCES if s not in active_sources]
+        sys.stdout.write(f"[main] active: {[s['name'] for s in active_sources]} · skipped: {skipped}\n")
+
     rejected = load_rejected()
     liked = load_liked()
     html_sections = []
     nav_entries = []
     all_visible = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(SOURCES)) as ex:
-        futures = {ex.submit(collect, src): src for src in SOURCES}
+    print("=" * 70, file=sys.stdout)
+    print("Step 1 — fetch: query every source in parallel (HTTP JSON APIs +", file=sys.stdout)
+    print("               headless Chromium for SPAs like Apple/Google/MS)", file=sys.stdout)
+    print("=" * 70, file=sys.stdout)
+    t_fetch_start = time.perf_counter()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_sources))) as ex:
+        futures = {ex.submit(collect, src): src for src in active_sources}
         results = {}
         for fut in concurrent.futures.as_completed(futures):
             src = futures[fut]
             try:
                 results[src["name"]] = fut.result()
             except Exception as e:
-                sys.stderr.write(f"[{src['name']}] collect crashed: {e}\n")
+                sys.stdout.write(f"[{src['name']}] collect crashed: {e}\n")
                 results[src["name"]] = {"jobs": [], "spontaneous_url": None}
+    t_fetch = time.perf_counter() - t_fetch_start
+    sys.stdout.write(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s\n")
 
-    # Score all visible jobs against PROFILE.md before rendering.
+    print("=" * 70, file=sys.stdout)
+    print("Step 2 — score: send visible jobs to the LLM (per PROFILE.md rubric),", file=sys.stdout)
+    print("               batched with cache-hits reused from score_cache.json", file=sys.stdout)
+    print("=" * 70, file=sys.stdout)
+    t_score_start = time.perf_counter()
     all_visible_for_score = []
-    for src in SOURCES:
+    for src in active_sources:
         result = results[src["name"]]
         all_visible_for_score.extend(
             j for j in result["jobs"] if j["url"] not in rejected
         )
-    score_jobs(all_visible_for_score)
+    if not skip_score:
+        score_jobs(all_visible_for_score)
+    else:
+        sys.stdout.write("[timing] scoring SKIPPED (JOBS_SKIP_SCORING=1)\n")
+    t_score = time.perf_counter() - t_score_start
+    sys.stdout.write(f"[timing] score ({len(all_visible_for_score)} jobs) → {t_score:.1f}s\n")
 
-    for src in SOURCES:
+    print("=" * 70, file=sys.stdout)
+    print("Step 3 — render: build HTML section per source (sorted liked → score", file=sys.stdout)
+    print("               → seniority) with badges, filters, spontaneous links", file=sys.stdout)
+    print("=" * 70, file=sys.stdout)
+    t_render_start = time.perf_counter()
+    for src in active_sources:
         result = results[src["name"]]
         all_jobs = result["jobs"]
         visible = [j for j in all_jobs if j["url"] not in rejected]
@@ -2081,7 +2531,7 @@ def main():
         nav_entries.append((src["name"], len(visible)))
         all_visible.extend(visible)
         extra = " · spontaneous✉" if result.get("spontaneous_url") else ""
-        print(f"{src['name']}: {len(visible)} visible, {rejected_here} rejected{extra}", file=sys.stderr)
+        print(f"{src['name']}: {len(visible)} visible, {rejected_here} rejected{extra}", file=sys.stdout)
 
     canonical_order = [label for _, label in SENIORITY]
     found_labels = {detect_seniority(j["title"]) for j in all_visible}
@@ -2116,20 +2566,26 @@ def main():
 
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
         f.write(html_output)
+    t_render = time.perf_counter() - t_render_start
+    sys.stdout.write(f"[timing] render + write → {t_render:.1f}s\n")
     elapsed = time.perf_counter() - t0
     print(
-        f"wrote {OUTPUT_HTML} in {elapsed:.1f}s · "
+        f"wrote {OUTPUT_HTML} · total {elapsed:.1f}s · "
         f"rejected DB: {REJECTED_DB} ({len(rejected)} entries)",
-        file=sys.stderr,
+        file=sys.stdout,
     )
 
+    print("=" * 70, file=sys.stdout)
+    print("Step 4 — serve: local HTTP server + auto-open browser; handles", file=sys.stdout)
+    print("               POST /reject and POST /like for live persistence", file=sys.stdout)
+    print("=" * 70, file=sys.stdout)
     server = http.server.ThreadingHTTPServer((SERVE_HOST, SERVE_PORT), Handler)
-    print(f"serving on {server_url} — Ctrl-C to stop", file=sys.stderr)
+    print(f"serving on {server_url} — Ctrl-C to stop", file=sys.stdout)
     threading.Timer(0.4, lambda: webbrowser.open(server_url)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("bye", file=sys.stderr)
+        print("bye", file=sys.stdout)
 
 
 if __name__ == "__main__":
