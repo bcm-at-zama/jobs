@@ -1694,7 +1694,9 @@ def render_html_nav(entries):
 def _group_locations(locations):
     groups = {}
     for loc in locations:
-        if "," in loc:
+        if "remote" in loc.lower() or "friendly" in loc.lower():
+            country = "Remote"
+        elif "," in loc:
             country = loc.rsplit(",", 1)[1].strip()
         else:
             # Country-only entries (e.g. "Canada") go in that country's group.
