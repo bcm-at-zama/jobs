@@ -1,0 +1,14 @@
+# Generated
+jobs.html
+debug-*.html
+__pycache__/
+*.pyc
+
+# Local user data — keep private
+rejected.json
+liked.json
+
+# Misc
+.DS_Store
+.venv*/
+*.log
