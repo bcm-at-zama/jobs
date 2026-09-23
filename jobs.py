@@ -13,12 +13,25 @@ Everything you may want to tweak lives in the CONFIG section below.
 OUTPUT_HTML = "jobs.html"
 REJECTED_DB = "rejected.json"
 LIKED_DB = "liked.json"
+PROFILE_FILE = "PROFILE.md"
+SCORE_CACHE = "score_cache.json"
 
 SERVE_HOST = "127.0.0.1"
 SERVE_PORT = 8765
 
+# Scoring backend for ranking jobs against PROFILE.md.
+#   "claude" — Anthropic API (needs ANTHROPIC_API_KEY env var, `pip install anthropic`).
+#   "ollama" — local Ollama server at OLLAMA_URL.
+#   "none"   — disable scoring.
+SCORER = "ollama"
+CLAUDE_MODEL = "claude-sonnet-4-6"
+OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_MODEL = "qwen2.5:7b"
+SCORE_BATCH_SIZE = 20
+SCORE_DESC_CHARS = 800
+
 # Words highlighted in titles and descriptions (case-insensitive).
-HIGHLIGHTS = ["Security", "Manager", "Codex", "Codemender", "Cyber", "SEAR"]
+HIGHLIGHTS = ["Security", "Manager", "Codex", "Codemender", "Cyber", "SEAR", "DeepMind", "Researcher"]
 
 # When titles are derived from a URL slug (Apple, Google, Ableton, …), each
 # dash-separated word is capitalized. Keys here override the default
@@ -52,6 +65,8 @@ TITLE_CASE_OVERRIDES = {
     "it": "IT",
     "grc": "GRC",
     "ssd": "SSD",
+    "aiml": "AIML",
+    "ciso": "CISO",
     "i": "I",
     "ii": "II",
     "iii": "III",
@@ -104,6 +119,7 @@ TITLE_BLACKLIST = [
     "SoC Security",
     "Revenue",
     "Commercial",
+    "Logistics",
     "Intelligence",
     "Lawfull",
     "Lawful",
@@ -219,6 +235,14 @@ try:
 except ImportError:
     HAS_PLAYWRIGHT = False
 
+try:
+    import anthropic
+    HAS_ANTHROPIC = True
+except ImportError:
+    HAS_ANTHROPIC = False
+
+import os
+
 
 def http_get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -265,7 +289,7 @@ def save_liked(liked):
     _save_set(LIKED_DB, liked)
 
 
-_UNSAFE_RE = re.compile(r"<(script|iframe|object|embed)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+_UNSAFE_RE = re.compile(r"<(script|iframe|object|embed|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 _EVENT_RE = re.compile(r'\son[a-z]+\s*=\s*"[^"]*"', re.IGNORECASE)
 # Boilerplate footer sections — kill the heading and everything after it.
 _BOILERPLATE_MARKERS = [
@@ -316,7 +340,7 @@ def highlight_title(text):
     if not HIGHLIGHTS:
         return escaped
     pattern = "|".join(re.escape(w) for w in HIGHLIGHTS)
-    return re.sub(f"({pattern})", r"<mark>\1</mark>", escaped, flags=re.IGNORECASE)
+    return re.sub(rf"\b({pattern})\b", r"<mark>\1</mark>", escaped, flags=re.IGNORECASE)
 
 
 def detect_seniority(title):
@@ -938,6 +962,175 @@ def board_url_for(source):
     return ""
 
 
+SCORING_SYSTEM = """You score job postings against a candidate profile.
+Return ONLY a JSON array — no prose, no markdown fences. Each element:
+{"url": "<exact url provided>", "score": <integer 0-10>, "reason": "<one short sentence>"}
+
+Scoring guidance:
+- 9-10: strong match to top-priority interests (see profile rubric)
+- 6-8: solid fit, some priority interests
+- 3-5: partial fit
+- 0-2: weak/no fit
+Use the rubric in the profile. Preserve URLs exactly. Do not invent jobs."""
+
+
+def _load_profile():
+    try:
+        with open(PROFILE_FILE, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+
+def _load_score_cache():
+    try:
+        with open(SCORE_CACHE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_score_cache(cache):
+    with open(SCORE_CACHE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, indent=2)
+
+
+def _make_batch_prompt(batch):
+    lines = ["Score these jobs (return JSON array only):", ""]
+    for i, j in enumerate(batch, 1):
+        desc = re.sub(r"<[^>]+>", " ", j.get("description") or "")
+        desc = re.sub(r"\s+", " ", desc).strip()[:SCORE_DESC_CHARS]
+        locs = ", ".join(j.get("locations") or []) or "N/A"
+        lines.append(f"[{i}]")
+        lines.append(f"url: {j['url']}")
+        lines.append(f"title: {j['title']}")
+        lines.append(f"location: {locs}")
+        if desc:
+            lines.append(f"description: {desc}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _parse_score_response(text, url_set):
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.DOTALL)
+    try:
+        data = json.loads(text)
+    except Exception:
+        m = re.search(r"\[.*\]", text, re.DOTALL)
+        if not m:
+            return {}
+        try:
+            data = json.loads(m.group(0))
+        except Exception:
+            return {}
+    out = {}
+    for item in data if isinstance(data, list) else []:
+        if not isinstance(item, dict):
+            continue
+        u = item.get("url", "")
+        if u not in url_set:
+            continue
+        try:
+            out[u] = {"score": int(item.get("score", 0)), "reason": str(item.get("reason", ""))[:280]}
+        except Exception:
+            continue
+    return out
+
+
+def _score_batch_claude(batch, profile_text, client):
+    urls = {j["url"] for j in batch}
+    resp = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=4000,
+        system=[
+            {"type": "text", "text": SCORING_SYSTEM},
+            {"type": "text", "text": profile_text, "cache_control": {"type": "ephemeral"}},
+        ],
+        messages=[{"role": "user", "content": _make_batch_prompt(batch)}],
+    )
+    text = resp.content[0].text if resp.content else ""
+    return _parse_score_response(text, urls)
+
+
+def _score_batch_ollama(batch, profile_text):
+    urls = {j["url"] for j in batch}
+    payload = {
+        "model": OLLAMA_MODEL,
+        "stream": False,
+        "messages": [
+            {"role": "system", "content": SCORING_SYSTEM + "\n\n" + profile_text},
+            {"role": "user", "content": _make_batch_prompt(batch)},
+        ],
+        "format": "json",
+    }
+    req = urllib.request.Request(
+        OLLAMA_URL, data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            data = json.load(resp)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")[:500]
+        raise RuntimeError(f"HTTP {e.code}: {body}") from None
+    text = data.get("message", {}).get("content", "") or data.get("response", "")
+    return _parse_score_response(text, urls)
+
+
+def score_jobs(jobs):
+    """Attach `score` and `score_reason` to each job in place. Uses SCORE_CACHE
+    to avoid re-scoring URLs we already know about."""
+    if SCORER == "none" or not jobs:
+        return
+    profile = _load_profile()
+    if not profile:
+        sys.stderr.write(f"[score] no {PROFILE_FILE} — skipping\n")
+        return
+    cache = _load_score_cache()
+    todo = [j for j in jobs if j["url"] and j["url"] not in cache]
+    for j in jobs:
+        cached = cache.get(j["url"])
+        if cached:
+            j["score"] = cached.get("score", 0)
+            j["score_reason"] = cached.get("reason", "")
+    if not todo:
+        return
+
+    client = None
+    if SCORER == "claude":
+        if not HAS_ANTHROPIC:
+            sys.stderr.write("[score] anthropic SDK missing. pip install anthropic\n")
+            return
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            sys.stderr.write("[score] ANTHROPIC_API_KEY not set\n")
+            return
+        client = anthropic.Anthropic()
+
+    sys.stderr.write(f"[score] {SCORER}: {len(todo)} jobs to rate\n")
+    for i in range(0, len(todo), SCORE_BATCH_SIZE):
+        batch = todo[i:i + SCORE_BATCH_SIZE]
+        try:
+            if SCORER == "claude":
+                results = _score_batch_claude(batch, profile, client)
+            elif SCORER == "ollama":
+                results = _score_batch_ollama(batch, profile)
+            else:
+                results = {}
+        except Exception as e:
+            sys.stderr.write(f"[score] batch {i//SCORE_BATCH_SIZE} failed: {e}\n")
+            continue
+        for j in batch:
+            r = results.get(j["url"])
+            if r:
+                j["score"] = r["score"]
+                j["score_reason"] = r["reason"]
+                cache[j["url"]] = r
+        sys.stderr.write(f"[score] batch {i//SCORE_BATCH_SIZE + 1}/{(len(todo)-1)//SCORE_BATCH_SIZE + 1} done\n")
+    _save_score_cache(cache)
+
+
 def dedup_by_url(jobs):
     seen = {}
     for j in jobs:
@@ -995,6 +1188,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         visible,
         key=lambda j: (
             0 if j["url"] in liked else 1,
+            -int(j.get("score") or 0),
             _seniority_rank(detect_seniority(j["title"])),
             j["title"].lower(),
         ),
@@ -1013,6 +1207,17 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         seniority_html = (
             f'<span class="badge seniority">{html.escape(seniority)}</span>' if seniority else ""
         )
+        score = j.get("score")
+        score_reason = j.get("score_reason") or ""
+        if score is not None:
+            score_cls = "score-hi" if score >= 8 else "score-mid" if score >= 5 else "score-lo"
+            score_html = (
+                f'<span class="badge score {score_cls}" '
+                f'title="{html.escape(score_reason, quote=True)}">'
+                f'{int(score)}</span>'
+            )
+        else:
+            score_html = ""
         desc = sanitize_html(j["description"])
         desc_html = desc if desc else '<em>No description available.</em>'
         is_liked = url in liked
@@ -1035,6 +1240,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'data-locations="{locs_attr}">'
             f'{reject_btn}{like_btn}<details>\n'
             f'      <summary title="{title_attr} — {locs_attr}">'
+            f'{score_html}'
             f'<span class="title">{title_html}</span>'
             f'{seniority_html}'
             f'<span class="locs"> — {locs}</span>'
@@ -1093,19 +1299,38 @@ def render_html_nav(entries):
     return '  <nav class="nav">\n' + "\n".join(buttons) + "\n  </nav>"
 
 
+def _group_locations(locations):
+    groups = {}
+    for loc in locations:
+        if "," in loc:
+            country = loc.rsplit(",", 1)[1].strip()
+        else:
+            country = "Other"
+        groups.setdefault(country, []).append(loc)
+    for k in groups:
+        groups[k] = sorted(set(groups[k]))
+    return sorted(groups.items(), key=lambda kv: (kv[0] == "Other", kv[0].lower()))
+
+
 def _render_location_picker(locations):
     if not locations:
         return ""
-    chips = "".join(
-        f'<span class="loc-chip" data-value="{html.escape(l, quote=True)}">'
-        f'{html.escape(l)}</span>'
-        for l in locations
-    )
+    blocks = []
+    for country, locs in _group_locations(locations):
+        checks = "".join(
+            f'<label class="loc-check"><input type="checkbox" class="loc-cb" '
+            f'data-value="{html.escape(l, quote=True)}"> '
+            f'{html.escape(l.rsplit(",", 1)[0].strip() if "," in l else l)}</label>'
+            for l in locs
+        )
+        blocks.append(
+            f'      <div class="loc-group">'
+            f'<span class="loc-country">{html.escape(country)}</span>{checks}</div>'
+        )
     return (
-        '      <details class="loc-picker">\n'
-        '        <summary>Browse ▾</summary>\n'
-        f'        <div class="loc-chips">{chips}</div>\n'
-        '      </details>\n'
+        '      <div class="loc-panel">\n'
+        + "\n".join(blocks) + "\n"
+        '      </div>\n'
     )
 
 
@@ -1338,51 +1563,46 @@ HTML_TEMPLATE = """<!doctype html>
       font: inherit;
     }
     .filter-btn:hover { color: var(--fg); border-color: var(--fg-subtle); }
-    .loc-picker {
-      display: inline-block;
-      position: relative;
-    }
-    .loc-picker summary {
-      cursor: pointer;
-      list-style: none;
-      color: var(--accent);
-      font-size: 0.85rem;
-      padding: 0.3rem 0.6rem;
+    .loc-panel {
+      flex-basis: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      max-height: 22rem;
+      overflow-y: auto;
+      padding: 0.6rem 0.8rem;
+      background: var(--bg-subtle);
       border: 1px solid var(--border);
       border-radius: 6px;
-      background: var(--bg);
+      margin-top: 0.5rem;
     }
-    .loc-picker summary::-webkit-details-marker { display: none; }
-    .loc-picker[open] summary { border-color: var(--accent); }
-    .loc-chips {
-      position: absolute;
-      top: calc(100% + 0.3rem);
-      left: 0;
-      z-index: 10;
-      max-width: 40rem;
-      max-height: 20rem;
-      overflow-y: auto;
+    .loc-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.3rem;
-      padding: 0.6rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      align-items: center;
+      gap: 0.4rem 0.8rem;
+      padding: 0.3rem 0;
+      border-bottom: 1px dashed var(--border-muted);
     }
-    .loc-chip {
+    .loc-group:last-child { border-bottom: none; }
+    .loc-country {
+      font-weight: 700;
+      color: var(--severe);
+      min-width: 8rem;
+      font-size: 0.85rem;
+    }
+    .loc-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
       cursor: pointer;
-      font-size: 0.8rem;
-      padding: 0.2rem 0.55rem;
-      border: 1px solid var(--border);
-      border-radius: 2em;
-      background: var(--bg-subtle);
+      font-size: 0.82rem;
       color: var(--fg);
-      user-select: none;
+      padding: 0.05rem 0.35rem;
+      border-radius: 3px;
     }
-    .loc-chip:hover { background: var(--accent); color: #ffffff; border-color: var(--accent); }
-    .loc-chip.active { background: var(--accent); color: #ffffff; border-color: var(--accent); }
+    .loc-check:hover { background: var(--border-muted); }
+    .loc-cb { accent-color: var(--accent-emphasis); }
 
     ul { padding-left: 0.25rem; list-style: none; }
     li {
@@ -1471,6 +1691,15 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--success);
       background: rgba(63, 185, 80, 0.1);
     }
+    .badge.score {
+      font-weight: 700;
+      min-width: 1.3rem;
+      text-align: center;
+      cursor: help;
+    }
+    .badge.score-hi  { color: #ffffff;         background: var(--success); border-color: var(--success); }
+    .badge.score-mid { color: var(--attention);background: #fff8c5;         border-color: rgba(154,103,0,0.4); }
+    .badge.score-lo  { color: var(--fg-muted); background: var(--bg-subtle);border-color: var(--border); }
 
     .description {
       margin: 0.6rem 0 1rem 0.25rem;
@@ -1518,7 +1747,7 @@ const SERVER_URL = '__SERVER_URL__';
 function highlightIn(node) {
   if (!HIGHLIGHTS.length) return;
   const pat = HIGHLIGHTS.map(w => w.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')).join('|');
-  const re = new RegExp('(' + pat + ')', 'gi');
+  const re = new RegExp('\\\\b(' + pat + ')\\\\b', 'gi');
   const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
   const targets = [];
   let n;
@@ -1543,6 +1772,46 @@ document.querySelectorAll('details').forEach(d => {
     }
   });
 });
+
+/* --- Persistence: filter state survives page refreshes ----------------- */
+const STORAGE_KEY = 'jobs:filters:v1';
+
+function saveFilters() {
+  const state = {
+    seniorityOff: [...document.querySelectorAll('.seniority-toggle')]
+      .filter(cb => !cb.checked)
+      .map(cb => cb.dataset.seniority),
+    locChecks: [...document.querySelectorAll('.loc-cb:checked')]
+      .map(cb => cb.dataset.value),
+    loc:   (document.getElementById('loc-filter')?.value)   || '',
+    title: (document.getElementById('title-filter')?.value) || '',
+    text:  (document.getElementById('text-filter')?.value)  || '',
+    highlight: document.getElementById('highlight-toggle')?.checked ?? true,
+  };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function loadFilters() {
+  let s;
+  try { s = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) { s = null; }
+  if (!s) return;
+  const off = new Set(s.seniorityOff || []);
+  document.querySelectorAll('.seniority-toggle').forEach(cb => {
+    cb.checked = !off.has(cb.dataset.seniority);
+  });
+  const loc = new Set(s.locChecks || []);
+  document.querySelectorAll('.loc-cb').forEach(cb => {
+    cb.checked = loc.has(cb.dataset.value);
+  });
+  const li = document.getElementById('loc-filter');   if (li) li.value = s.loc   || '';
+  const ti = document.getElementById('title-filter'); if (ti) ti.value = s.title || '';
+  const tx = document.getElementById('text-filter');  if (tx) tx.value = s.text  || '';
+  const hl = document.getElementById('highlight-toggle');
+  if (hl && s.highlight === false) {
+    hl.checked = false;
+    document.body.classList.add('no-highlights');
+  }
+}
 
 /* --- Filters: seniority toggle + location/title/text search ------------- */
 /* Query syntax: OR groups separated by "," or " or " (case-insensitive).
@@ -1594,7 +1863,11 @@ function applyFilters() {
   });
   const totalEl = document.getElementById('total-count');
   if (totalEl) totalEl.textContent = total;
+  saveFilters();
 }
+
+loadFilters();
+applyFilters();
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
 ['loc-filter', 'title-filter', 'text-filter'].forEach(id => {
@@ -1602,25 +1875,15 @@ document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener
   if (el) el.addEventListener('input', applyFilters);
 });
 
-document.querySelectorAll('.loc-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    const input = document.getElementById('loc-filter');
-    if (!input) return;
-    const val = chip.dataset.value;
-    const raw = input.value.trim();
-    const terms = raw ? raw.split(/\\s*,\\s*|\\s+or\\s+/i).map(s => s.trim()).filter(Boolean) : [];
-    const idx = terms.findIndex(t => t.toLowerCase() === val.toLowerCase());
-    if (idx >= 0) {
-      terms.splice(idx, 1);
-      chip.classList.remove('active');
-    } else {
-      terms.push(val);
-      chip.classList.add('active');
-    }
-    input.value = terms.join(', ');
-    applyFilters();
-  });
-});
+function syncLocInputFromChecks() {
+  const input = document.getElementById('loc-filter');
+  if (!input) return;
+  const values = [];
+  document.querySelectorAll('.loc-cb:checked').forEach(cb => values.push(cb.dataset.value));
+  input.value = values.join(', ');
+  applyFilters();
+}
+document.querySelectorAll('.loc-cb').forEach(cb => cb.addEventListener('change', syncLocInputFromChecks));
 
 const hlToggle = document.getElementById('highlight-toggle');
 if (hlToggle) {
@@ -1795,6 +2058,15 @@ def main():
             except Exception as e:
                 sys.stderr.write(f"[{src['name']}] collect crashed: {e}\n")
                 results[src["name"]] = {"jobs": [], "spontaneous_url": None}
+
+    # Score all visible jobs against PROFILE.md before rendering.
+    all_visible_for_score = []
+    for src in SOURCES:
+        result = results[src["name"]]
+        all_visible_for_score.extend(
+            j for j in result["jobs"] if j["url"] not in rejected
+        )
+    score_jobs(all_visible_for_score)
 
     for src in SOURCES:
         result = results[src["name"]]
