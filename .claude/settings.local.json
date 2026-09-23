@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:openai.com)",
+      "Bash(curl *)",
+      "WebSearch",
+      "Bash(python3 *)"
+    ]
+  }
+}
