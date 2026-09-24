@@ -2,6 +2,9 @@
 jobs.html
 debug/
 debug-*.html
+list_cache/
+score_cache.json
+desc_cache.json
 __pycache__/
 *.pyc
 
