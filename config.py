@@ -44,7 +44,7 @@ SCORE_PARALLEL   = 6     # concurrent calls to Ollama/Claude
 # =============================================================================
 
 HIGHLIGHTS = ["Security", "Manager", "Codex", "Codemender", "Cyber",
-              "CyberSecurity", "SEAR", "DeepMind", "Researcher"]
+              "CyberSecurity", "SEAR", "DeepMind", "Researcher", "Logic"]
 
 # When titles come from a URL slug (Apple, Google, Ableton, …), each dash is
 # split and each word .capitalize()'d. Add anything here to preserve custom
