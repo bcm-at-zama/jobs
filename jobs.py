@@ -178,7 +178,7 @@ TITLE_BLACKLIST = [
 
 # If ALL of a job's locations contain one of these substrings, the job is
 # hidden. Example: ["Tokyo", "Bangalore"].
-LOCATION_BLACKLIST = []
+LOCATION_BLACKLIST = ["Israel", "India", "Romania"]
 
 # Seniority filter groups shown in the filter bar. Order within groups also
 # drives the "most senior jobs first" sort. Labels not listed here go last.
@@ -1318,16 +1318,27 @@ _CITY_ALIASES = {
     "sfbay": "san francisco",
     "san francisco bay": "san francisco",
     "san francisco bay area": "san francisco",
+    "bay area": "san francisco",
     "la": "los angeles",
     "dc": "washington",
     "washington dc": "washington",
     "washington d.c.": "washington",
-    "us remote": "remote",
-    "usa remote": "remote",
-    "remote us": "remote",
-    "remote usa": "remote",
+    "us remote": "remote friendly",
+    "usa remote": "remote friendly",
+    "remote us": "remote friendly",
+    "remote usa": "remote friendly",
+    "remote": "remote friendly",
+    "us remote": "remote friendly",
+    "remote friendly usa": "remote friendly",
+    "remote friendly us": "remote friendly",
+    "us remote friendly": "remote friendly",
     "friendly": "remote friendly",
     "friendly (travel required)": "remote friendly (travel required)",
+    "friendly (travel-required)": "remote friendly (travel required)",
+    "remote friendly (travel required)": "remote friendly (travel required)",
+    "remote friendly (travel-required)": "remote friendly (travel required)",
+    "remote friendly us (travel required)": "remote friendly (travel required)",
+    "remote friendly usa (travel required)": "remote friendly (travel required)",
 }
 
 # Cities we always want in a specific country group (defends against
@@ -1348,6 +1359,10 @@ _CITY_TO_COUNTRY = {
     # France
     "paris": "France", "lyon": "France", "toulouse": "France",
     "grenoble": "France", "nice": "France", "bordeaux": "France",
+    "marseille": "France", "issy les moulineaux": "France", "issy": "France",
+    # Brazil / LatAm
+    "sao paulo": "Brazil", "são paulo": "Brazil",
+    "rio de janeiro": "Brazil", "buenos aires": "Argentina",
     # Germany
     "berlin": "Germany", "munich": "Germany", "hamburg": "Germany",
     "frankfurt": "Germany", "cologne": "Germany", "stuttgart": "Germany",
@@ -1392,6 +1407,7 @@ _COUNTRY_ALIASES = {
     "united kingdom": "UK", "uk": "UK", "u.k.": "UK", "great britain": "UK",
     "england": "UK", "scotland": "UK", "wales": "UK",
     "canada": "Canada", "can": "Canada",
+    "ch": "Switzerland", "che": "Switzerland",
     "deutschland": "Germany", "france": "France", "germany": "Germany",
     "spain": "Spain", "italy": "Italy",
     "japan": "Japan", "china": "China", "india": "India",
@@ -1405,8 +1421,16 @@ _CA_PROVINCES = {
     "ab", "bc", "mb", "nb", "nl", "ns", "nt", "nu", "on", "pe", "qc", "sk", "yt",
     "alberta", "british columbia", "manitoba", "new brunswick",
     "newfoundland", "newfoundland and labrador", "nova scotia", "ontario",
-    "quebec", "saskatchewan", "yukon", "northwest territories", "nunavut",
+    "quebec", "québec", "saskatchewan", "yukon", "northwest territories", "nunavut",
     "prince edward island",
+}
+
+
+# Cities whose known country overrides the ambiguous "CA" state suffix.
+# E.g. "Ontario, CA" and "British Columbia, CA" are Canada, not California.
+_CA_AMBIGUOUS_CITIES = {
+    "ontario", "british columbia", "alberta", "quebec", "québec", "manitoba",
+    "toronto", "montreal", "montréal", "vancouver", "ottawa", "calgary",
 }
 
 
@@ -1459,6 +1483,13 @@ except Exception:
     def _fold(s): return s
 
 
+_MEANINGLESS_CITY = re.compile(
+    r"^(multiple\s+locations?|various(\s+locations?)?|remote|any(where)?|"
+    r"nationwide|global|worldwide)$",
+    re.IGNORECASE,
+)
+
+
 def _clean_loc(part):
     """Strip UI artifacts like ' + N more' suffixes and work-mode prefixes
     (Hybrid, Remote, Onsite …)."""
@@ -1470,8 +1501,12 @@ def _clean_loc(part):
 def _city_key(city):
     n = _fold(city).lower().strip()
     n = re.sub(r"[.']", "", n)                  # remove . and '
-    n = re.sub(r"[-–—]+", " ", n)               # dashes → space
+    n = re.sub(r"[-–—/]+", " ", n)              # dashes / slashes → space
     n = re.sub(r"\s+", " ", n)
+    # Try alias match on the raw normalized form first (catches "bay area",
+    # "sf bay area", "new york city" etc.).
+    if n in _CITY_ALIASES:
+        return _CITY_ALIASES[n]
     n = re.sub(r"\s+city$", "", n)
     n = re.sub(r"\s+area$", "", n)
     return _CITY_ALIASES.get(n, n)
@@ -1491,12 +1526,23 @@ def _parse_loc(part):
             c = _normalize_country(s)
             return c, c, c
         return s, "", s
+    # Drop "Multiple Locations" placeholders so we surface the real country.
+    segments = [s for s in segments if not _MEANINGLESS_CITY.match(s)] or segments
+    if len(segments) == 1:
+        s = segments[0]
+        if s.lower() in _KNOWN_COUNTRIES:
+            c = _normalize_country(s)
+            return c, c, c
+        return s, "", s
     first, last = segments[0], segments[-1]
     if first.lower() in _KNOWN_COUNTRIES and last.lower() not in _KNOWN_COUNTRIES:
         # Microsoft-style: country, state, city
         city, country_raw = last, first
     else:
         city, country_raw = first, last
+    # Ambiguity fix: "Ontario, CA" is Canada, not California.
+    if country_raw.lower() == "ca" and city.lower() in _CA_AMBIGUOUS_CITIES:
+        country_raw = "Canada"
     country = _normalize_country(country_raw)
     display = f"{city}, {country}" if country and country.lower() != city.lower() else city
     return city, country, display
@@ -2475,7 +2521,42 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
+def _run_location_debug():
+    """Dump every raw location string across all sources plus how we normalize
+    them, so mismatches jump out. Reads directly from desc_cache-free sources."""
+    print("=" * 70)
+    print("LOCATION DEBUG — raw → normalized → group")
+    print("=" * 70)
+    all_raw = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(SOURCES)) as ex:
+        futures = {ex.submit(FETCHERS[s["kind"]], s): s for s in SOURCES}
+        for fut in concurrent.futures.as_completed(futures):
+            src = futures[fut]
+            try:
+                r = fut.result()
+                for j in r.get("jobs", []):
+                    for loc in j.get("locations") or []:
+                        all_raw.append((src["name"], loc))
+            except Exception as e:
+                print(f"  [{src['name']}] fetch failed: {e}")
+    seen = set()
+    for company, raw in all_raw:
+        if raw in seen:
+            continue
+        seen.add(raw)
+        normalized = _flatten_locations([raw])
+        print(f"  {company:14} raw={raw!r:60} → {normalized}")
+    print()
+    print("Grouping:")
+    all_normalized = sorted({loc for _c, r in all_raw for loc in _flatten_locations([r])})
+    for country, cities in _group_locations(all_normalized):
+        print(f"  {country}: {cities}")
+
+
 def main():
+    if os.environ.get("JOBS_DEBUG_LOCATIONS") == "1":
+        _run_location_debug()
+        return
     t0 = time.perf_counter()
 
     # Debug knobs via env vars — set to run parts of the pipeline in isolation:
