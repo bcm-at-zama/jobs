@@ -3011,19 +3011,19 @@ HTML_TEMPLATE = """<!doctype html>
     .total-count {
       font-size: 1rem;
       font-weight: 600;
-      color: var(--fg);
-      padding: 0.5rem 0.9rem;
-      background: var(--bg-subtle);
-      border: 1px solid var(--border);
+      color: #ffffff;
+      background: var(--danger);
+      border: 1px solid #000;
       border-radius: 6px;
+      padding: 0.5rem 0.9rem;
     }
-    #total-count { color: var(--severe); }
+    #total-count { color: #ffffff; }
     .dump-btn {
       font-size: 1rem;
       font-weight: 600;
       color: #ffffff;
       background: var(--accent);
-      border: 1px solid var(--accent-emphasis);
+      border: 1px solid #000;
       border-radius: 6px;
       padding: 0.5rem 0.9rem;
       cursor: pointer;
@@ -3037,6 +3037,7 @@ HTML_TEMPLATE = """<!doctype html>
       gap: 0.6rem;
       width: 100%;
     }
+    .nav-row.empty { display: none; }
     .nav-group-label {
       flex: 0 0 12rem;
       font-size: 0.8rem;
@@ -3570,6 +3571,14 @@ function applyFilters() {
   });
   const totalEl = document.getElementById('total-count');
   if (totalEl) totalEl.textContent = total;
+  // Hide a nav-row (category label + all its company buttons) when every
+  // button inside it has zero visible jobs. Runs after per-btn counts are
+  // updated above so we react to filters, not just the initial render.
+  document.querySelectorAll('.nav-row').forEach(row => {
+    const btns = row.querySelectorAll('.nav-btn');
+    const anyHit = [...btns].some(b => b.classList.contains('has-jobs'));
+    row.classList.toggle('empty', btns.length > 0 && !anyHit);
+  });
   saveFilters();
 }
 
@@ -4253,16 +4262,36 @@ def main():
     print("               headless Chromium for SPAs like Apple/Google/MS)", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
     t_fetch_start = time.perf_counter()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_sources))) as ex:
-        futures = {ex.submit(collect, src): src for src in active_sources}
-        results = {}
+    # Playwright's sync API is greenlet-bound to the thread that started it.
+    # Running Playwright sources from ThreadPoolExecutor workers triggers
+    # "Cannot switch to a different thread" crashes. So we split the work:
+    #   - HTTP-only sources run in a ThreadPoolExecutor (real parallelism).
+    #   - Playwright sources run sequentially in the MAIN thread (the one
+    #     that will later start sync_playwright), all sharing one Chromium.
+    # Both groups start at the same time thanks to the executor being
+    # non-blocking; we only wait on them before moving to Step 2.
+    http_sources = [s for s in active_sources if s["kind"] not in pw_kinds]
+    pw_sources   = [s for s in active_sources if s["kind"]     in pw_kinds]
+    results = {}
+
+    def _collect_one(src):
+        try:
+            return src["name"], collect(src)
+        except Exception as e:
+            err(f"[{src['name']}] collect crashed: {e}")
+            return src["name"], {"jobs": [], "spontaneous_url": None}
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=max(1, len(http_sources))
+    ) as ex:
+        futures = [ex.submit(_collect_one, src) for src in http_sources]
+        # While HTTP workers run, execute Playwright sources in the main thread.
+        for src in pw_sources:
+            name, r = _collect_one(src)
+            results[name] = r
         for fut in concurrent.futures.as_completed(futures):
-            src = futures[fut]
-            try:
-                results[src["name"]] = fut.result()
-            except Exception as e:
-                err(f"[{src['name']}] collect crashed: {e}")
-                results[src["name"]] = {"jobs": [], "spontaneous_url": None}
+            name, r = fut.result()
+            results[name] = r
     t_fetch = time.perf_counter() - t_fetch_start
     timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s")
 
