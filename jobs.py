@@ -235,6 +235,33 @@ def detect_seniority(title):
     return None
 
 
+# Internal level bands companies use in their compensation tables. We match the
+# common shapes: IC5, L5, E6, M2, "Level 5", "Staff (IC5)", "Principal (IC6)".
+# Anchored on word boundaries so we don't match parts of unrelated tokens.
+_IC_LEVEL_RE = re.compile(
+    r"\b("
+    r"IC[3-9]|IC1[0-2]|"          # IC3..IC12 (OpenAI, Anthropic use IC5..IC7)
+    r"L[3-9]|L1[0-2]|"            # L3..L12 (Google, Meta E-track etc.)
+    r"E[3-9]|E1[0-2]|"            # E3..E12 (Meta engineering track)
+    r"M[1-6]|"                    # M1..M6 (management tracks)
+    r"Level\s?[3-9]|Level\s?1[0-2]"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def detect_ic_level(*sources):
+    """Return an uppercased IC/L/E/M level ('IC5', 'L6', ...) if any source
+    string mentions one. Sources are searched in order; first hit wins."""
+    for s in sources:
+        if not s:
+            continue
+        m = _IC_LEVEL_RE.search(s)
+        if m:
+            return re.sub(r"\s+", "", m.group(1).upper())
+    return None
+
+
 def is_spontaneous(job):
     title = (job.get("title") or "").lower()
     return any(pat in title for pat in SPONTANEOUS_PATTERNS)
@@ -384,6 +411,17 @@ def fetch_ashby(source):
         err(f"[{source['name']}] Ashby fetch failed: {e}")
         return {"jobs": [], "spontaneous_url": None}
     all_jobs = normalize_ashby(raw)
+    # Cursor kept Ashby as their ATS but their public job pages live at
+    # cursor.com/careers/<title-slug>. Verified via a real page:
+    #   "Software Engineer, Security" → cursor.com/careers/software-engineer-security
+    #   "Account Executive, Commercial (Singapore)" → account-executive-commercial-singapore
+    # We slugify the title (lowercase, non-alphanumeric → "-", collapse doubles).
+    if source["slug"] == "cursor":
+        for j in all_jobs:
+            title = j.get("title") or ""
+            slug_title = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+            if slug_title:
+                j["url"] = f"https://cursor.com/careers/{slug_title}"
     matched = [j for j in all_jobs if matches(j, source["queries"])]
     if not matched and all_jobs:
         sys.stdout.write(
@@ -1415,7 +1453,7 @@ def _scoring_system():
             SCORING_SYSTEM_BASE
             .replace(
                 "__EXTRA_FIELDS__",
-                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) FIRST bullet MUST be a compensation range in USD only, using one of these two exact formats: \\"$MIN - $MAX USD\\" (when the description gives both a floor and a ceiling) or \\"> $MIN USD\\" (when the description only gives a floor, or wording like \\"starting at\\", \\"from\\", \\"minimum\\"). Numbers formatted with commas (e.g. \\"$405,000 - $485,000 USD\\"). If the description quotes the salary in another currency (EUR, GBP, CHF, CAD), convert to USD using the approximate rates 1 EUR = 1.08 USD, 1 GBP = 1.27 USD, 1 CHF = 1.13 USD, 1 CAD = 0.73 USD and round to the nearest 1,000. Never emit two currencies, never add prose like \\"which is roughly …\\", \\"equivalent to …\\", \\"exceeds …\\". If the description states NO salary at all, the FIRST bullet MUST be exactly \\"no information on salaries\\". Then, on separate bullets, add any equity / bonus / benefits / location constraints / travel / visa info stated. No company boilerplate."'
+                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND any internal IC-level band mentioned anywhere in the description — quote verbatim (e.g. \\"IC5\\", \\"IC6\\", \\"L5\\", \\"L6\\", \\"E5\\", \\"M2\\", \\"Level 5\\", \\"Staff (IC5)\\", \\"Principal (IC6)\\") — these usually appear in the compensation table or a levels breakdown; AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) FIRST bullet MUST be a compensation range in USD only, using one of these two exact formats: \\"$MIN - $MAX USD\\" (when the description gives both a floor and a ceiling) or \\"> $MIN USD\\" (when the description only gives a floor, or wording like \\"starting at\\", \\"from\\", \\"minimum\\"). Numbers formatted with commas (e.g. \\"$405,000 - $485,000 USD\\"). If the description quotes the salary in another currency (EUR, GBP, CHF, CAD), convert to USD using the approximate rates 1 EUR = 1.08 USD, 1 GBP = 1.27 USD, 1 CHF = 1.13 USD, 1 CAD = 0.73 USD and round to the nearest 1,000. Never emit two currencies, never add prose like \\"which is roughly …\\", \\"equivalent to …\\", \\"exceeds …\\". If the description states NO salary at all, the FIRST bullet MUST be exactly \\"no information on salaries\\". Then, on separate bullets, add any equity / bonus / benefits / location constraints / travel / visa info stated. No company boilerplate."'
             )
             .replace(
                 "__EXAMPLE_EXTRA__",
@@ -1476,6 +1514,41 @@ def _make_batch_prompt(batch):
 _SCORE_DEBUG = {"first": True}
 
 
+def _extract_first_object(text):
+    """Given a possibly-truncated JSON payload (e.g. `[{...},{...},<cut>`),
+    return the first complete top-level object as a dict, or None. Used as a
+    fallback when the LLM loops on itself and blows past the token budget."""
+    # Find the first '{' after optional array bracket.
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start:i + 1])
+                except Exception:
+                    return None
+    return None
+
+
 def _parse_score_response(text, batch):
     orig = text
     text = text.strip()
@@ -1491,6 +1564,13 @@ def _parse_score_response(text, batch):
                 data = json.loads(m.group(0))
             except Exception:
                 pass
+    # Recovery path: LLM went into a repetition loop and the payload is a
+    # sequence of duplicated objects with the tail truncated mid-string. Pull
+    # the first complete `{...}` object out and score that one job only.
+    if data is None:
+        first = _extract_first_object(text)
+        if first is not None:
+            data = [first]
     if isinstance(data, dict):
         for k in ("scores", "results", "jobs", "data"):
             if k in data and isinstance(data[k], list):
@@ -1661,8 +1741,12 @@ def _score_batch_ollama(batch, profile_text):
         "options": {
             # Curb "token repeat limit reached" 500s from Ollama when the model
             # falls into a repetition loop generating long role_long payloads.
-            "repeat_penalty": 1.2,
-            "repeat_last_n": 128,
+            # 1.35 is aggressive but this repo has seen the LLM emit the same
+            # JSON object 4+ times in a row until num_predict runs out (see
+            # debug/debug-score-response-*.txt). A stronger penalty over a
+            # longer lookback breaks the loop before it wastes the whole budget.
+            "repeat_penalty": 1.35,
+            "repeat_last_n": 512,
             # Cap the number of tokens generated per response.
             "num_predict": 3000 if SCORE_LONG_ROLES else 800,
         },
@@ -2481,9 +2565,16 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         seniority_html = (
             f'<span class="badge seniority">{html.escape(seniority)}</span>' if seniority else ""
         )
+        role_long = j.get("role_long") or ""
+        # IC/L/E/M level from the LLM's role_long output first (which quotes
+        # the compensation table verbatim), then the raw description as backup.
+        ic_level = detect_ic_level(role_long, j.get("description", ""))
+        ic_html = (
+            f'<span class="badge ic-level" title="Internal level band from the description">{html.escape(ic_level)}</span>'
+            if ic_level else ""
+        )
         score = j.get("score")
         score_reason = j.get("score_reason") or ""
-        role_long = j.get("role_long") or ""
         if score is not None:
             score_cls = "score-hi" if score >= 8 else "score-mid" if score >= 5 else "score-lo"
             score_html = (
@@ -2523,6 +2614,13 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'<a href="{url_esc}" target="_blank" rel="noopener">Open original ↗</a>'
             if url else ""
         )
+        # Compact "↗" link shown in the summary row itself (before the location)
+        # so we always see it without opening the description.
+        summary_link = (
+            f'<a class="summary-link" href="{url_esc}" target="_blank" rel="noopener" '
+            f'title="Open original ↗" onclick="event.stopPropagation()">↗</a>'
+            if url else ""
+        )
         li_class = "job liked" if is_liked else "job"
         items.append(
             f'    <li class="{li_class}" data-seniority="{seniority_attr}" '
@@ -2531,7 +2629,8 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'      <summary title="{title_attr} — {locs_attr}">'
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
-            f'{seniority_html}'
+            f'{seniority_html}{ic_html}'
+            f'{summary_link}'
             f'<span class="locs"> — {locs}</span>'
             f'</summary>\n'
             f'      <div class="description">\n'
@@ -3134,6 +3233,20 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--success);
       background: rgba(63, 185, 80, 0.1);
     }
+    .badge.ic-level {
+      border-color: rgba(154, 103, 0, 0.4);
+      color: var(--attention);
+      background: rgba(255, 213, 128, 0.25);
+      font-weight: 600;
+    }
+    .summary-link {
+      display: inline-block;
+      margin: 0 0.35rem 0 0.15rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .summary-link:hover { text-decoration: underline; }
     .badge.score {
       font-weight: 700;
       min-width: 1.3rem;
@@ -3510,74 +3623,123 @@ document.getElementById('dump-selected')?.addEventListener('click', () => {
    markers) that we can tell WHY it broke — 404 vs Cloudflare vs job removed
    vs bad slug. */
 function buildProbeScript(urls) {
-  const arrLines = urls.map(u => '  "' + u.replace(/"/g, '\\\\"') + '"').join('\\n');
+  // Emit a Python + Playwright probe. curl misses every SPA-only failure
+  // (blank Ashby shell, blank cursor.com/careers, etc.) because it can't run
+  // JS. Playwright renders each page in real Chromium, waits for the SPA to
+  // settle, then checks the rendered <h1>/<title>/body for "job not found"
+  // markers. "ok" means the probe saw a real posting.
+  const urlsJson = JSON.stringify(urls, null, 2);
   const now = new Date().toISOString();
   return [
-    '#!/usr/bin/env bash',
-    '# probe_visible.sh — auto-generated ' + now,
-    '# Checks each visible job URL. Prints one block per URL when it looks',
-    '# broken (non-200, redirects to careers root, "not found" body, etc.).',
-    '# Run: bash probe_visible.sh 2>&1 | tee probe.log',
+    '#!/usr/bin/env python3',
+    '# probe_visible.py - auto-generated ' + now,
+    '#',
+    '# Renders each visible job URL with headless Chromium (same engine used by',
+    '# jobs.py itself). Prints one block per URL that looks broken. Anything',
+    '# printed as "ok URL" is a URL that a real browser can open and see a real',
+    '# job posting on.',
+    '#',
+    '# Run:  .venv-macos/bin/python debug/probe_visible.py',
+    'import re, sys',
+    'from playwright.sync_api import sync_playwright',
     '',
-    'set -uo pipefail',
-    'UA=\\'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\\'',
+    'UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "',
+    '      "AppleWebKit/537.36 (KHTML, like Gecko) "',
+    '      "Chrome/120.0.0.0 Safari/537.36")',
     '',
-    'URLS=(',
-    arrLines,
+    'URLS = ' + urlsJson,
+    '',
+    'MISSING_RE = re.compile(',
+    '    r"("',
+    '    r"job (not found|no longer available|has been filled|has been removed|has expired)|"',
+    '    r"position (has been filled|is no longer|has closed|is no longer available)|"',
+    '    r"posting (not found|no longer|has been closed|has expired)|"',
+    '    r"page not found|404 not found|this page (isn.t|doesn.t exist)|"',
+    '    r"we can.t find|couldn.t find (this|the) (job|role|posting)|"',
+    '    r"you need to enable javascript"',
+    '    r")",',
+    '    re.I,',
     ')',
     '',
-    'BAD=0',
-    'TOTAL=${#URLS[@]}',
-    'echo "== Checking $TOTAL URLs =="',
-    'echo',
+    '# Every visible job page must contain a positive signal — an obvious',
+    '# "Apply" affordance or a big title header. If neither is present AND the',
+    '# body is short, the SPA never resolved a real posting.',
+    'APPLY_RE = re.compile(r"apply (now|for this|to this)|application form", re.I)',
     '',
-    'for u in "${URLS[@]}"; do',
-    '  body=$(mktemp)',
-    '  # -L follows redirects; capture code, final URL, redirect count, ctype, size.',
-    '  meta=$(curl -sS -L -A "$UA" --max-time 20 -o "$body" \\\\',
-    '    -w "%{http_code}|%{url_effective}|%{num_redirects}|%{content_type}|%{size_download}" "$u" 2>/dev/null || echo "ERR|$u|0||0")',
-    '  code=${meta%%|*}; rest=${meta#*|}',
-    '  final=${rest%%|*}; rest=${rest#*|}',
-    '  nred=${rest%%|*}; rest=${rest#*|}',
-    '  ctype=${rest%%|*}; size=${rest##*|}',
+    'def probe(page, url):',
+    '    try:',
+    '        resp = page.goto(url, wait_until="domcontentloaded", timeout=25000)',
+    '    except Exception as e:',
+    '        return {"error": str(e)[:200], "http": None}',
+    '    try:',
+    '        page.wait_for_timeout(2500)  # let the SPA finish rendering',
+    '    except Exception:',
+    '        pass',
+    '    try:',
+    '        title = (page.title() or "")[:200]',
+    '    except Exception:',
+    '        title = ""',
+    '    try:',
+    '        h1 = ""',
+    '        if page.locator("h1").count():',
+    '            h1 = (page.locator("h1").first.text_content(timeout=1500) or "").strip()[:200]',
+    '    except Exception:',
+    '        h1 = ""',
+    '    try:',
+    '        body = (page.locator("body").inner_text(timeout=3000) or "")',
+    '    except Exception:',
+    '        body = ""',
+    '    flags = []',
+    '    http = resp.status if resp else None',
+    '    if http and http >= 400:',
+    '        flags.append(f"http-{http}")',
+    '    if MISSING_RE.search(body[:5000]) or MISSING_RE.search(title):',
+    '        flags.append("job-missing-marker")',
+    '    if len(body.strip()) < 400 and not APPLY_RE.search(body):',
+    '        flags.append("empty-page")',
+    '    final = page.url',
+    '    if final and final != url and "/careers" in final and final.rstrip("/").endswith("/careers"):',
+    '        flags.append("redirected-to-careers-root")',
+    '    return {',
+    '        "http": http, "final": final, "title": title, "h1": h1,',
+    '        "body_len": len(body), "flags": flags,',
+    '    }',
     '',
-    '  # Sniff the body for common "job removed" / not-found markers.',
-    '  title=$(grep -oiE "<title[^>]*>[^<]{1,200}</title>" "$body" | head -1 | sed -E "s#</?title[^>]*>##gi" | tr -d "\\\\n" | head -c 160)',
-    '  marker=""',
-    '  # Only trip "job removed" when the marker lives in the <title> or an <h1>/<h2>',
-    '  # near the top — every SPA repeats those words in filter chrome copy.',
-    '  if echo "$title" | grep -qiE "(not found|no longer|position filled|posting expired|404)"; then marker="job-removed-marker"; fi',
-    '  if grep -oiE "<h[12][^>]*>[^<]{1,200}</h[12]>" "$body" | head -5 | grep -qiE "(job|position|posting).{0,20}(not found|no longer|removed|filled|closed|expired)"; then marker="${marker:+$marker,}job-removed-marker"; fi',
-    '  # Only trip "cloudflare" for an actual challenge page, not the WAF marker.',
-    '  if echo "$title" | grep -qiE "(just a moment|attention required|cloudflare)"; then marker="${marker:+$marker,}cloudflare-challenge"; fi',
-    '  if [[ "$code" == "404" ]]; then marker="${marker:+$marker,}http-404"; fi',
-    '  if [[ "$code" == "403" ]]; then marker="${marker:+$marker,}http-403"; fi',
-    '  if [[ "$code" == "5"* ]]; then marker="${marker:+$marker,}http-$code"; fi',
-    '  # Consider "redirected to a completely different path" broken too.',
-    '  if [[ "$code" == "200" && "$nred" -gt 0 ]]; then',
-    '    orig_path=${u#https://*/}; final_path=${final#https://*/}',
-    '    if [[ "$final_path" != *"$orig_path"* && "$orig_path" != *"$final_path"* ]]; then',
-    '      marker="${marker:+$marker,}redirected-away"',
-    '    fi',
-    '  fi',
+    'def main():',
+    '    total = len(URLS); bad = 0',
+    '    print(f"== Checking {total} URLs (headless Chromium) ==\\\\n")',
+    '    with sync_playwright() as pw:',
+    '        browser = pw.chromium.launch(headless=True)',
+    '        ctx = browser.new_context(user_agent=UA)',
+    '        page = ctx.new_page()',
+    '        for u in URLS:',
+    '            r = probe(page, u)',
+    '            if "error" in r:',
+    '                bad += 1',
+    '                print("---")',
+    '                print(f"URL:   {u}")',
+    '                print(f"error: {r[\\"error\\"]}")',
+    '                print()',
+    '                continue',
+    '            if not r["flags"]:',
+    '                print(f"ok  {u}")',
+    '            else:',
+    '                bad += 1',
+    '                print("---")',
+    '                print(f"URL:      {u}")',
+    '                print(f"http:     {r[\\"http\\"]}   body: {r[\\"body_len\\"]}B")',
+    '                if r["final"] != u:',
+    '                    print(f"final:    {r[\\"final\\"]}")',
+    '                if r["h1"]:    print(f"h1:       {r[\\"h1\\"]}")',
+    '                if r["title"]: print(f"title:    {r[\\"title\\"]}")',
+    '                print(f"flags:    {\\",\\".join(r[\\"flags\\"])}")',
+    '                print()',
+    '        browser.close()',
+    '    print(f"\\\\n== {bad} / {total} URLs flagged ==")',
+    '    sys.exit(1 if bad else 0)',
     '',
-    '  if [[ -n "$marker" || "$code" != "200" ]]; then',
-    '    BAD=$((BAD+1))',
-    '    echo "---"',
-    '    echo "URL:      $u"',
-    '    echo "code:     $code   redirects: $nred   size: ${size}B   ctype: $ctype"',
-    '    echo "final:    $final"',
-    '    [[ -n "$title" ]] && echo "title:    $title"',
-    '    [[ -n "$marker" ]] && echo "flags:    $marker"',
-    '    echo',
-    '  else',
-    '    echo "ok  $u"',
-    '  fi',
-    '  rm -f "$body"',
-    'done',
-    '',
-    'echo',
-    'echo "== $BAD / $TOTAL URLs flagged =="',
+    'if __name__ == "__main__":',
+    '    main()',
     ''
   ].join('\\n');
 }
@@ -3594,10 +3756,10 @@ document.getElementById('dump-sh')?.addEventListener('click', async () => {
       body: JSON.stringify({script})
     });
     if (!res.ok) throw new Error('http ' + res.status);
-    status.textContent = 'Wrote debug/probe_visible.sh (' + urls.length + ' URLs) — run: bash debug/probe_visible.sh';
+    status.textContent = 'Wrote debug/probe_visible.py (' + urls.length + ' URLs) — run: .venv-macos/bin/python debug/probe_visible.py';
   } catch (e) {
     status.textContent = 'Save failed (' + e.message + ') — falling back to clipboard.';
-    copyToClipboard(script, status, 'Copied probe script (' + urls.length + ' URLs) — paste into debug/probe_visible.sh');
+    copyToClipboard(script, status, 'Copied probe script (' + urls.length + ' URLs) — paste into debug/probe_visible.py');
     return;
   }
   setTimeout(() => { status.textContent = ''; }, 5000);
@@ -3894,7 +4056,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_response(400); self._cors(); self.end_headers(); return
             try:
                 os.makedirs("debug", exist_ok=True)
-                path = os.path.join("debug", "probe_visible.sh")
+                path = os.path.join("debug", "probe_visible.py")
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(script)
                 os.chmod(path, 0o755)
@@ -4250,7 +4412,7 @@ def main():
         f'<span id="total-count">{total}</span> jobs visible</div>\n'
         f'    <button type="button" class="dump-btn" id="dump-all" title="Copy every visible job URL to the clipboard, one per line">Dump all</button>\n'
         f'    <button type="button" class="dump-btn" id="dump-selected" title="Copy the URLs of jobs you +1&#39;d (still visible), one per line">Dump selected</button>\n'
-        f'    <button type="button" class="dump-btn" id="dump-sh" title="Copy a bash script that checks each visible URL and prints the ones that don&#39;t return 200">Copy in .sh</button>\n'
+        f'    <button type="button" class="dump-btn" id="dump-sh" title="Save a Python+Playwright script to debug/probe_visible.py that renders each visible URL in real Chromium and flags the broken ones">Save probe .py for debugging links</button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'  </div>'
     )

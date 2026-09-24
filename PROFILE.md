@@ -147,6 +147,9 @@ When ranking, weight roughly like this:
   intersection).
 - **+5** description contains the word "cryptography" (or
   "cryptographic", "cryptographer") anywhere.
+- **+5** description contains "MDASH" anywhere.
+- **+5** description contains "Codex Security" anywhere.
+- **+5** description contains "Claude Security" anywhere.
 - **+2** applied cryptography — FHE, MPC, ZK, homomorphic, secure
   computation.
 - **+2** whitebox cryptography / obfuscation / content protection / DRM.

@@ -55,7 +55,8 @@ SCORE_LONG_ROLES = True   # role_long (structured markdown) is the only role out
 # =============================================================================
 
 HIGHLIGHTS = ["Security", "Manager", "Codex", "Codemender", "Cyber",
-              "CyberSecurity", "SEAR", "DeepMind", "Researcher", "Logic"]
+              "CyberSecurity", "SEAR", "DeepMind", "Researcher", "Logic",
+              "MDASH", "Codex Security", "Claude Security"]
 
 # When titles come from a URL slug (Apple, Google, Ableton, …), each dash is
 # split and each word .capitalize()'d. Add anything here to preserve custom
