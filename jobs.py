@@ -62,6 +62,7 @@ LIKED_DB = "liked.json"
 PROFILE_FILE = "PROFILE.md"
 SCORE_CACHE = "score_cache.json"
 DESC_CACHE = "desc_cache.json"
+RAW_LOCATIONS_FILE = "raw_locations.txt"
 
 SERVE_HOST = "127.0.0.1"
 SERVE_PORT = 8765
@@ -213,60 +214,62 @@ SENIORITY = [
 
 # Group labels shown as separators in the nav. Order defines the section order.
 GROUP_ORDER = [
-    "Acteurs de l'AI",
-    "Grosses compagnies",
-    "Acteurs de la sécurité",
-    "Compagnies de musique",
-    "Autres",
+    "Major AI Companies",
+    "AI Startups",
+    "Big Tech",
+    "Security Companies",
+    "Music Companies",
+    "Other",
 ]
 
 # name → group. Every source name should appear here. Missing entries fall
-# back to "Autres".
+# back to "Other".
 GROUP_OF = {
-    # Acteurs de l'AI
-    "OpenAI": "Acteurs de l'AI",
-    "Anthropic": "Acteurs de l'AI",
-    "Mistral": "Acteurs de l'AI",
-    "Cohere": "Acteurs de l'AI",
-    "H": "Acteurs de l'AI",
-    "AMI": "Acteurs de l'AI",
-    "HF": "Acteurs de l'AI",
-    "SSI": "Acteurs de l'AI",
-    "Thinking Machines": "Acteurs de l'AI",
-    "Scale AI": "Acteurs de l'AI",
-    "DeepL": "Acteurs de l'AI",
-    "Eleven Labs": "Acteurs de l'AI",
-    "Poolside": "Acteurs de l'AI",
-    "Black Forest Labs": "Acteurs de l'AI",
-    "Sony AI": "Acteurs de l'AI",
-    "Cursor": "Acteurs de l'AI",
-    "Cognition": "Acteurs de l'AI",
-    # Grosses compagnies
-    "Apple": "Grosses compagnies",
-    "Microsoft": "Grosses compagnies",
-    "Google": "Grosses compagnies",
-    "Meta": "Grosses compagnies",
-    "NVIDIA": "Grosses compagnies",
-    "GitHub": "Grosses compagnies",
-    "Proton": "Grosses compagnies",
-    # Acteurs de la sécurité
-    "DepthFirst": "Acteurs de la sécurité",
-    "XBOW": "Acteurs de la sécurité",
-    "Aisle": "Acteurs de la sécurité",
-    "ZeroPath": "Acteurs de la sécurité",
-    "Pixee": "Acteurs de la sécurité",
-    "Corgea": "Acteurs de la sécurité",
-    "CrowdStrike": "Acteurs de la sécurité",
-    "Snyk": "Acteurs de la sécurité",
-    "Semgrep": "Acteurs de la sécurité",
-    "Checkmarx": "Acteurs de la sécurité",
-    # Compagnies de musique
-    "Ableton": "Compagnies de musique",
-    "Arturia": "Compagnies de musique",
-    "Neural DSP": "Compagnies de musique",
-    "Steinberg": "Compagnies de musique",
-    # Autres
-    "Welcome to the Jungle": "Autres",
+    # Major AI Companies — well-funded frontier labs and category leaders
+    "OpenAI": "Major AI Companies",
+    "Anthropic": "Major AI Companies",
+    "Mistral": "Major AI Companies",
+    "Cohere": "Major AI Companies",
+    "HF": "Major AI Companies",
+    "Scale AI": "Major AI Companies",
+    "DeepL": "Major AI Companies",
+    "Eleven Labs": "Major AI Companies",
+    "Sony AI": "Major AI Companies",
+    "Cursor": "Major AI Companies",
+    # AI Startups — smaller / earlier-stage
+    "H": "AI Startups",
+    "AMI": "AI Startups",
+    "SSI": "AI Startups",
+    "Thinking Machines": "AI Startups",
+    "Poolside": "AI Startups",
+    "Black Forest Labs": "AI Startups",
+    "Cognition": "AI Startups",
+    # Big Tech
+    "Apple": "Big Tech",
+    "Microsoft": "Big Tech",
+    "Google": "Big Tech",
+    "Meta": "Big Tech",
+    "NVIDIA": "Big Tech",
+    "GitHub": "Big Tech",
+    "Proton": "Big Tech",
+    # Security Companies
+    "DepthFirst": "Security Companies",
+    "XBOW": "Security Companies",
+    "Aisle": "Security Companies",
+    "ZeroPath": "Security Companies",
+    "Pixee": "Security Companies",
+    "Corgea": "Security Companies",
+    "CrowdStrike": "Security Companies",
+    "Snyk": "Security Companies",
+    "Semgrep": "Security Companies",
+    "Checkmarx": "Security Companies",
+    # Music Companies
+    "Ableton": "Music Companies",
+    "Arturia": "Music Companies",
+    "Neural DSP": "Music Companies",
+    "Steinberg": "Music Companies",
+    # Other
+    "Welcome to the Jungle": "Other",
 }
 
 # One entry per company. `kind` picks the fetcher (see FETCHERS below).
@@ -292,10 +295,10 @@ SOURCES = [
     {"name": "Eleven Labs", "kind": "ashby",    "slug": "elevenlabs", "queries": []},
     {"name": "Poolside", "kind": "ashby",       "slug": "poolside",   "queries": []},
     {"name": "Black Forest Labs", "kind": "pw", "slug": "blackforestlabs", "queries": [],
-     "board": "https://job-boards.greenhouse.io/blackforestlabs",
-     "search_url": "https://job-boards.greenhouse.io/blackforestlabs",
-     "link_re": r'href="(/blackforestlabs/jobs/\d+|https?://job-boards\.greenhouse\.io/blackforestlabs/jobs/\d+)"',
-     "origin": "https://job-boards.greenhouse.io"},
+     "board": "https://boards.greenhouse.io/blackforestlabs",
+     "search_url": "https://boards.greenhouse.io/blackforestlabs",
+     "link_re": r'href="(/blackforestlabs/jobs/\d+|https?://boards\.greenhouse\.io/blackforestlabs/jobs/\d+)"',
+     "origin": "https://boards.greenhouse.io"},
     {"name": "Proton",   "kind": "greenhouse",  "slug": "proton",    "queries": [],
      "board": "https://proton.me/careers"},
     {"name": "Sony AI",  "kind": "pw",          "slug": "sonyai",    "queries": [],
@@ -335,15 +338,15 @@ SOURCES = [
      "link_re": r'href="(/en-US/crowdstrikecareers/job/[^"#?]+)"',
      "origin": "https://crowdstrike.wd5.myworkdayjobs.com"},
     {"name": "Snyk",       "kind": "pw",         "slug": "snyk",       "queries": [],
-     "board": "https://job-boards.greenhouse.io/snyk",
-     "search_url": "https://job-boards.greenhouse.io/snyk",
-     "link_re": r'href="(/snyk/jobs/\d+|https?://job-boards\.greenhouse\.io/snyk/jobs/\d+)"',
-     "origin": "https://job-boards.greenhouse.io"},
+     "board": "https://boards.greenhouse.io/snyk",
+     "search_url": "https://boards.greenhouse.io/snyk",
+     "link_re": r'href="(/snyk/jobs/\d+|https?://boards\.greenhouse\.io/snyk/jobs/\d+)"',
+     "origin": "https://boards.greenhouse.io"},
     {"name": "Semgrep",    "kind": "pw",         "slug": "semgrep",    "queries": [],
-     "board": "https://job-boards.greenhouse.io/semgrep",
-     "search_url": "https://job-boards.greenhouse.io/semgrep",
-     "link_re": r'href="(/semgrep/jobs/\d+|https?://job-boards\.greenhouse\.io/semgrep/jobs/\d+)"',
-     "origin": "https://job-boards.greenhouse.io"},
+     "board": "https://boards.greenhouse.io/semgrep",
+     "search_url": "https://boards.greenhouse.io/semgrep",
+     "link_re": r'href="(/semgrep/jobs/\d+|https?://boards\.greenhouse\.io/semgrep/jobs/\d+)"',
+     "origin": "https://boards.greenhouse.io"},
     {"name": "Checkmarx",  "kind": "pw",         "slug": "checkmarx",  "queries": [],
      "board": "https://checkmarx.com/company/careers/",
      "search_url": "https://checkmarx.com/company/careers/",
@@ -437,12 +440,18 @@ import os
 # or when NO_COLOR is set (https://no-color.org).
 _USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 _RED = "\033[31m" if _USE_COLOR else ""
+_CYAN = "\033[36m" if _USE_COLOR else ""
 _RESET = "\033[0m" if _USE_COLOR else ""
 
 
 def err(msg):
     """Print an error line in red to stdout."""
     print(f"{_RED}{msg}{_RESET}", file=sys.stdout)
+
+
+def timing(msg):
+    """Print a timing/duration line in cyan to stdout."""
+    print(f"{_CYAN}{msg}{_RESET}", file=sys.stdout)
 
 
 def http_get_json(url):
@@ -1682,6 +1691,43 @@ def score_jobs(jobs):
 
 
 _LOC_SPLIT_RE = re.compile(r"\s*[;|]\s*")
+
+# "CH - Geneva", "FR - Paris", "GB - London" → strip the "XX - " prefix.
+_CC_PREFIX_RE = re.compile(
+    r"^([A-Z]{2}|[A-Z]{3})\s*[-–—:]\s*",
+    re.IGNORECASE,
+)
+
+# Workday job requisition IDs like "JR2021883". Not a location.
+_JR_ID_RE = re.compile(r"^JR\d{5,}$", re.IGNORECASE)
+
+
+def _pre_split(part):
+    """Handle concatenated locations like 'London UK, Geneva CH' where the
+    comma separates two distinct city+country pairs (no comma between the
+    city and the country). Returns a list of candidate parts."""
+    if "," not in part:
+        return [part]
+    segments = [s.strip() for s in part.split(",") if s.strip()]
+    # If every segment is "<something> <country-code-or-name>" pattern, treat
+    # them all as independent locations.
+    def is_cc_pair(s):
+        toks = s.rsplit(None, 1)
+        if len(toks) != 2:
+            return False
+        last = toks[1]
+        normalized = _normalize_country(last)
+        # Accept if the last token is a known country name, a US state, a CA
+        # province, or a 2-3 letter code that normalizes to something new.
+        return (
+            last.lower() in _KNOWN_COUNTRIES
+            or normalized != last
+            or last.lower() in _US_STATES
+            or last.lower() in _CA_PROVINCES
+        )
+    if all(is_cc_pair(s) for s in segments):
+        return segments
+    return [part]
 _PLUS_MORE_RE = re.compile(r"\s*\+\s*\d+\s*more\s*$", re.IGNORECASE)
 
 # City aliases used to collapse "NYC", "New York City", "New York" to one entry.
@@ -1757,6 +1803,20 @@ _CITY_TO_COUNTRY = {
     "tokyo": "Japan", "osaka": "Japan",
     "singapore": "Singapore",
     "tel aviv": "Israel",
+    # Additional
+    "bengaluru": "India", "bangalore": "India",
+    "mumbai": "India", "new delhi": "India", "delhi": "India",
+    "doha": "Qatar", "dubai": "UAE",
+    "riyadh": "Saudi Arabia",
+    "skopje": "North Macedonia",
+    "sofia": "Bulgaria",
+    "vilnius": "Lithuania",
+    "taipei": "Taiwan",
+    "peru": "Peru",
+    # Meta-regions kept as-is (not tied to a country)
+    "emea": "EMEA", "europe": "EMEA",
+    "southern europe": "EMEA",
+    "us east coast": "USA",
 }
 
 # Known country names / codes. If the FIRST segment matches, the location is
@@ -1901,6 +1961,14 @@ def _parse_loc(part):
         if s.lower() in _KNOWN_COUNTRIES:
             c = _normalize_country(s)
             return c, c, c
+        # Try "London UK" pattern — last space-separated token is a country.
+        toks = s.rsplit(None, 1)
+        if len(toks) == 2:
+            last = toks[1]
+            if last.lower() in _KNOWN_COUNTRIES or _normalize_country(last) != last:
+                city = toks[0]
+                country = _normalize_country(last)
+                return city, country, f"{city}, {country}"
         return s, "", s
     # Drop "Multiple Locations" placeholders so we surface the real country.
     segments = [s for s in segments if not _MEANINGLESS_CITY.match(s)] or segments
@@ -1919,6 +1987,13 @@ def _parse_loc(part):
     # Ambiguity fix: "Ontario, CA" is Canada, not California.
     if country_raw.lower() == "ca" and city.lower() in _CA_AMBIGUOUS_CITIES:
         country_raw = "Canada"
+    # Known city always wins over the country segment (e.g. "Geneva, France"
+    # is really Geneva, Switzerland — the "France" was a scraper artifact).
+    city_ckey = _city_key(city)
+    if city_ckey in _CITY_TO_COUNTRY:
+        country_raw = _CITY_TO_COUNTRY[city_ckey]
+    elif city.lower() in _CITY_TO_COUNTRY:
+        country_raw = _CITY_TO_COUNTRY[city.lower()]
     country = _normalize_country(country_raw)
     # Remote-like "cities" should not carry a country — otherwise
     # "Remote-Friendly, USA" and "US Remote" don't dedupe.
@@ -1940,8 +2015,14 @@ def _flatten_locations(locs):
             part = part.strip()
             if not part:
                 continue
-            city, country, display = _parse_loc(part)
-            parsed.append((_city_key(city), city, country, display))
+            if _JR_ID_RE.match(part):
+                continue                 # skip Workday requisition IDs
+            for sub in _pre_split(part):
+                sub = _CC_PREFIX_RE.sub("", sub).strip()
+                if not sub:
+                    continue
+                city, country, display = _parse_loc(sub)
+                parsed.append((_city_key(city), city, country, display))
 
     # First pass: find a country for each city_key when at least one entry has one.
     promoted = {}
@@ -2131,7 +2212,7 @@ def render_html_nav(entries):
     """Groups nav buttons per GROUP_ORDER, with a labelled row per group."""
     by_group = {g: [] for g in GROUP_ORDER}
     for name, visible_count in entries:
-        group = GROUP_OF.get(name, "Autres")
+        group = GROUP_OF.get(name, "Other")
         by_group.setdefault(group, []).append((name, visible_count))
     rows = []
     for group in GROUP_ORDER + [g for g in by_group if g not in GROUP_ORDER]:
@@ -2147,7 +2228,7 @@ def render_html_nav(entries):
         rows.append(
             '    <div class="nav-row">'
             f'<span class="nav-group-label">{html.escape(group)}</span>'
-            f'{buttons}'
+            f'<span class="nav-btns">{buttons}</span>'
             '</div>'
         )
     return '  <nav class="nav">\n' + "\n".join(rows) + "\n  </nav>"
@@ -2414,19 +2495,25 @@ HTML_TEMPLATE = """<!doctype html>
     .nav-break { flex-basis: 100%; height: 0; }
     .nav-row {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.4rem;
+      align-items: flex-start;
+      gap: 0.6rem;
       width: 100%;
     }
     .nav-group-label {
+      flex: 0 0 12rem;
       font-size: 0.8rem;
       font-weight: 700;
       color: var(--fg-muted);
       text-transform: uppercase;
       letter-spacing: 0.03em;
-      min-width: 10rem;
-      padding-right: 0.4rem;
+      padding-top: 0.4rem;
+      text-align: right;
+    }
+    .nav-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      flex: 1;
     }
     .group-heading {
       margin-top: 2.5rem;
@@ -3071,7 +3158,7 @@ def main():
                 err(f"[{src['name']}] collect crashed: {e}")
                 results[src["name"]] = {"jobs": [], "spontaneous_url": None}
     t_fetch = time.perf_counter() - t_fetch_start
-    sys.stdout.write(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s\n")
+    timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s\n")
 
     print("=" * 70, file=sys.stdout)
     print("Step 2 — score: send visible jobs to the LLM (per PROFILE.md rubric),", file=sys.stdout)
@@ -3087,9 +3174,9 @@ def main():
     if not skip_score:
         score_jobs(all_visible_for_score)
     else:
-        sys.stdout.write("[timing] scoring SKIPPED (JOBS_SKIP_SCORING=1)\n")
+        timing("[timing] scoring SKIPPED (JOBS_SKIP_SCORING=1)\n")
     t_score = time.perf_counter() - t_score_start
-    sys.stdout.write(f"[timing] score ({len(all_visible_for_score)} jobs) → {t_score:.1f}s\n")
+    timing(f"[timing] score ({len(all_visible_for_score)} jobs) → {t_score:.1f}s\n")
 
     print("=" * 70, file=sys.stdout)
     print("Step 3 — render: build HTML section per source (sorted liked → score", file=sys.stdout)
@@ -3165,6 +3252,28 @@ def main():
         marker = f"{_RED}{country}{_RESET}" if country == "Other" else country
         print(f"  {marker} ({len(cities)}): {', '.join(cities)}", file=sys.stdout)
     print(file=sys.stdout)
+
+    # Dump every raw location string we saw across sources — used by
+    # improve_locations.py to seed the audit workflow. Written each run so
+    # newly-added companies get their locations in the file.
+    raw_dump = []
+    seen_raw = set()
+    for src in active_sources:
+        r = results.get(src["name"]) or {}
+        for j in r.get("jobs") or []:
+            # We can't easily recover the original pre-flatten string here;
+            # each already-flattened location works as an "audit unit".
+            for loc in j.get("locations") or []:
+                if loc not in seen_raw:
+                    seen_raw.add(loc)
+                    raw_dump.append(loc)
+    try:
+        with open(RAW_LOCATIONS_FILE, "w", encoding="utf-8") as f:
+            f.write("\n".join(sorted(raw_dump)) + "\n")
+        print(f"[locations] wrote {len(raw_dump)} raw entries to {RAW_LOCATIONS_FILE}",
+              file=sys.stdout)
+    except Exception as e:
+        err(f"[locations] failed to write {RAW_LOCATIONS_FILE}: {e}")
     total = len(all_visible)
     total_bar = (
         f'  <div class="total-count">Total: '
@@ -3186,7 +3295,7 @@ def main():
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
         f.write(html_output)
     t_render = time.perf_counter() - t_render_start
-    sys.stdout.write(f"[timing] render + write → {t_render:.1f}s\n")
+    timing(f"[timing] render + write → {t_render:.1f}s\n")
     elapsed = time.perf_counter() - t0
     print(
         f"wrote {OUTPUT_HTML} · total {elapsed:.1f}s · "
