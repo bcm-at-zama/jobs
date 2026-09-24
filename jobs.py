@@ -890,7 +890,7 @@ def fetch_microsoft(source):
                     out.append({
                         "title": title,
                         "locations": [location] if location else [],
-                        "url": f"https://jobs.careers.microsoft.com/global/en/job/{jid}",
+                        "url": f"https://apply.careers.microsoft.com/careers/job/{jid}",
                         "description": "",
                         "blob": title,
                     })
@@ -3544,8 +3544,12 @@ function buildProbeScript(urls) {
     '  # Sniff the body for common "job removed" / not-found markers.',
     '  title=$(grep -oiE "<title[^>]*>[^<]{1,200}</title>" "$body" | head -1 | sed -E "s#</?title[^>]*>##gi" | tr -d "\\\\n" | head -c 160)',
     '  marker=""',
-    '  if grep -qiE "(job|position|posting).{0,20}(not found|no longer|removed|filled|closed|expired)" "$body"; then marker="job-removed-marker"; fi',
-    '  if grep -qiE "cloudflare|challenge-platform|cf-chl" "$body"; then marker="${marker:+$marker,}cloudflare"; fi',
+    '  # Only trip "job removed" when the marker lives in the <title> or an <h1>/<h2>',
+    '  # near the top — every SPA repeats those words in filter chrome copy.',
+    '  if echo "$title" | grep -qiE "(not found|no longer|position filled|posting expired|404)"; then marker="job-removed-marker"; fi',
+    '  if grep -oiE "<h[12][^>]*>[^<]{1,200}</h[12]>" "$body" | head -5 | grep -qiE "(job|position|posting).{0,20}(not found|no longer|removed|filled|closed|expired)"; then marker="${marker:+$marker,}job-removed-marker"; fi',
+    '  # Only trip "cloudflare" for an actual challenge page, not the WAF marker.',
+    '  if echo "$title" | grep -qiE "(just a moment|attention required|cloudflare)"; then marker="${marker:+$marker,}cloudflare-challenge"; fi',
     '  if [[ "$code" == "404" ]]; then marker="${marker:+$marker,}http-404"; fi',
     '  if [[ "$code" == "403" ]]; then marker="${marker:+$marker,}http-403"; fi',
     '  if [[ "$code" == "5"* ]]; then marker="${marker:+$marker,}http-$code"; fi',
@@ -3577,11 +3581,26 @@ function buildProbeScript(urls) {
     ''
   ].join('\\n');
 }
-document.getElementById('dump-sh')?.addEventListener('click', () => {
+document.getElementById('dump-sh')?.addEventListener('click', async () => {
   const urls = collectUrls('li.job:not(.hidden)');
   const status = document.getElementById('dump-status');
   if (!urls.length) { status.textContent = 'No visible jobs.'; setTimeout(() => status.textContent = '', 3000); return; }
-  copyToClipboard(buildProbeScript(urls), status, 'Copied probe script (' + urls.length + ' URLs) — save as probe_visible.sh and run: bash probe_visible.sh');
+  const script = buildProbeScript(urls);
+  try {
+    const base = location.protocol === 'file:' ? SERVER_URL : '';
+    const res = await fetch(base + '/save-probe', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({script})
+    });
+    if (!res.ok) throw new Error('http ' + res.status);
+    status.textContent = 'Wrote debug/probe_visible.sh (' + urls.length + ' URLs) — run: bash debug/probe_visible.sh';
+  } catch (e) {
+    status.textContent = 'Save failed (' + e.message + ') — falling back to clipboard.';
+    copyToClipboard(script, status, 'Copied probe script (' + urls.length + ' URLs) — paste into debug/probe_visible.sh');
+    return;
+  }
+  setTimeout(() => { status.textContent = ''; }, 5000);
 });
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
@@ -3860,16 +3879,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        if self.path not in ("/reject", "/unreject", "/like", "/unlike"):
+        if self.path not in ("/reject", "/unreject", "/like", "/unlike", "/save-probe"):
             self.send_response(404)
             self.end_headers()
             return
         length = int(self.headers.get("Content-Length") or 0)
         try:
             payload = json.loads(self.rfile.read(length))
-            url = (payload.get("url") or "").strip()
         except Exception:
-            url = ""
+            payload = {}
+        if self.path == "/save-probe":
+            script = payload.get("script") or ""
+            if not script:
+                self.send_response(400); self._cors(); self.end_headers(); return
+            try:
+                os.makedirs("debug", exist_ok=True)
+                path = os.path.join("debug", "probe_visible.sh")
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(script)
+                os.chmod(path, 0o755)
+                sys.stdout.write(f"probe:    wrote {path} ({len(script)} bytes)\n")
+            except Exception as e:
+                sys.stdout.write(f"probe:    save failed: {e}\n")
+                self.send_response(500); self._cors(); self.end_headers(); return
+            self.send_response(204); self._cors(); self.end_headers(); return
+        url = (payload.get("url") or "").strip()
         if not url:
             self.send_response(400)
             self._cors()

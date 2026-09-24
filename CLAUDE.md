@@ -29,6 +29,14 @@ Only two legitimate reasons to change a scraper without dump verification:
 
 In every other case: read the dump first.
 
+## Never patch blindly
+
+Never propose a "blind" patch (a guessed URL, regex, or selector) to save a
+round trip. Wasted rounds waste more time than one extra probe. If you can't
+verify from a dump or a probe output, produce a probe script and stop until
+the user runs it. The only edits allowed without verification are those the
+user has explicitly authorized in the current message.
+
 ## Related principles
 
 - Prefer editing existing scrapers over cloning new ones — if a slug is
