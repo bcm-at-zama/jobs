@@ -233,7 +233,7 @@ SOURCES = [
     {"name": "DeepL",     "kind": "ashby",      "slug": "DeepL",      "queries": []},
     {"name": "Eleven Labs", "kind": "ashby",    "slug": "elevenlabs", "queries": []},
     {"name": "Poolside", "kind": "ashby",       "slug": "poolside",   "queries": []},
-    {"name": "Black Forest Labs", "kind": "greenhouse", "slug": "blackforestlabs", "queries": []},
+    {"name": "Black Forest Labs", "kind": "greenhouse", "slug": "blackforestlabsjobs", "queries": []},
     {"name": "Proton",   "kind": "greenhouse",  "slug": "proton",    "queries": [],
      "board": "https://proton.me/careers"},
     {"name": "Sony AI",  "kind": "pw",          "slug": "sonyai",    "queries": [],
@@ -245,6 +245,45 @@ SOURCES = [
      "board": "https://cursor.com/careers"},
     {"name": "Cognition","kind": "ashby",       "slug": "cognition", "queries": [],
      "board": "https://cognition.com/careers"},
+    {"name": "DepthFirst","kind": "ashby",      "slug": "depthfirst","queries": []},
+    {"name": "XBOW",      "kind": "ashby",      "slug": "xbowcareers","queries": []},
+    {"name": "Aisle",     "kind": "pw",         "slug": "aisle",     "queries": [],
+     "board": "https://aisle.com/careers",
+     "search_url": "https://aisle.com/careers",
+     "link_re": r'href="(https?://jobs\.ashbyhq\.com/[^"#?]+/[a-f0-9-]{20,}|/careers/[^"#?]+|https?://[^"]*(?:greenhouse|lever|workable|ashby)[^"]*)"',
+     "origin": "https://aisle.com"},
+    {"name": "ZeroPath",  "kind": "pw",         "slug": "zeropath",  "queries": [],
+     "board": "https://zeropath.com/careers",
+     "search_url": "https://zeropath.com/careers",
+     "link_re": r'href="(https?://jobs\.ashbyhq\.com/[^"#?]+/[a-f0-9-]{20,}|/careers/[^"#?]+|https?://[^"]*(?:greenhouse|lever|workable|ashby)[^"]*)"',
+     "origin": "https://zeropath.com"},
+    {"name": "Pixee",     "kind": "pw",         "slug": "pixee",     "queries": [],
+     "board": "https://app.dover.com/jobs/pixee",
+     "search_url": "https://app.dover.com/jobs/pixee",
+     "link_re": r'href="(/jobs/pixee/[^"#?]+|https?://app\.dover\.com/jobs/pixee/[^"#?]+)"',
+     "origin": "https://app.dover.com"},
+    {"name": "Corgea",    "kind": "pw",         "slug": "corgea",    "queries": [],
+     "board": "https://www.ycombinator.com/companies/corgea/jobs",
+     "search_url": "https://www.ycombinator.com/companies/corgea/jobs",
+     "link_re": r'href="(/companies/corgea/jobs/[^"#?]+)"',
+     "origin": "https://www.ycombinator.com"},
+    {"name": "GitHub",    "kind": "pw",         "slug": "github",    "queries": ["security"],
+     "board": "https://www.github.careers/careers-home/jobs?keywords=security",
+     "search_url": "https://www.github.careers/careers-home/jobs?keywords=security",
+     "link_re": r'href="(https?://www\.github\.careers/careers-home/jobs/\d+[^"#?]*|/careers-home/jobs/\d+[^"#?]*)"',
+     "origin": "https://www.github.careers"},
+    {"name": "CrowdStrike","kind": "pw",        "slug": "crowdstrike","queries": ["security"],
+     "board": "https://crowdstrike.wd5.myworkdayjobs.com/en-US/crowdstrikecareers",
+     "search_url": "https://crowdstrike.wd5.myworkdayjobs.com/en-US/crowdstrikecareers",
+     "link_re": r'href="(/en-US/crowdstrikecareers/job/[^"#?]+)"',
+     "origin": "https://crowdstrike.wd5.myworkdayjobs.com"},
+    {"name": "Snyk",       "kind": "greenhouse", "slug": "snyk",       "queries": []},
+    {"name": "Semgrep",    "kind": "greenhouse", "slug": "semgrep",    "queries": []},
+    {"name": "Checkmarx",  "kind": "pw",         "slug": "checkmarx",  "queries": [],
+     "board": "https://checkmarx.com/company/careers/",
+     "search_url": "https://checkmarx.com/company/careers/",
+     "link_re": r'href="(https?://[^"]*(?:greenhouse|lever|workable|ashby|workday|smartrecruiters)[^"]*)"',
+     "origin": "https://checkmarx.com"},
     {"name": "NVIDIA",    "kind": "phenom",     "slug": "nvidia",     "queries": ["security"],
      "board": "https://jobs.nvidia.com/careers?query=Security&pid=893394830937&sort_by=relevance",
      "search_url": "https://jobs.nvidia.com/careers?query=Security&sort_by=relevance"},
@@ -252,7 +291,7 @@ SOURCES = [
      "board": "https://jobs.apple.com/en-us/search?search=security"},
     {"name": "Microsoft", "kind": "microsoft",  "slug": "microsoft",  "queries": ["security"],
      "board": "https://apply.careers.microsoft.com/careers?query=Security&pid=1970393556942260&sort_by=relevance"},
-    {"name": "Google",    "kind": "google",     "slug": "google",     "queries": ["security", "codemender", "DeepMind"],
+    {"name": "Google",    "kind": "google",     "slug": "google",     "queries": ["security", "codemender", "DeepMind", "Big Sleep"],
      "board": "https://www.google.com/about/careers/applications/jobs/results/?q=security&hl=en_US",
      "search_url": "https://www.google.com/about/careers/applications/jobs/results?hl=en_US&target_level=DIRECTOR_PLUS&target_level=ADVANCED&employment_type=FULL_TIME"},
     {"name": "Meta",      "kind": "meta",       "slug": "meta",       "queries": ["security"],
@@ -297,6 +336,7 @@ SENIORITY_TOGGLES = ["Manager", "Director"]
 # END CONFIG
 # =============================================================================
 
+import argparse
 import concurrent.futures
 import html
 import http.server
@@ -464,15 +504,26 @@ def normalize_workable(raw):
     out = []
     for j in raw.get("results", []):
         loc = j.get("location") or {}
-        city = loc.get("city") or ""
-        country = loc.get("country") or ""
-        loc_str = ", ".join(x for x in [city, country] if x) or (loc.get("workplace") or "")
+        if not isinstance(loc, dict):
+            loc = {}
+        # Some Workable payloads use lists; join them defensively.
+        def _flat(v):
+            if isinstance(v, list):
+                return ", ".join(str(x) for x in v if x)
+            return str(v) if v else ""
+        city = _flat(loc.get("city"))
+        country = _flat(loc.get("country"))
+        workplace = _flat(loc.get("workplace") or loc.get("workplace_type"))
+        loc_str = ", ".join(x for x in [city, country] if x) or workplace
+        dept = j.get("department") or ""
+        if isinstance(dept, list):
+            dept = ", ".join(str(x) for x in dept)
         out.append({
-            "title": j.get("title", ""),
+            "title": _flat(j.get("title")),
             "locations": [loc_str] if loc_str else [],
             "url": j.get("url") or f"https://apply.workable.com/{j.get('shortcode', '')}",
             "description": j.get("description", "") or "",
-            "blob": " ".join([j.get("title", ""), j.get("department", "") or ""]),
+            "blob": " ".join([_flat(j.get("title")), dept]),
         })
     return out
 
@@ -2801,21 +2852,54 @@ def _run_location_debug():
         print(f"  {country}: {cities}")
 
 
+def _parse_cli():
+    ap = argparse.ArgumentParser(
+        prog="jobs.py",
+        description="Aggregate job postings from many boards into a single HTML page.",
+        epilog=(
+            "Examples:\n"
+            "  python3 jobs.py                              # full run\n"
+            "  python3 jobs.py --skip-scoring               # fetch only, no LLM\n"
+            "  python3 jobs.py --only OpenAI,Anthropic      # just two boards\n"
+            "  python3 jobs.py --skip Apple,Google,Meta     # skip these\n"
+            "  python3 jobs.py --skip-playwright            # HTTP-only sources\n"
+            "  python3 jobs.py --debug-locations            # dump location parsing\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ap.add_argument("--only", metavar="A,B,C",
+                    help="Fetch only these board names (comma-separated).")
+    ap.add_argument("--skip", metavar="A,B,C",
+                    help="Skip these board names (comma-separated).")
+    ap.add_argument("--skip-playwright", action="store_true",
+                    help="Skip all Playwright-based boards (Apple/Google/MS/…).")
+    ap.add_argument("--skip-scoring", action="store_true",
+                    help="Don't call the LLM for scoring (uses cached scores only).")
+    ap.add_argument("--debug-locations", action="store_true",
+                    help="Dump raw→normalized locations and exit.")
+    ap.add_argument("--no-open", action="store_true",
+                    help="Don't auto-open the browser after starting the server.")
+    ap.add_argument("--list", action="store_true",
+                    help="Print every configured board name (comma-separated) and exit.")
+    return ap.parse_args()
+
+
 def main():
-    if os.environ.get("JOBS_DEBUG_LOCATIONS") == "1":
+    args = _parse_cli()
+
+    if args.debug_locations or os.environ.get("JOBS_DEBUG_LOCATIONS") == "1":
         _run_location_debug()
         return
+
     t0 = time.perf_counter()
 
-    # Debug knobs via env vars — set to run parts of the pipeline in isolation:
-    #   JOBS_ONLY=OpenAI,Google   → fetch only those sources
-    #   JOBS_SKIP=Apple,Microsoft → skip these sources
-    #   JOBS_SKIP_SCORING=1       → don't call the LLM
-    #   JOBS_SKIP_PLAYWRIGHT=1    → skip Apple/Google/Microsoft/Ableton/…
-    only  = {s.strip() for s in os.environ.get("JOBS_ONLY", "").split(",") if s.strip()}
-    skip  = {s.strip() for s in os.environ.get("JOBS_SKIP", "").split(",") if s.strip()}
-    skip_pw = os.environ.get("JOBS_SKIP_PLAYWRIGHT") == "1"
-    skip_score = os.environ.get("JOBS_SKIP_SCORING") == "1"
+    # CLI flags win; env vars remain as a legacy fallback.
+    def _split(s):
+        return {x.strip() for x in (s or "").split(",") if x.strip()}
+    only  = _split(args.only) or _split(os.environ.get("JOBS_ONLY", ""))
+    skip  = _split(args.skip) or _split(os.environ.get("JOBS_SKIP", ""))
+    skip_pw    = args.skip_playwright or os.environ.get("JOBS_SKIP_PLAYWRIGHT") == "1"
+    skip_score = args.skip_scoring    or os.environ.get("JOBS_SKIP_SCORING") == "1"
     pw_kinds = {"apple", "google", "microsoft", "meta", "phenom", "ableton", "lucca", "pw", "wttj"}
     active_sources = [
         s for s in SOURCES
@@ -2942,7 +3026,8 @@ def main():
     print("=" * 70, file=sys.stdout)
     server = http.server.ThreadingHTTPServer((SERVE_HOST, SERVE_PORT), Handler)
     print(f"serving on {server_url} — Ctrl-C to stop", file=sys.stdout)
-    threading.Timer(0.4, lambda: webbrowser.open(server_url)).start()
+    if not args.no_open:
+        threading.Timer(0.4, lambda: webbrowser.open(server_url)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
