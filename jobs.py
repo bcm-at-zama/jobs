@@ -61,9 +61,10 @@ Step 6 — Serve
 from config import (  # noqa: E402,F401 — public config surface
     OUTPUT_HTML, REJECTED_DB, LIKED_DB, PROFILE_FILE,
     SCORE_CACHE, DESC_CACHE, RAW_LOCATIONS_FILE,
+    LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
     SCORER, CLAUDE_MODEL, OLLAMA_URL, OLLAMA_MODEL,
-    SCORE_BATCH_SIZE, SCORE_DESC_CHARS, SCORE_PARALLEL,
+    SCORE_BATCH_SIZE, SCORE_DESC_CHARS, SCORE_PARALLEL, SCORE_LONG_ROLES,
     HIGHLIGHTS, TITLE_CASE_OVERRIDES,
     TITLE_BLACKLIST, LOCATION_BLACKLIST,
     SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES,
@@ -262,7 +263,7 @@ def normalize_ashby(raw):
     return out
 
 
-def normalize_workable(raw):
+def normalize_workable(raw, account_slug=""):
     out = []
     for j in raw.get("results", []):
         loc = j.get("location") or {}
@@ -280,10 +281,18 @@ def normalize_workable(raw):
         dept = j.get("department") or ""
         if isinstance(dept, list):
             dept = ", ".join(str(x) for x in dept)
+        shortcode = j.get("shortcode", "")
+        # Workable's public apply URL is apply.workable.com/<account>/j/<shortcode>
+        # (the /j/ segment is required — the account root alone 404s).
+        url = j.get("url") or (
+            f"https://apply.workable.com/{account_slug}/j/{shortcode}"
+            if account_slug and shortcode else
+            f"https://apply.workable.com/j/{shortcode}"
+        )
         out.append({
             "title": _flat(j.get("title")),
             "locations": [loc_str] if loc_str else [],
-            "url": j.get("url") or f"https://apply.workable.com/{j.get('shortcode', '')}",
+            "url": url,
             "description": j.get("description", "") or "",
             "blob": " ".join([_flat(j.get("title")), dept]),
         })
@@ -309,7 +318,7 @@ def fetch_workable(source):
     except Exception as e:
         err(f"[{source['name']}] Workable fetch failed: {e}")
         return {"jobs": [], "spontaneous_url": None}
-    all_jobs = normalize_workable(raw)
+    all_jobs = normalize_workable(raw, account_slug=slug)
     matched = [j for j in all_jobs if matches(j, source["queries"])]
     return {"jobs": matched, "spontaneous_url": _pick_spontaneous(all_jobs)}
 
@@ -470,30 +479,74 @@ def _apple_extract_from_links(text, queries=None):
     return out
 
 
+_shared_pw_lock = threading.Lock()
+_shared_pw = {"p": None, "browser": None, "context": None}
+
+
+def _get_shared_browser():
+    """Return (playwright, browser, context), starting Chromium the first time.
+    Called by fetchers; each fetcher creates its own page from the shared
+    context, so parallel Playwright sources don't race."""
+    with _shared_pw_lock:
+        if _shared_pw["browser"] is None:
+            p = sync_playwright().start()
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-features=IsolateOrigins,site-per-process",
+                ],
+            )
+            ctx = browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1280, "height": 800},
+                locale="en-US",
+            )
+            # Hide navigator.webdriver flag for all pages spawned from this ctx.
+            ctx.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+            )
+            _shared_pw["p"] = p
+            _shared_pw["browser"] = browser
+            _shared_pw["context"] = ctx
+            timing("[browser] Chromium launched (shared across all sources)")
+        return _shared_pw["p"], _shared_pw["browser"], _shared_pw["context"]
+
+
+def _close_shared_browser():
+    with _shared_pw_lock:
+        if _shared_pw["browser"] is not None:
+            try:
+                _shared_pw["context"].close()
+                _shared_pw["browser"].close()
+                _shared_pw["p"].stop()
+            except Exception:
+                pass
+            _shared_pw["p"] = None
+            _shared_pw["browser"] = None
+            _shared_pw["context"] = None
+
+
 def _open_browser():
-    """Start Playwright + Chromium. Returns (playwright, browser, page)."""
-    p = sync_playwright().start()
-    browser = p.chromium.launch(
-        headless=True,
-        args=[
-            "--disable-blink-features=AutomationControlled",
-            "--disable-features=IsolateOrigins,site-per-process",
-        ],
-    )
-    ctx = browser.new_context(
-        user_agent=(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        ),
-        viewport={"width": 1280, "height": 800},
-        locale="en-US",
-    )
+    """Compatibility shim. Returns (playwright, browser, page) but reuses the
+    shared browser + context under the hood. Callers should still call
+    `browser.close(); p.stop()` in their finally block — we make those no-ops
+    to keep the sync/singleton semantics stable."""
+    p, browser, ctx = _get_shared_browser()
     page = ctx.new_page()
-    # Hide navigator.webdriver flag
-    page.add_init_script(
-        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-    )
-    return p, browser, page
+
+    class _NoopBrowser:
+        def close(self):
+            try: page.close()
+            except Exception: pass
+
+    class _NoopPlaywright:
+        def stop(self): pass
+
+    return _NoopPlaywright(), _NoopBrowser(), page
 
 
 def _fetch_description_via_page(page, url):
@@ -709,7 +762,7 @@ def fetch_google(source):
     try:
         queries = source.get("queries") or [""]
         for q in queries:
-            for pnum in range(1, 11):
+            for pnum in range(1, 2):     # 1 page only — Google's SPA shows all matches page 1
                 url = base
                 if q:
                     sep = "&" if "?" in url else "?"
@@ -726,6 +779,9 @@ def fetch_google(source):
                         f"ld={len(ld)}, urls={len(urls)} "
                         f"(HTML dumped to {debug})\n"
                     )
+                    # Fast exit: if page 1 already has 0 hits, don't try page 2+.
+                    if not ld and not urls:
+                        break
                 jobs = ld
                 if not jobs:
                     for jid, sl in urls:
@@ -1305,26 +1361,56 @@ def board_url_for(source):
     return ""
 
 
-SCORING_SYSTEM = """You score job postings against a candidate profile.
+SCORING_SYSTEM_BASE = """You score job postings against a candidate profile.
 
 Return ONLY a JSON array with ONE ELEMENT PER JOB you were given. If 5 jobs are
 provided, the array MUST contain 5 elements. Never merge, summarize, or skip.
 
 Each element:
   {"i": <index from the numbered list>, "score": <integer 0-10>,
-   "reason": "<detailed reason: 2-3 sentences, ~100-400 characters, "
-             "say what fits or doesn't per the rubric>"}
+   "reason": "<why this score — 2-3 sentences, ~100-400 chars, cite rubric>",
+   "role": "<neutral 2-3 sentence summary of what the ROLE actually is: main mission, key responsibilities, technical scope. Do NOT judge fit here — that's the reason field. ~100-400 chars.>"__EXTRA_FIELDS__}
 
-Example (for 3 jobs):
+Example (for 2 jobs):
   [
-    {"i": 1, "score": 8, "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."},
-    {"i": 2, "score": 3, "reason": "Sales/GTM role, not technical. Team focuses on account expansion rather than security engineering; location fits but domain doesn't align with the rubric priorities."},
-    {"i": 3, "score": 6, "reason": "Model security research at DeepMind is close to the AI safety interest; description emphasizes red-teaming and adversarial ML which matches priority 3, though it's more research-only with fewer engineering hooks."}
+    {"i": 1, "score": 8,
+     "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis.",
+     "role": "Build tooling on top of frontier models to detect and patch software vulnerabilities at scale. IC role on a small team; owns end-to-end pipeline from model call to production PR generation."__EXAMPLE_EXTRA__},
+    {"i": 2, "score": 3,
+     "reason": "Sales/GTM role, not technical. Team focuses on account expansion rather than security engineering; location fits but domain doesn't align with the rubric priorities.",
+     "role": "Enterprise account executive covering EMEA financial services. Owns quota, pipeline generation, and deal cycles for cloud security products. No engineering scope."__EXAMPLE_EXTRA_2__}
   ]
 
 Scoring rubric: 9-10 top-priority match, 6-8 solid, 3-5 partial, 0-2 weak.
-The reason field is critical: it's what the user reads to decide whether to
-open the posting, so be specific about which rubric items match and which don't."""
+The reason field explains the SCORE. The role field is a neutral job summary."""
+
+
+def _scoring_system():
+    if SCORE_LONG_ROLES:
+        return (
+            SCORING_SYSTEM_BASE
+            .replace(
+                "__EXTRA_FIELDS__",
+                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) any salary / compensation / equity information stated verbatim (e.g. \\"$405,000 - $485,000 USD\\"), plus benefits, location constraints, travel, visa. If a section still has no data, write a single bullet \\"not stated in the description\\". No company boilerplate."'
+            )
+            .replace(
+                "__EXAMPLE_EXTRA__",
+                ',\n     "role_long": "**Missions:**\\n- Scale Codex to production developer workflows.\\n- Own end-to-end the model-to-PR pipeline used by design partners.\\n\\n**Key responsibilities:**\\n- \\"Design and implement prompt strategies for code-generation tasks\\".\\n- \\"Build and maintain the evaluation harness for auto-PR quality\\".\\n- \\"Ship weekly improvements based on design-partner telemetry\\".\\n- \\"Run post-generation static analysis to catch regressions before merge\\".\\n\\n**Team:**\\n- 8 IC engineers, one Staff TL, embedded PM and applied researcher.\\n\\n**Tech:**\\n- Python (backend), TypeScript (developer-facing surfaces).\\n- Runs on internal Kubernetes; model serving on GPU clusters.\\n- Cryptography: TLS-terminating proxies and signed webhook payloads; no low-level crypto work.\\n\\n**Seniority:**\\n- Title: Member of Technical Staff.\\n- Experience: \\"7+ years shipping production ML systems\\" (quoted).\\n- IC role, no direct reports.\\n\\n**Minimal profile:**\\n- \\"BS in CS or equivalent experience\\".\\n- \\"7+ years shipping production ML systems\\".\\n- \\"Fluency in Python and modern JS\\".\\n\\n**Preferred profile:**\\n- \\"Prior experience with LLM inference stacks (vLLM, TGI)\\".\\n- \\"Contributions to open-source developer tools\\".\\n- \\"Prior work on evaluation harnesses\\".\\n\\n**Salary:**\\n- Annual salary: $405,000 - $485,000 USD (stated in the posting).\\n- Equity refresh yearly."'
+            )
+            .replace(
+                "__EXAMPLE_EXTRA_2__",
+                ',\n     "role_long": "**Missions:**\\n- Run quarterly quota on financial-services logos across EMEA (60% new logo, 40% expansion).\\n- Lead technical qualification before handoff to solutions engineering.\\n- Own executive relationships at named accounts.\\n\\n**Team:**\\n- Reports to Regional Sales Director; sits alongside 5 other AEs, supported by 2 SEs and 1 SDR.\\n\\n**Tech:**\\n- Not stated in the description (non-engineering role).\\n\\n**Seniority:**\\n- Experience: \\"5+ years selling enterprise SaaS\\" (quoted).\\n- IC quota-carrying role, no direct reports.\\n\\n**Salary:**\\n- OTE $250-350k (50/50 base/variable) mentioned in the posting; yearly equity refresh.\\n- Travel required to customer sites."'
+            )
+        )
+    return (
+        SCORING_SYSTEM_BASE
+        .replace("__EXTRA_FIELDS__", "")
+        .replace("__EXAMPLE_EXTRA__", "")
+        .replace("__EXAMPLE_EXTRA_2__", "")
+    )
+
+
+SCORING_SYSTEM = _scoring_system()
 
 
 def _load_profile():
@@ -1392,19 +1478,41 @@ def _parse_score_response(text, batch):
             if any(k in data for k in ("i", "index", "id", "score")):
                 data = [data]
     out = {}
-    for item in data if isinstance(data, list) else []:
+    items_list = data if isinstance(data, list) else []
+    for pos, item in enumerate(items_list):
         if not isinstance(item, dict):
             continue
         idx = item.get("i") or item.get("index") or item.get("id")
         try:
             idx = int(idx) - 1
         except Exception:
-            continue
-        if not (0 <= idx < len(batch)):
+            idx = None
+        # Fallback 1: when there's no explicit index but positions align with
+        # the batch (small models often skip the "i" field).
+        if idx is None and pos < len(batch):
+            idx = pos
+        # Fallback 2: for size-1 batches, the item is unambiguously the job.
+        if idx is None and len(batch) == 1:
+            idx = 0
+        if idx is None or not (0 <= idx < len(batch)):
             continue
         url = batch[idx]["url"]
         try:
-            out[url] = {"score": int(item.get("score", 0)), "reason": str(item.get("reason", ""))[:400]}
+            def _clean(s, maxlen=400):
+                s = str(s or "")
+                # Normalize exotic Unicode spaces (EM QUAD, EN SPACE, etc.).
+                s = re.sub(r"[\u2000-\u200a\u202f\u205f\u3000]", " ", s)
+                s = re.sub(r"\s+", " ", s).strip()
+                return s[:maxlen]
+            raw_score = int(item.get("score", 0))
+            # Small models sometimes return scores outside the 0-10 bounds.
+            score = max(0, min(10, raw_score))
+            out[url] = {
+                "score":     score,
+                "reason":    _clean(item.get("reason", "")),
+                "role":      _clean(item.get("role", "")),
+                "role_long": _clean(item.get("role_long", ""), maxlen=4000),
+            }
         except Exception:
             continue
     if not out:
@@ -1438,6 +1546,81 @@ def _score_batch_claude(batch, profile_text, client):
     return _parse_score_response(text, batch)
 
 
+_LONG_ROLE_SECTIONS = [
+    "missions", "key_responsibilities", "team", "tech", "seniority",
+    "minimal_profile", "preferred_profile", "salary",
+]
+
+
+def _ollama_json_schema():
+    """Build a strict JSON schema that forces the model to produce every field
+    we need. Ollama honours this via structured outputs (v0.5+)."""
+    item_props = {
+        "i":      {"type": "integer"},
+        "score":  {"type": "integer", "minimum": 0, "maximum": 10},
+        "reason": {"type": "string",  "minLength": 30},
+        "role":   {"type": "string",  "minLength": 30},
+    }
+    required = ["i", "score", "reason", "role"]
+    if SCORE_LONG_ROLES:
+        # role_long is an OBJECT with one array-of-bullets per section. That
+        # way the model is forced to fill each section separately — it can't
+        # just dump a blob of prose that ignores the structure we asked for.
+        section_schema = {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 10},
+        }
+        item_props["role_long"] = {
+            "type": "object",
+            "properties": {name: section_schema for name in _LONG_ROLE_SECTIONS},
+            "required": _LONG_ROLE_SECTIONS,
+        }
+        required.append("role_long")
+    return {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+            "type": "object",
+            "properties": item_props,
+            "required": required,
+        },
+    }
+
+
+_SECTION_LABELS = {
+    "missions":            "Missions",
+    "key_responsibilities":"Key responsibilities",
+    "team":                "Team",
+    "tech":                "Tech",
+    "seniority":           "Seniority",
+    "minimal_profile":     "Minimal profile",
+    "preferred_profile":   "Preferred profile",
+    "salary":              "Salary",
+}
+
+
+def _role_long_to_markdown(role_long_value):
+    """Turn an object {missions: [...], team: [...], ...} into the markdown
+    string that the rest of the code expects. If it's already a string,
+    pass through."""
+    if isinstance(role_long_value, str):
+        return role_long_value
+    if not isinstance(role_long_value, dict):
+        return ""
+    parts = []
+    for key in _LONG_ROLE_SECTIONS:
+        bullets = role_long_value.get(key) or []
+        if not isinstance(bullets, list):
+            continue
+        clean = [b.strip() for b in bullets if isinstance(b, str) and b.strip()]
+        if not clean:
+            clean = ["not stated in the description"]
+        label = _SECTION_LABELS.get(key, key.replace("_", " ").title())
+        parts.append(f"**{label}:**\n" + "\n".join(f"- {b}" for b in clean))
+    return "\n\n".join(parts)
+
+
 def _score_batch_ollama(batch, profile_text):
     payload = {
         "model": OLLAMA_MODEL,
@@ -1446,14 +1629,26 @@ def _score_batch_ollama(batch, profile_text):
             {"role": "system", "content": SCORING_SYSTEM + "\n\n" + profile_text},
             {"role": "user", "content": _make_batch_prompt(batch)},
         ],
-        "format": "json",
+        # Use a JSON schema (Ollama structured outputs) instead of "json"
+        # so the model MUST fill in every required field, not just "score".
+        "format": _ollama_json_schema(),
+        "options": {
+            # Curb "token repeat limit reached" 500s from Ollama when the model
+            # falls into a repetition loop generating long role_long payloads.
+            "repeat_penalty": 1.2,
+            "repeat_last_n": 128,
+            # Cap the number of tokens generated per response.
+            "num_predict": 3000 if SCORE_LONG_ROLES else 800,
+        },
     }
     req = urllib.request.Request(
         OLLAMA_URL, data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
+    # Long-role prompts generate ~2x more tokens; give the LLM more headroom.
+    ollama_timeout = 600 if SCORE_LONG_ROLES else 300
     try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=ollama_timeout) as resp:
             data = json.load(resp)
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")[:500]
@@ -1472,12 +1667,24 @@ def score_jobs(jobs):
         sys.stdout.write(f"[score] no {PROFILE_FILE} — skipping\n")
         return
     cache = _load_score_cache()
-    todo = [j for j in jobs if j["url"] and j["url"] not in cache]
+    # Rescore jobs that lack fields we now want. When SCORE_LONG_ROLES is on,
+    # any cached entry that predates the long-role feature is missing
+    # `role_long` and gets re-scored automatically.
+    def _needs_rescore(url):
+        entry = cache.get(url)
+        if entry is None:
+            return True
+        if SCORE_LONG_ROLES and not entry.get("role_long"):
+            return True
+        return False
+    todo = [j for j in jobs if j["url"] and _needs_rescore(j["url"])]
     for j in jobs:
         cached = cache.get(j["url"])
         if cached:
             j["score"] = cached.get("score", 0)
             j["score_reason"] = cached.get("reason", "")
+            j["role_summary"] = cached.get("role", "")
+            j["role_long"] = cached.get("role_long", "")
     if not todo:
         return
 
@@ -1544,6 +1751,8 @@ def score_jobs(jobs):
                 if r:
                     j["score"] = r["score"]
                     j["score_reason"] = r["reason"]
+                    j["role_summary"] = r.get("role", "")
+                    j["role_long"] = r.get("role_long", "")
                     cache[j["url"]] = r
                     new_entries = True
             completed[0] += 1
@@ -1556,8 +1765,11 @@ def score_jobs(jobs):
             if new_entries and completed[0] % max(1, SCORE_PARALLEL) == 0:
                 _save_score_cache(cache)
 
+    # Long-role responses need ~2x more compute per request; halve the
+    # concurrency to avoid Ollama backpressure and per-request timeouts.
+    parallel = max(1, SCORE_PARALLEL // 2) if SCORE_LONG_ROLES else SCORE_PARALLEL
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=SCORE_PARALLEL) as ex:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as ex:
             for i, batch in enumerate(batches):
                 ex.submit(_process, batch, i)
     finally:
@@ -2018,8 +2230,55 @@ def is_location_blacklisted(job):
     return all(any(b in loc.lower() for b in bl) for loc in job["locations"])
 
 
+def _list_cache_path(source):
+    safe = slug(source["name"])
+    return os.path.join(LIST_CACHE_DIR, f"{safe}.json")
+
+
+def _load_list_cache(source):
+    """Return {jobs, spontaneous_url} if we have a fresh cache for this
+    source, else None."""
+    if LIST_CACHE_TTL_HOURS <= 0:
+        return None
+    path = _list_cache_path(source)
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return None
+    age_h = (time.time() - st.st_mtime) / 3600.0
+    if age_h > LIST_CACHE_TTL_HOURS:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _save_list_cache(source, result):
+    try:
+        os.makedirs(LIST_CACHE_DIR, exist_ok=True)
+        with open(_list_cache_path(source), "w", encoding="utf-8") as f:
+            json.dump(result, f)
+    except OSError:
+        pass
+
+
 def collect(source):
-    result = FETCHERS[source["kind"]](source)
+    t_start = time.perf_counter()
+    cached = _load_list_cache(source)
+    if cached is not None:
+        st = os.stat(_list_cache_path(source))
+        age_min = (time.time() - st.st_mtime) / 60.0
+        result = cached
+        source_kind = "cached"
+        dt = time.perf_counter() - t_start
+        timing(f"[{source['name']:22}] list-cache hit ({age_min:.0f}min old) → {dt*1000:.0f}ms")
+    else:
+        result = FETCHERS[source["kind"]](source)
+        source_kind = "fresh"
+        dt = time.perf_counter() - t_start
+        timing(f"[{source['name']:22}] fresh fetch → {dt:.1f}s")
     raw_jobs = result["jobs"]
     for j in raw_jobs:
         j["locations"] = _flatten_locations(j.get("locations"))
@@ -2029,7 +2288,10 @@ def collect(source):
     ]
     jobs = dedup_by_url(jobs)
     jobs.sort(key=lambda j: j["title"].lower())
-    return {"jobs": jobs, "spontaneous_url": result.get("spontaneous_url")}
+    final = {"jobs": jobs, "spontaneous_url": result.get("spontaneous_url")}
+    if source_kind == "fresh":
+        _save_list_cache(source, {"jobs": raw_jobs, "spontaneous_url": result.get("spontaneous_url")})
+    return final
 
 
 def slug(name):
@@ -2068,7 +2330,105 @@ def _seniority_rank(label):
     return len(SENIORITY_RANK)
 
 
-def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries):
+_SECTION_HEADER_RE = re.compile(
+    r"(?<!\n)\s*(\*\*[A-Z][A-Za-z /]{2,32}:\*\*|(?:Missions?|Team|Salary|"
+    r"Responsibilities|Requirements|Qualifications|Compensation|"
+    r"Benefits|Location|Tech(?:\s+Stack)?|Stack|Role|About the role|"
+    r"Seniority|Experience|Level|"
+    r"Minimal profile|Preferred profile|Good fit if|Strong candidates if|"
+    r"Nice[- ]to[- ]have|Must[- ]have)\s*:)"
+)
+_BULLET_INLINE_RE = re.compile(r"(?<!^)(?<!\n)\s+-\s+")
+
+
+_COMPANY_LEAD_MARKERS = (
+    # Anything up to (but not including) one of these markers is company
+    # boilerplate we drop.
+    r"about\s+the\s+role",
+    r"the\s+role",
+    r"role\s*:",
+    r"missions?\s*:",
+    r"responsibilities\s*:",
+    r"what\s+you.?ll\s+do",
+    r"key\s+responsibilities",
+    r"your\s+mission",
+    r"in\s+this\s+role",
+)
+
+
+def _strip_company_boilerplate(text):
+    """LLMs sometimes ignore the 'no company blurb' rule. If the payload
+    starts with a company/mission preamble followed by a real role section
+    (e.g. 'About the Role'), drop the preamble."""
+    lower = text.lower()
+    best_cut = -1
+    for pat in _COMPANY_LEAD_MARKERS:
+        m = re.search(rf"\b{pat}\b", lower)
+        if m and (best_cut == -1 or m.start() < best_cut):
+            best_cut = m.start()
+    # Only strip if the marker is deep enough in the text (not at the start)
+    # AND leaves at least ~150 useful chars behind.
+    if best_cut > 80 and len(text) - best_cut > 150:
+        return text[best_cut:].lstrip()
+    return text
+
+
+def _normalize_role_long_text(text):
+    """LLMs sometimes return the whole payload on one line, dropping the
+    newlines we asked for. Re-inject them around section headers and bullet
+    points so the markdown renderer downstream can do its job."""
+    s = _strip_company_boilerplate(text)
+    # Insert a blank line before each section header if there isn't already one.
+    s = _SECTION_HEADER_RE.sub(lambda m: "\n\n" + m.group(1).lstrip(), s)
+    # Put each " - <bullet>" on its own line (leave first "- " alone since it
+    # comes after a section header).
+    s = _BULLET_INLINE_RE.sub("\n- ", s)
+    # Collapse >2 consecutive newlines to exactly 2.
+    s = re.sub(r"\n{3,}", "\n\n", s).strip()
+    return s
+
+
+def _render_role_long(text):
+    """Turn the LLM's markdown-lite output into HTML: **bold**, bullets,
+    blank lines → paragraphs. Escapes everything else."""
+    text = _normalize_role_long_text(text)
+    lines = text.split("\n")
+    out = []
+    in_ul = False
+    def close_ul():
+        nonlocal in_ul
+        if in_ul:
+            out.append("</ul>")
+            in_ul = False
+    def format_inline(s):
+        return re.sub(
+            r"\*\*(.+?)\*\*",
+            lambda m: f"<strong>{html.escape(m.group(1))}</strong>",
+            html.escape(s),
+        )
+    for raw in lines:
+        line = raw.rstrip()
+        if not line:
+            close_ul()
+            continue
+        stripped = line.lstrip()
+        if stripped.startswith(("- ", "* ", "• ")):
+            if not in_ul:
+                out.append("<ul>")
+                in_ul = True
+            out.append(f"<li>{format_inline(stripped[2:])}</li>")
+        else:
+            close_ul()
+            # Bare "Missions:" etc. → treat as a section heading.
+            if re.match(r"^[A-Z][A-Za-z ]{2,25}:\s*$", stripped):
+                out.append(f"<div class=\"role-heading\"><strong>{format_inline(stripped)}</strong></div>")
+            else:
+                out.append(f"<div>{format_inline(stripped)}</div>")
+    close_ul()
+    return "".join(out)
+
+
+def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None):
     sid = slug(name)
     ordered = sorted(
         visible,
@@ -2095,6 +2455,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         )
         score = j.get("score")
         score_reason = j.get("score_reason") or ""
+        role_summary = j.get("role_summary") or ""
         if score is not None:
             score_cls = "score-hi" if score >= 8 else "score-mid" if score >= 5 else "score-lo"
             score_html = (
@@ -2102,8 +2463,25 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
                 f'title="{html.escape(score_reason, quote=True)}">'
                 f'{int(score)}</span>'
             )
+            summary_parts = []
+            if role_summary:
+                role_long = j.get("role_long") or ""
+                more_html = ""
+                if role_long:
+                    more_html = f'<div class="role-long">{_render_role_long(role_long)}</div>'
+                summary_parts.append(
+                    f'<div class="role-summary"><strong>Role</strong> '
+                    f'<span>{html.escape(role_summary)}</span>{more_html}</div>'
+                )
+            if score_reason:
+                summary_parts.append(
+                    f'<div class="score-summary {score_cls}"><strong>Score</strong> '
+                    f'<span>{html.escape(score_reason)}</span></div>'
+                )
+            score_summary_html = "".join(summary_parts)
         else:
             score_html = ""
+            score_summary_html = ""
         desc = sanitize_html(j["description"])
         desc_html = desc if desc else '<em>No description available.</em>'
         is_liked = url in liked
@@ -2135,7 +2513,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'        <div class="desc-actions">{open_link}</div>\n'
             f'        <div class="desc-body">{desc_html}</div>\n'
             f'      </div>\n'
-            f'    </details></li>'
+            f'    </details>{score_summary_html}</li>'
         )
     ul_content = "\n".join(items) if items else "    <li><em>none</em></li>"
     visible_count = len(visible)
@@ -2163,10 +2541,39 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         )
         query_pills = f'<span class="queries" title="Board-side search queries">{pills}</span>'
     spontaneous_row = f'  <div class="spontaneous-row">{spontaneous}</div>\n' if spontaneous else ""
+
+    # Rejected jobs collapsible block — one line per rejected job in this
+    # section, each with a "Restore" button.
+    rejected_block = ""
+    if rejected_jobs:
+        rej_items = []
+        for j in sorted(rejected_jobs, key=lambda j: j["title"].lower()):
+            url = j["url"]
+            url_esc = html.escape(url, quote=True)
+            title_esc = html.escape(j["title"])
+            locs_txt = ", ".join(j["locations"]) if j["locations"] else "N/A"
+            locs_esc = html.escape(locs_txt)
+            rej_items.append(
+                f'      <li class="rejected-job">'
+                f'<button class="restore" data-url="{url_esc}" title="Restore">↩</button>'
+                f'<a href="{url_esc}" target="_blank" rel="noopener">{title_esc}</a>'
+                f'<span class="locs"> — {locs_esc}</span></li>'
+            )
+        rejected_block = (
+            f'  <details class="rejected-block" data-section="{sid}">\n'
+            f'    <summary>{len(rejected_jobs)} rejected in this section — click to expand</summary>\n'
+            f'    <ul class="rejected-list">\n' + "\n".join(rej_items) + '\n'
+            f'    </ul>\n'
+            f'  </details>\n'
+        )
+
     return (
+        f'  <section class="company-section" data-section="{sid}">\n'
         f'  <h1 id="{sid}">{board_link} {query_pills} {counter}</h1>\n'
         f'{spontaneous_row}'
-        f'  <ul data-section="{sid}">\n{ul_content}\n  </ul>'
+        f'  <ul data-section="{sid}">\n{ul_content}\n  </ul>\n'
+        f'{rejected_block}'
+        f'  </section>'
     )
 
 
@@ -2183,7 +2590,8 @@ def render_html_nav(entries):
             continue
         items.sort(key=lambda kv: kv[0].lower())
         buttons = "".join(
-            f'<a class="nav-btn" href="#{slug(name)}">{html.escape(name)} '
+            f'<a class="nav-btn {"has-jobs" if visible_count > 0 else "no-jobs"}" '
+            f'href="#{slug(name)}">{html.escape(name)} '
             f'(<span class="nav-count">{visible_count}</span>)</a>'
             for name, visible_count in items
         )
@@ -2323,6 +2731,9 @@ def render_html_filters(seniority_labels, all_locations=None):
         '    </div>\n'
         '    <div class="filter-group">\n'
         '      <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="role-summary-toggle" checked> Show role</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="score-summary-toggle" checked> Show score reason</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
         '    </div>\n'
         '  </section>'
     )
@@ -2450,7 +2861,22 @@ HTML_TEMPLATE = """<!doctype html>
       border-color: var(--fg-subtle);
       text-decoration: none;
     }
-    .nav-count { color: var(--severe); font-weight: 600; }
+    .nav-btn.has-jobs {
+      background: rgba(63, 185, 80, 0.12);
+      border-color: rgba(63, 185, 80, 0.5);
+      color: var(--success);
+    }
+    .nav-btn.has-jobs:hover {
+      background: rgba(63, 185, 80, 0.22);
+      border-color: var(--success);
+    }
+    .nav-btn.no-jobs {
+      color: var(--fg-muted);
+      opacity: 0.7;
+    }
+    .nav-count { font-weight: 600; }
+    .nav-btn.has-jobs .nav-count { color: var(--success); }
+    .nav-btn.no-jobs .nav-count { color: var(--fg-muted); }
     .total-count {
       font-size: 1rem;
       font-weight: 600;
@@ -2579,12 +3005,15 @@ HTML_TEMPLATE = """<!doctype html>
     ul { padding-left: 0.25rem; list-style: none; }
     li {
       display: flex;
+      flex-wrap: wrap;
       align-items: baseline;
       gap: 0.6rem;
       margin: 0.4rem 0;
     }
     li.hidden { display: none; }
     li > details { flex: 1; min-width: 0; }
+    li > .score-summary,
+    li > .role-summary  { flex-basis: 100%; margin-left: 2.1rem; }
     /* Summary stays on one line and overflows to the right instead of wrapping */
     summary {
       cursor: pointer;
@@ -2672,6 +3101,129 @@ HTML_TEMPLATE = """<!doctype html>
     .badge.score-hi  { color: #ffffff;         background: var(--success); border-color: var(--success); }
     .badge.score-mid { color: var(--attention);background: #fff8c5;         border-color: rgba(154,103,0,0.4); }
     .badge.score-lo  { color: var(--fg-muted); background: var(--bg-subtle);border-color: var(--border); }
+    .score-summary, .role-summary {
+      margin-top: 0.15rem;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      color: var(--fg-muted);
+      border-left: 3px solid var(--border);
+      background: transparent;
+    }
+    .score-summary strong, .role-summary strong {
+      color: var(--fg);
+      margin-right: 0.35rem;
+    }
+    .role-summary { border-left-color: var(--accent); }
+    .role-summary strong { color: var(--accent); }
+    .score-summary.score-hi  { border-left-color: var(--success); color: var(--fg); }
+    .score-summary.score-mid { border-left-color: var(--attention); }
+    .score-summary.score-lo  { border-left-color: var(--border); }
+    body.hide-score-summary .score-summary { display: none; }
+    body.hide-role-summary  .role-summary  { display: none; }
+    body.hide-empty-sections .company-section.empty { display: none; }
+
+    .role-more {
+      display: block;
+      margin-top: 0.35rem;
+      font-size: 0.8rem;
+    }
+    .role-more > summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 500;
+      list-style: none;
+    }
+    .role-more[open] > summary::after { content: " ▴"; }
+    .role-more:not([open]) > summary::after { content: " ▾"; }
+    .role-long {
+      margin-top: 0.4rem;
+      padding: 0.5rem 0.7rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      line-height: 1.4;
+    }
+    .role-long > div { margin: 0.25rem 0; }
+    .role-long > div.role-heading { margin: 0.6rem 0 0.2rem; }
+    .role-long > div.role-heading:first-child { margin-top: 0; }
+    .role-long strong { color: var(--accent); }
+    .role-long ul { margin: 0.15rem 0 0.35rem 0; padding-left: 1.2rem; }
+    .role-long li { margin: 0.1rem 0; }
+
+    .undo-toast {
+      position: fixed;
+      bottom: 1.2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      background: var(--fg);
+      color: var(--bg);
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+      font-size: 0.9rem;
+      z-index: 999;
+      transition: transform 0.2s ease;
+      max-width: 90vw;
+    }
+    .undo-toast.visible { transform: translateX(-50%) translateY(0); }
+    .undo-toast .undo-msg { color: inherit; }
+    .undo-toast em { font-style: normal; opacity: 0.85; }
+    .undo-btn {
+      background: var(--severe);
+      color: #ffffff;
+      border: none;
+      padding: 0.35rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .undo-btn:hover { background: #a04113; }
+
+    .rejected-block {
+      margin-top: 0.7rem;
+      margin-left: 0.25rem;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.8rem;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .rejected-block > summary {
+      cursor: pointer;
+      color: var(--fg-muted);
+      font-weight: 500;
+    }
+    .rejected-block[open] > summary { margin-bottom: 0.4rem; }
+    .rejected-list { list-style: none; padding-left: 0.25rem; margin: 0; }
+    .rejected-list li.rejected-job {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      padding: 0.15rem 0;
+      color: var(--fg-muted);
+    }
+    .rejected-list li.rejected-job a { color: var(--fg-muted); text-decoration: line-through; }
+    .rejected-list li.rejected-job a:hover { color: var(--accent); }
+    .restore {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid var(--success);
+      color: var(--success);
+      border-radius: 50%;
+      width: 1.3rem;
+      height: 1.3rem;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+    }
+    .restore:hover { background: var(--success); color: #ffffff; }
 
     .description {
       margin: 0.6rem 0 1rem 0.25rem;
@@ -2759,6 +3311,9 @@ function saveFilters() {
     title: (document.getElementById('title-filter')?.value) || '',
     text:  (document.getElementById('text-filter')?.value)  || '',
     highlight: document.getElementById('highlight-toggle')?.checked ?? true,
+    scoreSummary: document.getElementById('score-summary-toggle')?.checked ?? true,
+    roleSummary: document.getElementById('role-summary-toggle')?.checked ?? true,
+    hideEmpty: document.getElementById('hide-empty-toggle')?.checked ?? false,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
@@ -2782,6 +3337,21 @@ function loadFilters() {
   if (hl && s.highlight === false) {
     hl.checked = false;
     document.body.classList.add('no-highlights');
+  }
+  const ss = document.getElementById('score-summary-toggle');
+  if (ss && s.scoreSummary === false) {
+    ss.checked = false;
+    document.body.classList.add('hide-score-summary');
+  }
+  const rs = document.getElementById('role-summary-toggle');
+  if (rs && s.roleSummary === false) {
+    rs.checked = false;
+    document.body.classList.add('hide-role-summary');
+  }
+  const he = document.getElementById('hide-empty-toggle');
+  if (he && s.hideEmpty === true) {
+    he.checked = true;
+    document.body.classList.add('hide-empty-sections');
   }
 }
 
@@ -2829,9 +3399,19 @@ function applyFilters() {
     const visible = ul.querySelectorAll('li.job:not(.hidden)').length;
     total += visible;
     const navCount = document.querySelector('.nav-btn[href="#' + sid + '"] .nav-count');
-    if (navCount) navCount.textContent = visible;
+    if (navCount) {
+      navCount.textContent = visible;
+      const btn = navCount.closest('.nav-btn');
+      if (btn) {
+        btn.classList.toggle('has-jobs', visible > 0);
+        btn.classList.toggle('no-jobs',  visible === 0);
+      }
+    }
     const v = document.querySelector('#' + sid + ' .counter .v');
     if (v) v.textContent = visible;
+    // Mark the parent .company-section empty when there's nothing visible.
+    const section = ul.closest('.company-section');
+    if (section) section.classList.toggle('empty', visible === 0);
   });
   const totalEl = document.getElementById('total-count');
   if (totalEl) totalEl.textContent = total;
@@ -2861,6 +3441,32 @@ const hlToggle = document.getElementById('highlight-toggle');
 if (hlToggle) {
   hlToggle.addEventListener('change', () => {
     document.body.classList.toggle('no-highlights', !hlToggle.checked);
+    saveFilters();
+  });
+}
+
+const ssToggle = document.getElementById('score-summary-toggle');
+if (ssToggle) {
+  ssToggle.addEventListener('change', () => {
+    document.body.classList.toggle('hide-score-summary', !ssToggle.checked);
+    saveFilters();
+  });
+}
+
+const rsToggle = document.getElementById('role-summary-toggle');
+if (rsToggle) {
+  rsToggle.addEventListener('change', () => {
+    document.body.classList.toggle('hide-role-summary', !rsToggle.checked);
+    saveFilters();
+  });
+}
+
+const heToggle = document.getElementById('hide-empty-toggle');
+if (heToggle) {
+  heToggle.addEventListener('change', () => {
+    document.body.classList.toggle('hide-empty-sections', heToggle.checked);
+    applyFilters();  // recompute .empty markers below
+    saveFilters();
   });
 }
 
@@ -2904,7 +3510,77 @@ document.querySelectorAll('.like').forEach(btn => {
   });
 });
 
-/* --- Reject ------------------------------------------------------------ */
+/* --- Reject + Undo ----------------------------------------------------- */
+const rejectUndoStack = [];   // {url, sid, li, next, ul}
+
+function updateCounters(sid, deltaVisible, deltaRejected) {
+  const h1 = document.getElementById(sid);
+  if (h1) {
+    const v = h1.querySelector('.counter .v');
+    const r = h1.querySelector('.counter .r');
+    if (v) v.textContent = parseInt(v.textContent) + deltaVisible;
+    if (r) r.textContent = parseInt(r.textContent) + deltaRejected;
+  }
+  const navCount = document.querySelector('.nav-btn[href="#' + sid + '"] .nav-count');
+  if (navCount) {
+    const newVal = parseInt(navCount.textContent) + deltaVisible;
+    navCount.textContent = newVal;
+    const btn = navCount.closest('.nav-btn');
+    if (btn) {
+      btn.classList.toggle('has-jobs', newVal > 0);
+      btn.classList.toggle('no-jobs',  newVal === 0);
+    }
+  }
+  const totalEl = document.getElementById('total-count');
+  if (totalEl) totalEl.textContent = parseInt(totalEl.textContent) + deltaVisible;
+}
+
+function showUndoToast() {
+  let toast = document.getElementById('undo-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'undo-toast';
+    toast.className = 'undo-toast';
+    document.body.appendChild(toast);
+  }
+  const count = rejectUndoStack.length;
+  if (count === 0) {
+    toast.classList.remove('visible');
+    return;
+  }
+  const last = rejectUndoStack[rejectUndoStack.length - 1];
+  const title = last.li.querySelector('.title')?.textContent?.trim() || 'job';
+  toast.innerHTML =
+    '<span class="undo-msg">Rejected <em>' + title.slice(0, 60) + '</em></span>' +
+    '<button id="undo-btn" class="undo-btn">Undo (' + count + ')</button>';
+  toast.classList.add('visible');
+  document.getElementById('undo-btn').addEventListener('click', undoLastReject);
+}
+
+async function undoLastReject() {
+  const last = rejectUndoStack.pop();
+  if (!last) return;
+  try {
+    await apiPost('/unreject', last.url);
+  } catch (err) {
+    alert('Undo failed: ' + err.message);
+    rejectUndoStack.push(last);
+    return;
+  }
+  // Re-insert the <li> before its next sibling (or at the end of the ul).
+  if (last.next && last.next.parentNode === last.ul) {
+    last.ul.insertBefore(last.li, last.next);
+  } else {
+    last.ul.appendChild(last.li);
+  }
+  // Kill the "<li><em>none</em></li>" placeholder if we added one.
+  last.ul.querySelectorAll('li').forEach(li => {
+    if (!li.classList.contains('job') && li.textContent.trim() === 'none') li.remove();
+  });
+  updateCounters(last.sid, +1, -1);
+  showUndoToast();
+}
+
 document.querySelectorAll('.reject').forEach(btn => {
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -2916,32 +3592,62 @@ document.querySelectorAll('.reject').forEach(btn => {
     btn.disabled = true;
     li.style.opacity = '0.3';
     try {
-      const base = location.protocol === 'file:' ? SERVER_URL : '';
-      const res = await fetch(base + '/reject', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({url})
-      });
-      if (!res.ok) throw new Error('http ' + res.status);
+      await apiPost('/reject', url);
+      // Save enough state to restore this exact position.
+      const next = li.nextElementSibling;
+      rejectUndoStack.push({url, sid, li, next, ul});
       li.remove();
-      const h1 = document.getElementById(sid);
-      if (h1) {
-        const v = h1.querySelector('.counter .v');
-        const r = h1.querySelector('.counter .r');
-        if (v) v.textContent = parseInt(v.textContent) - 1;
-        if (r) r.textContent = parseInt(r.textContent) + 1;
-      }
-      const navCount = document.querySelector('.nav-btn[href="#' + sid + '"] .nav-count');
-      if (navCount) navCount.textContent = parseInt(navCount.textContent) - 1;
-      const totalEl = document.getElementById('total-count');
-      if (totalEl) totalEl.textContent = parseInt(totalEl.textContent) - 1;
+      updateCounters(sid, -1, +1);
       if (ul.querySelectorAll('li').length === 0) {
         ul.insertAdjacentHTML('beforeend', '    <li><em>none</em></li>');
       }
+      showUndoToast();
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
       alert('Reject failed: ' + err.message);
+    }
+  });
+});
+
+// Keyboard shortcut: Cmd/Ctrl-Z anywhere on the page.
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && rejectUndoStack.length > 0) {
+    e.preventDefault();
+    undoLastReject();
+  }
+});
+
+/* --- Restore from the "Rejected in this section" list ---------------- */
+document.querySelectorAll('.restore').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = btn.dataset.url;
+    const li = btn.closest('li.rejected-job');
+    const block = li.closest('.rejected-block');
+    const sid = block?.dataset.section;
+    btn.disabled = true;
+    li.style.opacity = '0.4';
+    try {
+      await apiPost('/unreject', url);
+      li.remove();
+      // Update the counter of rejected items in this section's expando.
+      const summary = block?.querySelector('summary');
+      const remaining = block?.querySelectorAll('li.rejected-job').length ?? 0;
+      if (summary) {
+        summary.textContent = remaining + ' rejected in this section — click to expand';
+      }
+      if (remaining === 0 && block) block.remove();
+      if (sid) updateCounters(sid, +1, -1);
+      // Note: the restored job won't appear in the visible list until the
+      // page is refreshed / re-fetched, because we don't have the fresh
+      // job data client-side. Show a small note.
+      alert('Restored. Refresh the page (or re-run jobs.py) to see it back in the main list.');
+    } catch (err) {
+      btn.disabled = false;
+      li.style.opacity = '1';
+      alert('Restore failed: ' + err.message);
     }
   });
 });
@@ -2982,7 +3688,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        if self.path not in ("/reject", "/like", "/unlike"):
+        if self.path not in ("/reject", "/unreject", "/like", "/unlike"):
             self.send_response(404)
             self.end_headers()
             return
@@ -3000,6 +3706,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path == "/reject":
             s = load_rejected(); s.add(url); save_rejected(s)
             sys.stdout.write(f"rejected: {url}\n")
+        elif self.path == "/unreject":
+            s = load_rejected(); s.discard(url); save_rejected(s)
+            sys.stdout.write(f"unrejected: {url}\n")
         elif self.path == "/like":
             s = load_liked(); s.add(url); save_liked(s)
             sys.stdout.write(f"liked:    {url}\n")
@@ -3069,6 +3778,14 @@ def _parse_cli():
                     help="Skip all Playwright-based boards (Apple/Google/MS/…).")
     ap.add_argument("--skip-scoring", action="store_true",
                     help="Don't call the LLM for scoring (uses cached scores only).")
+    ap.add_argument("--no-list-cache", action="store_true",
+                    help="Ignore the per-source list cache and re-fetch everything.")
+    ap.add_argument("--long-roles", action="store_true",
+                    help="Ask the LLM for a longer, detailed role description on top of the short one.")
+    ap.add_argument("--clear-cache", metavar="WHAT",
+                    help="Wipe caches before running. WHAT is a comma-separated "
+                         "subset of {scores,descriptions,list,all}. "
+                         "Rejected / liked / raw_locations are always kept.")
     ap.add_argument("--debug-locations", action="store_true",
                     help="Dump raw→normalized locations and exit.")
     ap.add_argument("--no-open", action="store_true",
@@ -3080,6 +3797,56 @@ def _parse_cli():
 
 def main():
     args = _parse_cli()
+
+    if args.clear_cache:
+        # Accept singular / plural / minor typos.
+        _aliases = {
+            "score": "scores", "scores": "scores",
+            "description": "descriptions", "descriptions": "descriptions",
+            "desc": "descriptions", "descs": "descriptions",
+            "list": "list", "lists": "list",
+            "all": "all",
+        }
+        wanted = set()
+        unknown = []
+        for x in args.clear_cache.split(","):
+            k = x.strip().lower()
+            if not k: continue
+            if k in _aliases: wanted.add(_aliases[k])
+            else: unknown.append(k)
+        # Fail hard on any unknown part rather than silently clearing a subset
+        # and moving on — the user asked to wipe something specific and got a
+        # partial result last time because of a typo.
+        if unknown:
+            err(
+                f"[clear-cache] unknown parts: {sorted(unknown)}. "
+                "Accepted: scores, descriptions, list, all. Aborting."
+            )
+            sys.exit(2)
+        if "all" in wanted:
+            wanted = {"scores", "descriptions", "list"}
+        if "scores" in wanted:
+            try: os.remove(SCORE_CACHE); print(f"[clear-cache] removed {SCORE_CACHE}")
+            except FileNotFoundError: pass
+        if "descriptions" in wanted:
+            try: os.remove(DESC_CACHE); print(f"[clear-cache] removed {DESC_CACHE}")
+            except FileNotFoundError: pass
+        if "list" in wanted:
+            import shutil
+            if os.path.isdir(LIST_CACHE_DIR):
+                shutil.rmtree(LIST_CACHE_DIR)
+                print(f"[clear-cache] removed {LIST_CACHE_DIR}/")
+
+    if args.no_list_cache:
+        # Global override — see collect().
+        global LIST_CACHE_TTL_HOURS
+        LIST_CACHE_TTL_HOURS = 0
+
+    if args.long_roles:
+        # Rebuild the scoring system prompt with the extra `role_long` field.
+        global SCORE_LONG_ROLES, SCORING_SYSTEM
+        SCORE_LONG_ROLES = True
+        SCORING_SYSTEM = _scoring_system()
 
     if args.list:
         print(",".join(s["name"] for s in SOURCES))
@@ -3181,11 +3948,13 @@ def main():
         result = results[src["name"]]
         all_jobs = result["jobs"]
         visible = [j for j in all_jobs if j["url"] not in rejected]
+        rejected_jobs = [j for j in all_jobs if j["url"] in rejected]
         rejected_here = len(all_jobs) - len(visible)
         html_sections.append(render_html_section(
             src["name"], visible, rejected_here,
             board_url_for(src), result.get("spontaneous_url"),
             liked, src.get("queries", []),
+            rejected_jobs=rejected_jobs,
         ))
         nav_entries.append((src["name"], len(visible)))
         all_visible.extend(visible)
@@ -3278,6 +4047,10 @@ def main():
         f"wrote {OUTPUT_HTML} · total {elapsed:.1f}s · "
         f"rejected DB: {REJECTED_DB} ({len(rejected)} entries)"
     )
+
+    # All Playwright work is done — release the shared Chromium instance so
+    # it doesn't leak memory while the HTTP server runs indefinitely.
+    _close_shared_browser()
 
     print("=" * 70, file=sys.stdout)
     print("Step 4 — serve: local HTTP server + auto-open browser; handles", file=sys.stdout)

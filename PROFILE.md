@@ -106,6 +106,11 @@ Ranked loosely by strength of signal:
 
 ## Domains (don't want)
 
+- **Non-technical roles** (Sales, Marketing, Business Development,
+  Customer Success, GTM, Recruiting, Legal, Finance, People Ops).
+  Hard red flag — if the description has no programming language, no
+  framework, no cryptography, no ML/AI stack, no compiler / infra
+  tech, it should score at most 3.
 - **Pure research / 100% theoretical** — the candidate wants shipping
   product and hands-on development, even in deeptech.
 - **Security infrastructure** as a primary focus (SRE / netsec /
@@ -140,6 +145,8 @@ When ranking, weight roughly like this:
 - **+3** title matches "codex", "codemender", "Logic Pro",
   "vulnerability remediation", or "AI security" (research-and-code
   intersection).
+- **+5** description contains the word "cryptography" (or
+  "cryptographic", "cryptographer") anywhere.
 - **+2** applied cryptography — FHE, MPC, ZK, homomorphic, secure
   computation.
 - **+2** whitebox cryptography / obfuscation / content protection / DRM.
@@ -167,6 +174,11 @@ When ranking, weight roughly like this:
 - **-2** infra / netsec / cloud-sec-ops as primary focus.
 - **-2** unclear whether the role is technical enough
   (people-manager-only, no build).
+- **-6** non-technical role (Sales / Marketing / Business Development /
+  Customer Success / GTM / Recruiting / Legal / Finance / Ops).
+  A description with no programming language, no framework, no
+  cryptography term, no ML/AI stack, no compiler / infra tech — it's
+  a red flag. Score should not exceed 3.
 - **-2** 100% research / theoretical role with no shipping component.
 - **-5** salary is explicitly mentioned and is below the 150k€ /
   equivalent floor (no penalty if salary is not mentioned).

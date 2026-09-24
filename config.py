@@ -20,6 +20,12 @@ PROFILE_FILE        = "PROFILE.md"
 SCORE_CACHE         = "score_cache.json"
 DESC_CACHE          = "desc_cache.json"
 RAW_LOCATIONS_FILE  = "raw_locations.txt"
+LIST_CACHE_DIR      = "list_cache"
+
+# TTL for the per-source list cache. On a re-run within this window we skip
+# Playwright entirely for that source (huge speed-up when descriptions and
+# scores are already cached). Set to 0 to always re-fetch.
+LIST_CACHE_TTL_HOURS = 6
 
 # Local HTTP server the browser talks to (× reject / +1 like).
 SERVE_HOST = "127.0.0.1"
@@ -34,10 +40,15 @@ SERVE_PORT = 8765
 SCORER           = "ollama"
 CLAUDE_MODEL     = "claude-sonnet-4-6"
 OLLAMA_URL       = "http://localhost:11434/api/chat"
-OLLAMA_MODEL     = "llama3.2:latest"
-SCORE_BATCH_SIZE = 1     # 1 = 100% coverage; higher = faster but may drop scores
-SCORE_DESC_CHARS = 400   # description chars sent to the LLM per job
-SCORE_PARALLEL   = 6     # concurrent calls to Ollama/Claude
+OLLAMA_MODEL     = "qwen2.5:7b"
+SCORE_BATCH_SIZE = 1      # 1 = 100% coverage; higher = faster but may drop scores
+SCORE_DESC_CHARS = 15000  # description chars sent to the LLM per job. Set high
+                          # enough to include Salary/Compensation/Benefits which
+                          # usually sit near the end of a posting. Very few jobs
+                          # exceed this; on the current model + laptop the extra
+                          # latency is negligible for ~150 jobs.
+SCORE_PARALLEL   = 6      # concurrent calls to Ollama/Claude
+SCORE_LONG_ROLES = False  # if True, LLM also returns a longer 6-10 sentence role summary
 
 # =============================================================================
 # Highlights — words drawn with a marker style in titles + descriptions
@@ -185,6 +196,10 @@ LOCATION_BLACKLIST = [
     "Denmark", "Copenhagen",
     "Hungary", "Budapest",
     "Pune", "Ramat Gan",
+    "Belgium", "Brussels",
+    "Canada",
+    "Ireland", "Dublin",
+    "Japan", "Tokyo",
 ]
 
 # =============================================================================
@@ -209,6 +224,9 @@ SENIORITY = [
     ("Director", "Director"),
     ("Vice President", "VP"),
     (" VP ", "VP"),
+    ("VP,", "VP"),
+    ("VP of ", "VP"),
+    ("SVP", "VP"),
     ("Manager", "Manager"),
     ("Lead", "Lead"),
     ("Senior", "Senior"),
