@@ -221,6 +221,33 @@ SOURCES = [
     {"name": "Cohere",    "kind": "ashby",      "slug": "cohere",     "queries": ["security"]},
     {"name": "H",         "kind": "ashby",      "slug": "hcompany",   "queries": []},
     {"name": "AMI",       "kind": "ashby",      "slug": "ami",        "queries": []},
+    {"name": "SSI",       "kind": "ashby",      "slug": "ssi",        "queries": []},
+    {"name": "Thinking Machines", "kind": "ashby", "slug": "ThinkingMachines", "queries": []},
+    {"name": "Scale AI",  "kind": "pw",         "slug": "scale",      "queries": [],
+     "board": "https://scale.com/careers",
+     "search_url": "https://scale.com/careers",
+     "link_re": r'href="(/careers/[^"#?]+)"',
+     "origin": "https://scale.com"},
+    {"name": "HF",        "kind": "workable",   "slug": "huggingface","queries": [],
+     "board": "https://apply.workable.com/huggingface/"},
+    {"name": "DeepL",     "kind": "ashby",      "slug": "DeepL",      "queries": []},
+    {"name": "Eleven Labs", "kind": "ashby",    "slug": "elevenlabs", "queries": []},
+    {"name": "Poolside", "kind": "ashby",       "slug": "poolside",   "queries": []},
+    {"name": "Black Forest Labs", "kind": "greenhouse", "slug": "blackforestlabs", "queries": []},
+    {"name": "Proton",   "kind": "greenhouse",  "slug": "proton",    "queries": [],
+     "board": "https://proton.me/careers"},
+    {"name": "Sony AI",  "kind": "pw",          "slug": "sonyai",    "queries": [],
+     "board": "https://ai.sony/join-us",
+     "search_url": "https://ai.sony/join-us",
+     "link_re": r'href="(https?://[^"]*(?:jobs|careers|job-postings|apply)[^"]*|/(?:jobs|careers|open-roles)/[^"#?]+)"',
+     "origin": "https://ai.sony"},
+    {"name": "Cursor",   "kind": "ashby",       "slug": "cursor",    "queries": [],
+     "board": "https://cursor.com/careers"},
+    {"name": "Cognition","kind": "ashby",       "slug": "cognition", "queries": [],
+     "board": "https://cognition.com/careers"},
+    {"name": "NVIDIA",    "kind": "phenom",     "slug": "nvidia",     "queries": ["security"],
+     "board": "https://jobs.nvidia.com/careers?query=Security&pid=893394830937&sort_by=relevance",
+     "search_url": "https://jobs.nvidia.com/careers?query=Security&sort_by=relevance"},
     {"name": "Apple",     "kind": "apple",      "slug": "apple",      "queries": ["security", "Logic"],
      "board": "https://jobs.apple.com/en-us/search?search=security"},
     {"name": "Microsoft", "kind": "microsoft",  "slug": "microsoft",  "queries": ["security"],
@@ -228,6 +255,8 @@ SOURCES = [
     {"name": "Google",    "kind": "google",     "slug": "google",     "queries": ["security", "codemender", "DeepMind"],
      "board": "https://www.google.com/about/careers/applications/jobs/results/?q=security&hl=en_US",
      "search_url": "https://www.google.com/about/careers/applications/jobs/results?hl=en_US&target_level=DIRECTOR_PLUS&target_level=ADVANCED&employment_type=FULL_TIME"},
+    {"name": "Meta",      "kind": "meta",       "slug": "meta",       "queries": ["security"],
+     "board": "https://www.metacareers.com/jobsearch/?q=security"},
     {"name": "Ableton",    "kind": "ableton", "slug": "ableton",       "queries": [],
      "board": "https://www.ableton.com/en/jobs/"},
     {"name": "Arturia",    "kind": "lucca",   "slug": "arturia-france", "queries": [],
@@ -242,6 +271,9 @@ SOURCES = [
      "search_url": "https://www.steinberg.net/careers/vacancies/",
      "link_re": r'href="(https?://www\.steinberg\.net/careers/[^"#?]+|/careers/[^"#?/]+/[^"#?]+)"',
      "origin": "https://www.steinberg.net"},
+    {"name": "Welcome to the Jungle", "kind": "wttj", "slug": "wttj", "queries": ["security"],
+     "board": "https://www.welcometothejungle.com/fr/pages/emploi?query=security",
+     "search_url": "https://www.welcometothejungle.com/fr/pages/emploi?query=security&refinementList[contract_type][0]=full_time"},
     # TODO: need job board URLs for Native Instruments and Bitwig.
     # Paste their careers page URL and I'll wire them up.
 ]
@@ -426,6 +458,47 @@ def normalize_ashby(raw):
             "blob": " ".join([j.get("title", ""), j.get("department", ""), j.get("team", "")]),
         })
     return out
+
+
+def normalize_workable(raw):
+    out = []
+    for j in raw.get("results", []):
+        loc = j.get("location") or {}
+        city = loc.get("city") or ""
+        country = loc.get("country") or ""
+        loc_str = ", ".join(x for x in [city, country] if x) or (loc.get("workplace") or "")
+        out.append({
+            "title": j.get("title", ""),
+            "locations": [loc_str] if loc_str else [],
+            "url": j.get("url") or f"https://apply.workable.com/{j.get('shortcode', '')}",
+            "description": j.get("description", "") or "",
+            "blob": " ".join([j.get("title", ""), j.get("department", "") or ""]),
+        })
+    return out
+
+
+def fetch_workable(source):
+    slug = source["slug"]
+    url = f"https://apply.workable.com/api/v3/accounts/{slug}/jobs"
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps({"query": "", "location": [], "department": [], "workplace": []}).encode(),
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = json.load(resp)
+    except Exception as e:
+        sys.stdout.write(f"[{source['name']}] Workable fetch failed: {e}\n")
+        return {"jobs": [], "spontaneous_url": None}
+    all_jobs = normalize_workable(raw)
+    matched = [j for j in all_jobs if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(all_jobs)}
 
 
 def normalize_greenhouse(raw):
@@ -1025,15 +1098,185 @@ def fetch_pw_generic(source):
     return {"jobs": jobs, "spontaneous_url": _pick_spontaneous(jobs)}
 
 
+_META_JOB_RE = re.compile(r'/jobs/(\d{5,})/?', re.IGNORECASE)
+
+
+def fetch_meta(source):
+    if not HAS_PLAYWRIGHT:
+        sys.stdout.write("[Meta] Playwright not installed\n")
+        return {"jobs": [], "spontaneous_url": None}
+    out, seen = [], set()
+    p, browser, page = _open_browser()
+    try:
+        for q in source["queries"]:
+            url = f"https://www.metacareers.com/jobsearch/?q={urllib.parse.quote(q)}"
+            debug = f"debug-meta-{q}-1.html"
+            text = _render(page, url, wait_selector="a[href*='/jobs/']", debug_path=debug)
+            # Meta renders job cards as <a href="/jobs/<id>/">…title…locations…</a>
+            pattern = re.compile(
+                r'<a[^>]+href="(/jobs/\d+/?)"[^>]*>(.*?)</a>',
+                re.IGNORECASE | re.DOTALL,
+            )
+            found = 0
+            for path_match, body in pattern.findall(text):
+                m = _META_JOB_RE.search(path_match)
+                if not m:
+                    continue
+                jid = m.group(1)
+                if jid in seen:
+                    continue
+                seen.add(jid)
+                text_body = re.sub(r'<[^>]+>', '|', body)
+                parts = [p.strip() for p in text_body.split('|') if p.strip()]
+                title = parts[0] if parts else f"Meta job {jid}"
+                locs = parts[1:] if len(parts) > 1 else []
+                out.append({
+                    "title": title,
+                    "locations": locs,
+                    "url": f"https://www.metacareers.com{path_match}",
+                    "description": "",
+                    "blob": " ".join([title] + locs),
+                })
+                found += 1
+            sys.stdout.write(f"[Meta] q='{q}' rendered {len(text)}B, jobs={found}\n")
+        filtered = [j for j in out if matches(j, source["queries"])]
+        _fetch_descriptions(page, filtered, "Meta")
+    finally:
+        browser.close()
+        p.stop()
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+
+
+_PHENOM_JOB_RE = re.compile(
+    r'href="/careers/job/(\d+)"[^>]*>(.*?)</a>',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def fetch_phenom(source):
+    """Generic Phenom People ATS scraper (NVIDIA, and similar)."""
+    if not HAS_PLAYWRIGHT:
+        sys.stdout.write(f"[{source['name']}] Playwright not installed\n")
+        return {"jobs": [], "spontaneous_url": None}
+    out, seen = [], set()
+    p, browser, page = _open_browser()
+    origin = source.get("search_url", "").split("/careers")[0] or "https://jobs.example.com"
+    try:
+        for q in source["queries"]:
+            for pnum in range(10):
+                start = pnum * 20
+                base = source.get("search_url") or ""
+                sep = "&" if "?" in base else "?"
+                url = f"{base}{sep}start={start}"
+                debug = f"debug-{slug(source['name'])}-{q}-{pnum}.html" if pnum == 0 else None
+                text = _render(
+                    page, url,
+                    wait_selector='a[id^="job-card-"][id$="-job-list"]',
+                    debug_path=debug,
+                )
+                urls = _PHENOM_JOB_RE.findall(text)
+                if pnum == 0:
+                    sys.stdout.write(
+                        f"[{source['name']}] q='{q}' rendered {len(text)}B, urls={len(urls)}\n"
+                    )
+                if not urls:
+                    break
+                added = 0
+                for jid, body in urls:
+                    if jid in seen:
+                        continue
+                    text_body = re.sub(r'<[^>]+>', '|', body)
+                    parts = [p.strip() for p in text_body.split('|') if p.strip()]
+                    title = parts[0] if parts else f"{source['name']} job {jid}"
+                    location = parts[1] if len(parts) > 1 else ""
+                    seen.add(jid)
+                    out.append({
+                        "title": title,
+                        "locations": [location] if location else [],
+                        "url": f"{origin}/careers/job/{jid}",
+                        "description": "",
+                        "blob": title,
+                    })
+                    added += 1
+                if added == 0:
+                    break
+        filtered = [j for j in out if matches(j, source["queries"])]
+        _fetch_descriptions(page, filtered, source["name"])
+    finally:
+        browser.close()
+        p.stop()
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+
+
+_WTTJ_JOB_RE = re.compile(
+    r'href="(/[a-z]{2}/companies/[^"#]+/jobs/[^"#?]+)"',
+    re.IGNORECASE,
+)
+
+
+def fetch_wttj(source):
+    if not HAS_PLAYWRIGHT:
+        sys.stdout.write("[Welcome to the Jungle] Playwright not installed\n")
+        return {"jobs": [], "spontaneous_url": None}
+    out, seen = [], set()
+    p, browser, page = _open_browser()
+    try:
+        for q in source["queries"]:
+            base = source.get("search_url") or f"https://www.welcometothejungle.com/fr/pages/emploi?query={urllib.parse.quote(q)}"
+            for pnum in range(1, 6):
+                sep = "&" if "?" in base else "?"
+                url = f"{base}{sep}page={pnum}"
+                debug = f"debug-wttj-{q}-{pnum}.html" if pnum == 1 else None
+                text = _render(
+                    page, url,
+                    wait_selector='a[href*="/companies/"][href*="/jobs/"]',
+                    debug_path=debug,
+                )
+                paths = list(dict.fromkeys(_WTTJ_JOB_RE.findall(text)))
+                if pnum == 1:
+                    sys.stdout.write(
+                        f"[Welcome to the Jungle] q='{q}' rendered {len(text)}B, urls={len(paths)}\n"
+                    )
+                if not paths:
+                    break
+                added = 0
+                for path in paths:
+                    if path in seen:
+                        continue
+                    seen.add(path)
+                    tail = path.rstrip("/").rsplit("/", 1)[-1]
+                    title = _title_from_slug(tail)
+                    out.append({
+                        "title": title,
+                        "locations": [],
+                        "url": f"https://www.welcometothejungle.com{path}",
+                        "description": "",
+                        "blob": title,
+                    })
+                    added += 1
+                if added == 0:
+                    break
+        filtered = [j for j in out if matches(j, source["queries"])]
+        _fetch_descriptions(page, filtered, "Welcome to the Jungle")
+    finally:
+        browser.close()
+        p.stop()
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+
+
 FETCHERS = {
     "ashby": fetch_ashby,
     "greenhouse": fetch_greenhouse,
+    "workable": fetch_workable,
     "apple": fetch_apple,
     "google": fetch_google,
     "microsoft": fetch_microsoft,
+    "meta": fetch_meta,
+    "phenom": fetch_phenom,
     "ableton": fetch_ableton,
     "lucca": fetch_lucca,
     "pw": fetch_pw_generic,
+    "wttj": fetch_wttj,
 }
 
 
@@ -1046,6 +1289,8 @@ def board_url_for(source):
         return f"https://jobs.ashbyhq.com/{slug}"
     if kind == "greenhouse":
         return f"https://job-boards.greenhouse.io/{slug}"
+    if kind == "workable":
+        return f"https://apply.workable.com/{slug}/"
     if kind == "apple":
         return "https://jobs.apple.com/en-us/search"
     if kind == "google":
@@ -1352,7 +1597,6 @@ _CITY_TO_COUNTRY = {
     "san jose": "USA", "palo alto": "USA", "sunnyvale": "USA",
     "atlanta": "USA", "dallas": "USA", "philadelphia": "USA",
     "miami": "USA", "houston": "USA", "portland": "USA",
-    "us remote": "USA", "remote us": "USA", "remote usa": "USA",
     # UK
     "london": "UK", "manchester": "UK", "edinburgh": "UK", "glasgow": "UK",
     "cambridge": "UK", "oxford": "UK", "bristol": "UK", "leeds": "UK",
@@ -1544,6 +1788,10 @@ def _parse_loc(part):
     if country_raw.lower() == "ca" and city.lower() in _CA_AMBIGUOUS_CITIES:
         country_raw = "Canada"
     country = _normalize_country(country_raw)
+    # Remote-like "cities" should not carry a country — otherwise
+    # "Remote-Friendly, USA" and "US Remote" don't dedupe.
+    if "remote" in city.lower() or "friendly" in city.lower():
+        return city, "", city
     display = f"{city}, {country}" if country and country.lower() != city.lower() else city
     return city, country, display
 
@@ -1747,7 +1995,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
     )
 
 
-NAV_BREAK_BEFORE = {"Apple", "Ableton"}
+NAV_BREAK_BEFORE = {"Apple", "Ableton", "Welcome to the Jungle"}
 
 
 def render_html_nav(entries):
@@ -2568,7 +2816,7 @@ def main():
     skip  = {s.strip() for s in os.environ.get("JOBS_SKIP", "").split(",") if s.strip()}
     skip_pw = os.environ.get("JOBS_SKIP_PLAYWRIGHT") == "1"
     skip_score = os.environ.get("JOBS_SKIP_SCORING") == "1"
-    pw_kinds = {"apple", "google", "microsoft", "ableton", "lucca", "pw"}
+    pw_kinds = {"apple", "google", "microsoft", "meta", "phenom", "ableton", "lucca", "pw", "wttj"}
     active_sources = [
         s for s in SOURCES
         if (not only or s["name"] in only)
@@ -2653,7 +2901,12 @@ def main():
         seniority_labels.append("None")
 
     server_url = f"http://{SERVE_HOST}:{SERVE_PORT}"
-    all_locations = sorted({loc for j in all_visible for loc in j["locations"] if loc})
+    # Run the global list of unique locations through the flattener one more
+    # time so aliases apply across sources (e.g. "Remote-Friendly (Travel
+    # Required)" from Anthropic merges with "Remote-Friendly US (Travel
+    # Required)" from Anthropic even when they originate from different jobs).
+    _raw_locs = list({loc for j in all_visible for loc in j["locations"] if loc})
+    all_locations = sorted(_flatten_locations(_raw_locs))
     total = len(all_visible)
     total_bar = (
         f'  <div class="total-count">Total: '

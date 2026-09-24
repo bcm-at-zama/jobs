@@ -630,5 +630,85 @@
   "https://jobs.world.luccasoftware.com/arturia-france/developpeur-it-25d6dca9-dbcf-4566-ab84-05d4c07f8970": {
     "score": 2,
     "reason": "-1 (unclear whether the role is technical enough, people-manager-only)"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556988971": {
+    "score": 0,
+    "reason": "Company name not specified. No match with job-seeker's domain interests. Job title does not directly relate to AI or security, but mentions 'Principal Security Architect' which is a management role. Location only applies if role is technical enough, but unclear. No frontier AI lab or big-tech AI org. Deal-breaker due to unclear primary focus."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556972691": {
+    "score": 4,
+    "reason": "No direct match on title, but location (USA) and experience level (Principal) align with the candidate profile. However, no clear connection to security or AI, and 'Principal' title does not explicitly mention a security role."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556955788": {
+    "score": 0,
+    "reason": "No title matches codex, codemender, SEAR, or vulnerability remediation keywords; primary focus on security infrastructure (SREs/netsec/cloud sec ops) and does not align with priority domains (AI safety/model security/applied cryptography)."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393557004518": {
+    "score": 2,
+    "reason": "No direct match on title, but 'security assurance' and 'manager' indicate a role with some technical involvement. Location is multiple US cities and Tokyo, but this does not align with the rubric priorities."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556997823": {
+    "score": 4,
+    "reason": "No direct title match with 'codex', 'codemender', 'SEAR', 'vulnerability remediation', or 'AI security'. No match with applied crypto or model security either. However, the role is in security, and the location is in one of the candidate's preferred countries. Still, the job doesn't explicitly match any of the top-priority domains, making the score relatively low."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556998877": {
+    "score": 4,
+    "reason": "Not a top-priority match due to lack of explicit Codex-, Codemender-, SEAR-, or AI-powered vulnerability remediation keywords. However, it's a Principal Security Engineer role, which could still involve some AI security aspects. Location matches, and it's at a big tech company (Google), but not a direct fit with the AI safety or applied cryptography interests."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556941458": {
+    "score": 4,
+    "reason": "No clear matches with top priority interests (AI-powered vulnerability remediation, applied cryptography, AI safety), but location in USA is a positive (+1 point), and the title mentions "
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556995459": {
+    "score": 0,
+    "reason": "No match on job title, location, or description. Title doesn't contain 'codex' or 'vulnerability remediation' keywords. No applied crypto or AI safety signal."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556962089": {
+    "score": 6,
+    "reason": "Security-focused role, but no direct intersection with AI-powered vulnerability remediation or applied cryptography interests. However, the location (Redmond, USA) is within Benoit's desired locations and the title mentions 'Security Focused', which aligns with the product security/appsec interest."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556885286": {
+    "score": 0,
+    "reason": "No mention of AI security, vulnerability remediation, or applied cryptography; primary focus on cloud security infrastructure, and location is not in preferred countries (DE, FR, US, CH)"
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556971405": {
+    "score": 2,
+    "reason": "Location in US or Japan (+1) and at a tech company (+1), but not a strong match for AI-powered vulnerability remediation or applied cryptography interests. Not a people-manager-only role, but not a technical IC senior track position either."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556952558": {
+    "score": 2,
+    "reason": "Location in US (i.e. USA) partially matches (as US location is acceptable). However, role doesn't directly match top priority of AI-powered vulnerability remediation or applied cryptography. It is a security-related role, but not explicitly in a Codex-, Codemender-, SEAR-style or crypto-focused area."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556980093": {
+    "score": 4,
+    "reason": "Location in USA matches requirement, but the role is a general Security Solution Engineer, not specifically focused on AI-powered vulnerability remediation, applied cryptography, or AI safety, which are top priorities."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556984427": {
+    "score": 4,
+    "reason": "No direct matches for AI-powered vulnerability remediation or applied cryptography interests; however, the role might involve security engineering or product security, which could be a good fit."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556962243": {
+    "score": 2,
+    "reason": "At a big-tech AI org (Microsoft), which is a good fit. However, the role is more focused on hardware security rather than AI-powered vulnerability remediation or applied cryptography, which are top priorities."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556979045": {
+    "score": 1,
+    "reason": "Job title does not contain 'codex', 'codemender', 'SEAR', or 'vulnerability remediation', nor does it mention AI security or applied cryptography. Location is in USA, but not at a frontier AI lab or big-tech AI org. Does not mention product security, appsec, or offensive security as a focus, and is not remote-friendly."
+  },
+  "https://jobs.careers.microsoft.com/global/en/job/1970393556867988": {
+    "score": 0,
+    "reason": "Title doesn't match 'codex', 'codemender', 'SEAR', 'vulnerability remediation', or 'AI security' (research-and-code intersection), and no clear indication of technical role; primary focus on infrastructure (netsec)."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/88045426778743494-senior-staff-software-engineer-platforms-security": {
+    "score": 0,
+    "reason": "No mention of AI, code/security, or vulnerability remediation; unclear whether the role is technical enough; primary focus is on platforms security, not explicitly on security engineering or AI-powered vulnerability remediation."
+  },
+  "https://www.google.com/about/careers/applications/jobs/results/78966690548720326-software-engineer-manager-ii-privacy-safety-and-security": {
+    "score": 7,
+    "reason": "Company is at a frontier AI lab (Google), but title doesn't contain a strong match for prioritized domains. Lack of clear domain signal despite some relevant keywords (Privacy, Safety, and Security). Potential for role to involve AI security or applied cryptography, but not explicitly stated."
+  },
+  "https://www.steinberg.net/careers/vacancies/": {
+    "score": 0,
+    "reason": "Job posting title is 'Vacancies', not matching any of the desired keywords or title patterns; no location in scope or at a frontier AI lab/big tech AI org."
   }
 }
