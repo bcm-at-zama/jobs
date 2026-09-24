@@ -102,14 +102,21 @@ import os
 # ANSI red for error lines. Auto-disabled when stdout is redirected to a file
 # or when NO_COLOR is set (https://no-color.org).
 _USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
-_RED = "\033[31m" if _USE_COLOR else ""
-_CYAN = "\033[36m" if _USE_COLOR else ""
-_RESET = "\033[0m" if _USE_COLOR else ""
+_RED    = "\033[31m"      if _USE_COLOR else ""
+_CYAN   = "\033[36m"      if _USE_COLOR else ""
+_ORANGE = "\033[38;5;208m" if _USE_COLOR else ""  # 256-color orange
+_RESET  = "\033[0m"       if _USE_COLOR else ""
 
 
 def err(msg):
     """Print an error line in red to stdout."""
     print(f"{_RED}{msg}{_RESET}", file=sys.stdout)
+
+
+def warn(msg):
+    """Print a warning line in orange to stdout (used for high cache-miss rates
+    or other 'not broken but sub-optimal' conditions)."""
+    print(f"{_ORANGE}{msg}{_RESET}", file=sys.stdout)
 
 
 def timing(msg):
@@ -209,7 +216,9 @@ def sanitize_html(s):
 
 
 def highlight_title(text):
-    escaped = html.escape(text)
+    # Decode any HTML entities already present (Greenhouse and some Ashby
+    # boards double-escape "&" as "&amp;") before re-escaping cleanly.
+    escaped = html.escape(html.unescape(text))
     if not HIGHLIGHTS:
         return escaped
     pattern = "|".join(re.escape(w) for w in HIGHLIGHTS)
@@ -552,9 +561,14 @@ def _fetch_descriptions(page, jobs, source_name):
                 new_entries[url] = j["description"]
             fetched += 1
         if i % 10 == 0 or i == n:
-            sys.stdout.write(
-                f"[{source_name}] {i}/{n} ({fetched} fetched, {i - fetched} cached)\n"
-            )
+            line = f"[{source_name}] {i}/{n} ({fetched} fetched, {i - fetched} cached)"
+            miss_ratio = fetched / max(1, i)
+            # Only warn when the source is substantive (≥5 jobs) — small
+            # sources will almost always start at 100% miss.
+            if i >= 5 and miss_ratio >= 0.8:
+                warn(f"{line}  ← high cache miss ({miss_ratio:.0%})")
+            else:
+                sys.stdout.write(line + "\n")
             # Incremental save so a Ctrl-C mid-source doesn't lose everything.
             if new_entries:
                 _save_desc_cache_merge(new_entries)
@@ -1506,10 +1520,18 @@ def score_jobs(jobs):
 
     batches = [todo[i:i + SCORE_BATCH_SIZE] for i in range(0, len(todo), SCORE_BATCH_SIZE)]
     n_batches = len(batches)
-    sys.stdout.write(
+    total_seen = len(jobs)
+    miss_ratio = len(todo) / max(1, total_seen)
+    header = (
         f"[score] {SCORER}: {len(todo)} jobs / {n_batches} batches "
-        f"(parallel={SCORE_PARALLEL})\n"
+        f"(parallel={SCORE_PARALLEL}) — {miss_ratio:.0%} cache miss"
     )
+    # Threshold: if we're re-scoring more than half the jobs, that's expensive
+    # and probably means the cache was invalidated.
+    if total_seen >= 20 and miss_ratio >= 0.5:
+        warn(header)
+    else:
+        sys.stdout.write(header + "\n")
     cache_lock = threading.Lock()
     completed = [0]
 
@@ -1544,9 +1566,10 @@ def score_jobs(jobs):
 
 _LOC_SPLIT_RE = re.compile(r"\s*[;|]\s*")
 
-# "CH - Geneva", "FR - Paris", "GB - London" → strip the "XX - " prefix.
+# "CH - Geneva", "FR, Paris", "GB - London" → strip the country-code prefix.
+# Accept both dash and comma separators.
 _CC_PREFIX_RE = re.compile(
-    r"^([A-Z]{2}|[A-Z]{3})\s*[-–—:]\s*",
+    r"^([A-Z]{2}|[A-Z]{3})\s*[-–—:,]\s*",
     re.IGNORECASE,
 )
 
@@ -1665,6 +1688,16 @@ _CITY_TO_COUNTRY = {
     "vilnius": "Lithuania",
     "taipei": "Taiwan",
     "peru": "Peru",
+    # Portugal / Iberia
+    "braga": "Portugal", "lisbon": "Portugal", "porto": "Portugal",
+    # Additional US cities that were slipping through
+    "menlo park": "USA", "bellevue": "USA",
+    # Nordics / Central Europe
+    "copenhagen": "Denmark",
+    "budapest": "Hungary",
+    "prague": "Czech Republic",
+    "warsaw": "Poland", "krakow": "Poland",
+    "athens": "Greece",
     # Meta-regions kept as-is (not tied to a country)
     "emea": "EMEA", "europe": "EMEA",
     "southern europe": "EMEA",
@@ -1799,11 +1832,28 @@ def _looks_like_location(s):
     return True
 
 
+_TRAILING_REMOTE_RE = re.compile(
+    r"\s*[\(\[]?\s*remote\s*[\)\]]?\s*$",
+    re.IGNORECASE,
+)
+
+
 def _clean_loc(part):
     """Strip UI artifacts like ' + N more' suffixes and work-mode prefixes
     (Hybrid, Remote, Onsite …)."""
     s = _PLUS_MORE_RE.sub("", part).strip()
     s = _WORK_MODE_PREFIX_RE.sub("", s).strip()
+    # "(Baltimore, MD)" → "Baltimore, MD"
+    if s.startswith("(") and s.endswith(")"):
+        s = s[1:-1].strip()
+    # "Austria (Remote)" / "Denmark(Remote)" / "Canada remote" → strip suffix.
+    # We keep the country so the entry is grouped correctly; anything without
+    # a country is left alone (the Remote group will still catch it).
+    stripped = _TRAILING_REMOTE_RE.sub("", s).strip()
+    if stripped and stripped.lower() != s.lower():
+        # Only apply if what's left looks like a real place.
+        if _looks_like_location(stripped):
+            s = stripped
     return s
 
 
@@ -1834,6 +1884,14 @@ def _parse_loc(part):
         if s.lower() in _KNOWN_COUNTRIES:
             c = _normalize_country(s)
             return c, c, c
+        # Known city → pin to its country and canonicalize the display name.
+        s_key = _city_key(s)
+        if s_key in _CITY_TO_COUNTRY:
+            country = _CITY_TO_COUNTRY[s_key]
+            city = " ".join(w.capitalize() for w in s_key.split())
+            if city.lower() == country.lower():
+                return country, country, country
+            return city, country, f"{city}, {country}"
         # Try "London UK" pattern — last space-separated token is a country.
         toks = s.rsplit(None, 1)
         if len(toks) == 2:
@@ -1865,6 +1923,8 @@ def _parse_loc(part):
     city_ckey = _city_key(city)
     if city_ckey in _CITY_TO_COUNTRY:
         country_raw = _CITY_TO_COUNTRY[city_ckey]
+        # Also canonicalize the display name (SF/Bay Area → San Francisco).
+        city = " ".join(w.capitalize() for w in city_ckey.split())
     elif city.lower() in _CITY_TO_COUNTRY:
         country_raw = _CITY_TO_COUNTRY[city.lower()]
     country = _normalize_country(country_raw)
@@ -1916,7 +1976,10 @@ def _flatten_locations(locs):
     for ckey, city, country, display in parsed:
         if not country and ckey in promoted:
             country = promoted[ckey]
-            display = f"{city}, {country}"
+            if city.lower() != country.lower():
+                display = f"{city}, {country}"
+            else:
+                display = city
         key = (ckey, country.lower())
         score = (display.count(","), len(display))
         if key not in best:
@@ -1979,11 +2042,13 @@ def _cap_word(w):
 
 def _title_from_slug(s):
     # Strip typical scraper artifacts:
+    #  - leading numeric ordinal IDs (Arturia: "6-prospective-application-…")
     #  - leading short hexa/base62 IDs (Corgea: "28hnjyf-", "AxEYjCf-")
     #  - trailing "?param=..." query strings
     #  - trailing "_R<digits>" Workday requisition IDs
     s = re.sub(r"\?.*$", "", s)
     s = re.sub(r"_R\d{4,}$", "", s)
+    s = re.sub(r"^\d+[-_]", "", s)
     # Strip a leading ID that either contains a digit OR mixes upper+lowercase
     # letters (so "28hnjyf-", "AxEYjCf-", "flq0ShW-" go but real words like
     # "senior-" or "founding-" don't).
@@ -2172,8 +2237,17 @@ def _group_locations(locations):
 def _render_location_picker(locations):
     if not locations:
         return ""
+    blacklist_lower = {b.lower() for b in LOCATION_BLACKLIST}
     blocks = []
     for country, locs in _group_locations(locations):
+        # Hide entire country groups blacklisted by the user.
+        if country.lower() in blacklist_lower:
+            continue
+        # Also drop any city where the raw string contains a blacklisted term.
+        locs = [
+            l for l in locs
+            if not any(b in l.lower() for b in blacklist_lower)
+        ]
         # Drop entries where the "city" segment is just the country name
         # (e.g. "USA" bare) — those are noise as a city checkbox.
         locs = [
@@ -2859,6 +2933,8 @@ document.querySelectorAll('.reject').forEach(btn => {
       }
       const navCount = document.querySelector('.nav-btn[href="#' + sid + '"] .nav-count');
       if (navCount) navCount.textContent = parseInt(navCount.textContent) - 1;
+      const totalEl = document.getElementById('total-count');
+      if (totalEl) totalEl.textContent = parseInt(totalEl.textContent) - 1;
       if (ul.querySelectorAll('li').length === 0) {
         ul.insertAdjacentHTML('beforeend', '    <li><em>none</em></li>');
       }
@@ -3165,9 +3241,12 @@ def main():
                 if loc not in seen_raw:
                     seen_raw.add(loc)
                     raw_dump.append(loc)
+    # Run the flattener once more across the union so cross-source variants
+    # (Zurich vs Zürich, "Peru" alone vs "Peru, X", …) get deduped.
+    raw_dump = sorted(_flatten_locations(raw_dump))
     try:
         with open(RAW_LOCATIONS_FILE, "w", encoding="utf-8") as f:
-            f.write("\n".join(sorted(raw_dump)) + "\n")
+            f.write("\n".join(raw_dump) + "\n")
         print(f"[locations] wrote {len(raw_dump)} raw entries to {RAW_LOCATIONS_FILE}",
               file=sys.stdout)
     except Exception as e:

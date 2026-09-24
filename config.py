@@ -44,7 +44,7 @@ SCORE_PARALLEL   = 6     # concurrent calls to Ollama/Claude
 # =============================================================================
 
 HIGHLIGHTS = ["Security", "Manager", "Codex", "Codemender", "Cyber",
-              "SEAR", "DeepMind", "Researcher"]
+              "CyberSecurity", "SEAR", "DeepMind", "Researcher"]
 
 # When titles come from a URL slug (Apple, Google, Ableton, …), each dash is
 # split and each word .capitalize()'d. Add anything here to preserve custom
@@ -155,6 +155,10 @@ TITLE_BLACKLIST = [
     "Motion Designer",
     "SEO Outreach",
     "Recruiter",
+    "Finance",
+    "New Grad",
+    "Technical Writer",
+    "DevOps",
     "AV Engineer",
     "Partnership",
     "Talent",
@@ -176,6 +180,11 @@ LOCATION_BLACKLIST = [
     "Israel", "India", "Romania", "Brazil", "Mexico",
     "Bulgaria", "Lithuania", "North Macedonia", "Macedonia",
     "Qatar", "Saudi Arabia", "UAE", "Dubai",
+    "Portugal", "Braga",
+    "Czech Republic", "Czechia", "Prague",
+    "Denmark", "Copenhagen",
+    "Hungary", "Budapest",
+    "Pune", "Ramat Gan",
 ]
 
 # =============================================================================
