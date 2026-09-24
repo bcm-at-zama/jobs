@@ -630,7 +630,19 @@ def _fetch_descriptions(page, jobs, source_name):
         _save_desc_cache_merge(new_entries)
 
 
+_DEBUG_DIR = "debug"
+
+
+def _ensure_debug_dir():
+    try:
+        os.makedirs(_DEBUG_DIR, exist_ok=True)
+    except OSError:
+        pass
+
+
 def _render(page, url, wait_selector=None, timeout=15000, debug_path=None):
+    if debug_path:
+        _ensure_debug_dir()
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=timeout)
     except Exception as e:
@@ -679,7 +691,7 @@ def fetch_apple(source):
                     f"https://jobs.apple.com/en-us/search?"
                     f"search={urllib.parse.quote(q)}&page={pnum}&sort=newest"
                 )
-                debug = f"debug-apple-{q}-{pnum}.html" if pnum == 1 else None
+                debug = f"debug/debug-apple-{q}-{pnum}.html" if pnum == 1 else None
                 text = _render(page, url, wait_selector="a[href*='/details/']", debug_path=debug)
                 from_json = _apple_extract_from_json(text)
                 from_links = _apple_extract_from_links(text, source["queries"])
@@ -769,7 +781,7 @@ def fetch_google(source):
                     url += f"{sep}q={urllib.parse.quote(q)}"
                 sep = "&" if "?" in url else "?"
                 url += f"{sep}page={pnum}"
-                debug = f"debug-google-{q or 'nofilter'}-{pnum}.html" if pnum == 1 else None
+                debug = f"debug/debug-google-{q or 'nofilter'}-{pnum}.html" if pnum == 1 else None
                 text = _render(page, url, wait_selector="a[href*='/jobs/results/']", debug_path=debug)
                 ld = _google_extract_from_ld(text)
                 urls = set(_GOOGLE_JOB_RE.findall(text))
@@ -837,7 +849,7 @@ def fetch_microsoft(source):
                     f"https://apply.careers.microsoft.com/careers?"
                     f"query={urllib.parse.quote(q)}&start={start}&sort_by=relevance"
                 )
-                debug = f"debug-microsoft-{q}-{pnum}.html" if pnum == 0 else None
+                debug = f"debug/debug-microsoft-{q}-{pnum}.html" if pnum == 0 else None
                 text = _render(
                     page, url,
                     wait_selector='a[id^="job-card-"][id$="-job-list"]',
@@ -884,7 +896,7 @@ def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a
     if not HAS_PLAYWRIGHT:
         err(f"[{source_name}] Playwright not installed")
         return []
-    debug = f"debug-{slug(source_name)}-1.html"
+    debug = f"debug/debug-{slug(source_name)}-1.html"
     p, browser, page = _open_browser()
     try:
         text = _render(page, url, wait_selector=wait_selector, debug_path=debug)
@@ -921,7 +933,7 @@ def fetch_ableton(source):
         err("[Ableton] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     url = source.get("search_url") or "https://www.ableton.com/en/jobs/"
-    debug = "debug-ableton-1.html"
+    debug = "debug/debug-ableton-1.html"
     p, browser, page = _open_browser()
     try:
         text = _render(page, url, wait_selector="a[href*='/jobs/apply/']", debug_path=debug)
@@ -962,7 +974,7 @@ def fetch_pixee(source):
     p, browser, page = _open_browser()
     try:
         url = source.get("search_url") or "https://app.dover.com/jobs/pixee"
-        debug = "debug-pixee-1.html"
+        debug = "debug/debug-pixee-1.html"
         text = _render(page, url, wait_selector='a[href*="/apply/Pixee/"]', debug_path=debug)
         pattern = re.compile(
             r'<a[^>]+href="(/apply/Pixee/[a-f0-9-]{20,}[^"]*)"[^>]*>(.*?)</a>',
@@ -1035,7 +1047,7 @@ def fetch_checkmarx(source):
     p, browser, page = _open_browser()
     try:
         url = source.get("search_url") or "https://checkmarx.com/company/careers/"
-        debug = "debug-checkmarx-1.html"
+        debug = "debug/debug-checkmarx-1.html"
         text = _render(page, url, wait_selector='a[href*="/job-openings/position/"]', debug_path=debug)
         rows = re.findall(r'<tr[^>]*>(.*?)</tr>', text, re.IGNORECASE | re.DOTALL)
         for row in rows:
@@ -1083,7 +1095,7 @@ def fetch_github(source):
     p, browser, page = _open_browser()
     try:
         url = source.get("search_url") or "https://www.github.careers/careers-home/jobs"
-        debug = "debug-github-1.html"
+        debug = "debug/debug-github-1.html"
         text = _render(page, url, wait_selector='a[href*="/careers-home/jobs/"]', debug_path=debug)
         pattern = re.compile(
             r'<a[^>]+href="(/careers-home/jobs/(\d+)[^"]*)"[^>]*>(.*?)</a>',
@@ -1126,7 +1138,7 @@ def fetch_scale(source):
     p, browser, page = _open_browser()
     try:
         url = source.get("search_url") or "https://scale.com/careers"
-        debug = "debug-scale-ai-1.html"
+        debug = "debug/debug-scale-ai-1.html"
         text = _render(page, url, wait_selector='a[href*="/careers/"]', debug_path=debug)
         pattern = re.compile(
             r'<a[^>]+href="(/careers/(\d+))"[^>]*>(.*?)</a>',
@@ -1170,7 +1182,7 @@ def fetch_meta(source):
     try:
         for q in source["queries"]:
             url = f"https://www.metacareers.com/jobsearch/?q={urllib.parse.quote(q)}"
-            debug = f"debug-meta-{q}-1.html"
+            debug = f"debug/debug-meta-{q}-1.html"
             text = _render(page, url, wait_selector="a[href*='/profile/job_details/']", debug_path=debug)
             pattern = re.compile(
                 r'<a[^>]+href="(/profile/job_details/\d+)"[^>]*>(.*?)</a>',
@@ -1227,7 +1239,7 @@ def fetch_phenom(source):
                 base = source.get("search_url") or ""
                 sep = "&" if "?" in base else "?"
                 url = f"{base}{sep}start={start}"
-                debug = f"debug-{slug(source['name'])}-{q}-{pnum}.html" if pnum == 0 else None
+                debug = f"debug/debug-{slug(source['name'])}-{q}-{pnum}.html" if pnum == 0 else None
                 text = _render(
                     page, url,
                     wait_selector='a[id^="job-card-"][id$="-job-list"]',
@@ -1285,7 +1297,7 @@ def fetch_wttj(source):
             for pnum in range(1, 6):
                 sep = "&" if "?" in base else "?"
                 url = f"{base}{sep}page={pnum}"
-                debug = f"debug-wttj-{q}-{pnum}.html" if pnum == 1 else None
+                debug = f"debug/debug-wttj-{q}-{pnum}.html" if pnum == 1 else None
                 text = _render(
                     page, url,
                     wait_selector='a[href*="/companies/"][href*="/jobs/"]',
@@ -1507,11 +1519,13 @@ def _parse_score_response(text, batch):
             raw_score = int(item.get("score", 0))
             # Small models sometimes return scores outside the 0-10 bounds.
             score = max(0, min(10, raw_score))
+            role_long_raw = item.get("role_long", "")
+            role_long_md = _role_long_to_markdown(role_long_raw)
             out[url] = {
                 "score":     score,
                 "reason":    _clean(item.get("reason", "")),
                 "role":      _clean(item.get("role", "")),
-                "role_long": _clean(item.get("role_long", ""), maxlen=4000),
+                "role_long": _clean(role_long_md, maxlen=6000),
             }
         except Exception:
             continue
@@ -1519,9 +1533,10 @@ def _parse_score_response(text, batch):
         # Always dump when a batch produces zero scores. Rotated file so
         # we can inspect multiple failures side by side.
         try:
+            _ensure_debug_dir()
             n = _SCORE_DEBUG.setdefault("n", 0) + 1
             _SCORE_DEBUG["n"] = n
-            with open(f"debug-score-response-{n}.txt", "w", encoding="utf-8") as f:
+            with open(f"debug/debug-score-response-{n}.txt", "w", encoding="utf-8") as f:
                 f.write(orig)
             sys.stdout.write(
                 f"[score] batch parsed 0 items → dumped raw response to "
@@ -3782,6 +3797,8 @@ def _parse_cli():
                     help="Ignore the per-source list cache and re-fetch everything.")
     ap.add_argument("--long-roles", action="store_true",
                     help="Ask the LLM for a longer, detailed role description on top of the short one.")
+    ap.add_argument("--no-dump-descriptions", action="store_true",
+                    help="Disable the automatic job-description dump under debug/descriptions/.")
     ap.add_argument("--clear-cache", metavar="WHAT",
                     help="Wipe caches before running. WHAT is a comma-separated "
                          "subset of {scores,descriptions,list,all}. "
@@ -3841,6 +3858,8 @@ def main():
         # Global override — see collect().
         global LIST_CACHE_TTL_HOURS
         LIST_CACHE_TTL_HOURS = 0
+
+    dump_dir = None if args.no_dump_descriptions else "debug/descriptions"
 
     if args.long_roles:
         # Rebuild the scoring system prompt with the extra `role_long` field.
@@ -3958,6 +3977,25 @@ def main():
         ))
         nav_entries.append((src["name"], len(visible)))
         all_visible.extend(visible)
+        # Optional: dump this source's visible jobs' descriptions for audit.
+        if dump_dir:
+            src_dir = os.path.join(dump_dir, slug(src["name"]))
+            try:
+                os.makedirs(src_dir, exist_ok=True)
+                for j in visible:
+                    fname = re.sub(r"[^A-Za-z0-9._-]+", "_", j["title"])[:80] or "job"
+                    fpath = os.path.join(src_dir, f"{fname}.txt")
+                    body = (
+                        f"# {j['title']}\n"
+                        f"URL: {j.get('url', '')}\n"
+                        f"Locations: {', '.join(j.get('locations') or []) or 'N/A'}\n"
+                        f"\n---\n\n"
+                        + re.sub(r"<[^>]+>", " ", j.get("description") or "").strip()
+                    )
+                    with open(fpath, "w", encoding="utf-8") as f:
+                        f.write(body)
+            except OSError as e:
+                err(f"[dump-descriptions] {src['name']}: {e}")
         extra = " · spontaneous✉" if result.get("spontaneous_url") else ""
         total_fetched = len(all_jobs) + rejected_here  # visible + rejected == fetched
         line = (
@@ -4014,6 +4052,7 @@ def main():
     # (Zurich vs Zürich, "Peru" alone vs "Peru, X", …) get deduped.
     raw_dump = sorted(_flatten_locations(raw_dump))
     try:
+        os.makedirs(os.path.dirname(RAW_LOCATIONS_FILE) or ".", exist_ok=True)
         with open(RAW_LOCATIONS_FILE, "w", encoding="utf-8") as f:
             f.write("\n".join(raw_dump) + "\n")
         print(f"[locations] wrote {len(raw_dump)} raw entries to {RAW_LOCATIONS_FILE}",

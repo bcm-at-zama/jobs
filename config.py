@@ -19,7 +19,7 @@ LIKED_DB            = "liked.json"
 PROFILE_FILE        = "PROFILE.md"
 SCORE_CACHE         = "score_cache.json"
 DESC_CACHE          = "desc_cache.json"
-RAW_LOCATIONS_FILE  = "raw_locations.txt"
+RAW_LOCATIONS_FILE  = "debug/raw_locations.txt"
 LIST_CACHE_DIR      = "list_cache"
 
 # TTL for the per-source list cache. On a re-run within this window we skip

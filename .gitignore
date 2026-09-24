@@ -1,5 +1,6 @@
 # Generated
 jobs.html
+debug/
 debug-*.html
 __pycache__/
 *.pyc
