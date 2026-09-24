@@ -178,7 +178,7 @@ TITLE_BLACKLIST = [
 
 # If ALL of a job's locations contain one of these substrings, the job is
 # hidden. Example: ["Tokyo", "Bangalore"].
-LOCATION_BLACKLIST = ["Israel", "India", "Romania"]
+LOCATION_BLACKLIST = ["Israel", "India", "Romania", "Brazil", "Mexico"]
 
 # Seniority filter groups shown in the filter bar. Order within groups also
 # drives the "most senior jobs first" sort. Labels not listed here go last.
@@ -211,6 +211,64 @@ SENIORITY = [
     ("Intern", "Intern"),
 ]
 
+# Group labels shown as separators in the nav. Order defines the section order.
+GROUP_ORDER = [
+    "Acteurs de l'AI",
+    "Grosses compagnies",
+    "Acteurs de la sécurité",
+    "Compagnies de musique",
+    "Autres",
+]
+
+# name → group. Every source name should appear here. Missing entries fall
+# back to "Autres".
+GROUP_OF = {
+    # Acteurs de l'AI
+    "OpenAI": "Acteurs de l'AI",
+    "Anthropic": "Acteurs de l'AI",
+    "Mistral": "Acteurs de l'AI",
+    "Cohere": "Acteurs de l'AI",
+    "H": "Acteurs de l'AI",
+    "AMI": "Acteurs de l'AI",
+    "HF": "Acteurs de l'AI",
+    "SSI": "Acteurs de l'AI",
+    "Thinking Machines": "Acteurs de l'AI",
+    "Scale AI": "Acteurs de l'AI",
+    "DeepL": "Acteurs de l'AI",
+    "Eleven Labs": "Acteurs de l'AI",
+    "Poolside": "Acteurs de l'AI",
+    "Black Forest Labs": "Acteurs de l'AI",
+    "Sony AI": "Acteurs de l'AI",
+    "Cursor": "Acteurs de l'AI",
+    "Cognition": "Acteurs de l'AI",
+    # Grosses compagnies
+    "Apple": "Grosses compagnies",
+    "Microsoft": "Grosses compagnies",
+    "Google": "Grosses compagnies",
+    "Meta": "Grosses compagnies",
+    "NVIDIA": "Grosses compagnies",
+    "GitHub": "Grosses compagnies",
+    "Proton": "Grosses compagnies",
+    # Acteurs de la sécurité
+    "DepthFirst": "Acteurs de la sécurité",
+    "XBOW": "Acteurs de la sécurité",
+    "Aisle": "Acteurs de la sécurité",
+    "ZeroPath": "Acteurs de la sécurité",
+    "Pixee": "Acteurs de la sécurité",
+    "Corgea": "Acteurs de la sécurité",
+    "CrowdStrike": "Acteurs de la sécurité",
+    "Snyk": "Acteurs de la sécurité",
+    "Semgrep": "Acteurs de la sécurité",
+    "Checkmarx": "Acteurs de la sécurité",
+    # Compagnies de musique
+    "Ableton": "Compagnies de musique",
+    "Arturia": "Compagnies de musique",
+    "Neural DSP": "Compagnies de musique",
+    "Steinberg": "Compagnies de musique",
+    # Autres
+    "Welcome to the Jungle": "Autres",
+}
+
 # One entry per company. `kind` picks the fetcher (see FETCHERS below).
 # `queries` is the per-board search terms.
 # Optional `board`: URL to that company's public job board (defaults auto-derived).
@@ -221,6 +279,8 @@ SOURCES = [
     {"name": "Cohere",    "kind": "ashby",      "slug": "cohere",     "queries": ["security"]},
     {"name": "H",         "kind": "ashby",      "slug": "hcompany",   "queries": []},
     {"name": "AMI",       "kind": "ashby",      "slug": "ami",        "queries": []},
+    {"name": "HF",        "kind": "workable",   "slug": "huggingface","queries": [],
+     "board": "https://apply.workable.com/huggingface/"},
     {"name": "SSI",       "kind": "ashby",      "slug": "ssi",        "queries": []},
     {"name": "Thinking Machines", "kind": "ashby", "slug": "ThinkingMachines", "queries": []},
     {"name": "Scale AI",  "kind": "pw",         "slug": "scale",      "queries": [],
@@ -228,12 +288,14 @@ SOURCES = [
      "search_url": "https://scale.com/careers",
      "link_re": r'href="(/careers/[^"#?]+)"',
      "origin": "https://scale.com"},
-    {"name": "HF",        "kind": "workable",   "slug": "huggingface","queries": [],
-     "board": "https://apply.workable.com/huggingface/"},
     {"name": "DeepL",     "kind": "ashby",      "slug": "DeepL",      "queries": []},
     {"name": "Eleven Labs", "kind": "ashby",    "slug": "elevenlabs", "queries": []},
     {"name": "Poolside", "kind": "ashby",       "slug": "poolside",   "queries": []},
-    {"name": "Black Forest Labs", "kind": "greenhouse", "slug": "blackforestlabsjobs", "queries": []},
+    {"name": "Black Forest Labs", "kind": "pw", "slug": "blackforestlabs", "queries": [],
+     "board": "https://job-boards.greenhouse.io/blackforestlabs",
+     "search_url": "https://job-boards.greenhouse.io/blackforestlabs",
+     "link_re": r'href="(/blackforestlabs/jobs/\d+|https?://job-boards\.greenhouse\.io/blackforestlabs/jobs/\d+)"',
+     "origin": "https://job-boards.greenhouse.io"},
     {"name": "Proton",   "kind": "greenhouse",  "slug": "proton",    "queries": [],
      "board": "https://proton.me/careers"},
     {"name": "Sony AI",  "kind": "pw",          "slug": "sonyai",    "queries": [],
@@ -267,18 +329,21 @@ SOURCES = [
      "search_url": "https://www.ycombinator.com/companies/corgea/jobs",
      "link_re": r'href="(/companies/corgea/jobs/[^"#?]+)"',
      "origin": "https://www.ycombinator.com"},
-    {"name": "GitHub",    "kind": "pw",         "slug": "github",    "queries": ["security"],
-     "board": "https://www.github.careers/careers-home/jobs?keywords=security",
-     "search_url": "https://www.github.careers/careers-home/jobs?keywords=security",
-     "link_re": r'href="(https?://www\.github\.careers/careers-home/jobs/\d+[^"#?]*|/careers-home/jobs/\d+[^"#?]*)"',
-     "origin": "https://www.github.careers"},
     {"name": "CrowdStrike","kind": "pw",        "slug": "crowdstrike","queries": ["security"],
      "board": "https://crowdstrike.wd5.myworkdayjobs.com/en-US/crowdstrikecareers",
      "search_url": "https://crowdstrike.wd5.myworkdayjobs.com/en-US/crowdstrikecareers",
      "link_re": r'href="(/en-US/crowdstrikecareers/job/[^"#?]+)"',
      "origin": "https://crowdstrike.wd5.myworkdayjobs.com"},
-    {"name": "Snyk",       "kind": "greenhouse", "slug": "snyk",       "queries": []},
-    {"name": "Semgrep",    "kind": "greenhouse", "slug": "semgrep",    "queries": []},
+    {"name": "Snyk",       "kind": "pw",         "slug": "snyk",       "queries": [],
+     "board": "https://job-boards.greenhouse.io/snyk",
+     "search_url": "https://job-boards.greenhouse.io/snyk",
+     "link_re": r'href="(/snyk/jobs/\d+|https?://job-boards\.greenhouse\.io/snyk/jobs/\d+)"',
+     "origin": "https://job-boards.greenhouse.io"},
+    {"name": "Semgrep",    "kind": "pw",         "slug": "semgrep",    "queries": [],
+     "board": "https://job-boards.greenhouse.io/semgrep",
+     "search_url": "https://job-boards.greenhouse.io/semgrep",
+     "link_re": r'href="(/semgrep/jobs/\d+|https?://job-boards\.greenhouse\.io/semgrep/jobs/\d+)"',
+     "origin": "https://job-boards.greenhouse.io"},
     {"name": "Checkmarx",  "kind": "pw",         "slug": "checkmarx",  "queries": [],
      "board": "https://checkmarx.com/company/careers/",
      "search_url": "https://checkmarx.com/company/careers/",
@@ -287,6 +352,11 @@ SOURCES = [
     {"name": "NVIDIA",    "kind": "phenom",     "slug": "nvidia",     "queries": ["security"],
      "board": "https://jobs.nvidia.com/careers?query=Security&pid=893394830937&sort_by=relevance",
      "search_url": "https://jobs.nvidia.com/careers?query=Security&sort_by=relevance"},
+    {"name": "GitHub",    "kind": "pw",         "slug": "github",    "queries": ["security"],
+     "board": "https://www.github.careers/careers-home/jobs?keywords=security",
+     "search_url": "https://www.github.careers/careers-home/jobs?keywords=security",
+     "link_re": r'href="(https?://www\.github\.careers/careers-home/jobs/\d+[^"#?]*|/careers-home/jobs/\d+[^"#?]*)"',
+     "origin": "https://www.github.careers"},
     {"name": "Apple",     "kind": "apple",      "slug": "apple",      "queries": ["security", "Logic"],
      "board": "https://jobs.apple.com/en-us/search?search=security"},
     {"name": "Microsoft", "kind": "microsoft",  "slug": "microsoft",  "queries": ["security"],
@@ -362,6 +432,17 @@ except ImportError:
     HAS_ANTHROPIC = False
 
 import os
+
+# ANSI red for error lines. Auto-disabled when stdout is redirected to a file
+# or when NO_COLOR is set (https://no-color.org).
+_USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+_RED = "\033[31m" if _USE_COLOR else ""
+_RESET = "\033[0m" if _USE_COLOR else ""
+
+
+def err(msg):
+    """Print an error line in red to stdout."""
+    print(f"{_RED}{msg}{_RESET}", file=sys.stdout)
 
 
 def http_get_json(url):
@@ -545,7 +626,7 @@ def fetch_workable(source):
         with urllib.request.urlopen(req, timeout=30) as resp:
             raw = json.load(resp)
     except Exception as e:
-        sys.stdout.write(f"[{source['name']}] Workable fetch failed: {e}\n")
+        err(f"[{source['name']}] Workable fetch failed: {e}")
         return {"jobs": [], "spontaneous_url": None}
     all_jobs = normalize_workable(raw)
     matched = [j for j in all_jobs if matches(j, source["queries"])]
@@ -595,7 +676,7 @@ def fetch_ashby(source):
     try:
         raw = http_get_json(url)
     except Exception as e:
-        sys.stdout.write(f"[{source['name']}] Ashby fetch failed: {e}\n")
+        err(f"[{source['name']}] Ashby fetch failed: {e}")
         return {"jobs": [], "spontaneous_url": None}
     all_jobs = normalize_ashby(raw)
     matched = [j for j in all_jobs if matches(j, source["queries"])]
@@ -612,7 +693,7 @@ def fetch_greenhouse(source):
     try:
         raw = http_get_json(url)
     except Exception as e:
-        sys.stdout.write(f"{source['name']} fetch failed: {e}\n")
+        err(f"{source['name']} fetch failed: {e}")
         return {"jobs": [], "spontaneous_url": None}
     all_jobs = normalize_greenhouse(raw)
     return {
@@ -814,7 +895,7 @@ def _render(page, url, wait_selector=None, timeout=12000, debug_path=None):
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=timeout)
     except Exception as e:
-        sys.stdout.write(f"[render] {url} nav failed: {e}\n")
+        err(f"[render] {url} nav failed: {e}")
     selector_ok = False
     if wait_selector:
         try:
@@ -830,7 +911,7 @@ def _render(page, url, wait_selector=None, timeout=12000, debug_path=None):
     try:
         content = page.content()
     except Exception as e:
-        sys.stdout.write(f"[render] content read failed: {e}\n")
+        err(f"[render] content read failed: {e}")
         return ""
     if debug_path:
         try:
@@ -1057,7 +1138,7 @@ def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a
     """Render `url` with Playwright, then extract hrefs matching `link_re_pattern`.
     Titles are derived from the last URL segment. Returns list of job dicts."""
     if not HAS_PLAYWRIGHT:
-        sys.stdout.write(f"[{source_name}] Playwright not installed\n")
+        err(f"[{source_name}] Playwright not installed")
         return []
     debug = f"debug-{slug(source_name)}-1.html"
     p, browser, page = _open_browser()
@@ -1093,7 +1174,7 @@ def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a
 
 def fetch_ableton(source):
     if not HAS_PLAYWRIGHT:
-        sys.stdout.write("[Ableton] Playwright not installed\n")
+        err("[Ableton] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     url = source.get("search_url") or "https://www.ableton.com/en/jobs/"
     debug = "debug-ableton-1.html"
@@ -1138,7 +1219,7 @@ def fetch_lucca(source):
 def fetch_pw_generic(source):
     """Generic Playwright link scraper. Requires `search_url`, `link_re`, `origin` on source."""
     if not source.get("search_url") or not source.get("link_re"):
-        sys.stdout.write(f"[{source['name']}] missing search_url/link_re\n")
+        err(f"[{source['name']}] missing search_url/link_re")
         return {"jobs": [], "spontaneous_url": None}
     jobs = _pw_scrape_links(
         source["name"],
@@ -1154,7 +1235,7 @@ _META_JOB_RE = re.compile(r'/jobs/(\d{5,})/?', re.IGNORECASE)
 
 def fetch_meta(source):
     if not HAS_PLAYWRIGHT:
-        sys.stdout.write("[Meta] Playwright not installed\n")
+        err("[Meta] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
     p, browser, page = _open_browser()
@@ -1207,7 +1288,7 @@ _PHENOM_JOB_RE = re.compile(
 def fetch_phenom(source):
     """Generic Phenom People ATS scraper (NVIDIA, and similar)."""
     if not HAS_PLAYWRIGHT:
-        sys.stdout.write(f"[{source['name']}] Playwright not installed\n")
+        err(f"[{source['name']}] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
     p, browser, page = _open_browser()
@@ -1267,7 +1348,7 @@ _WTTJ_JOB_RE = re.compile(
 
 def fetch_wttj(source):
     if not HAS_PLAYWRIGHT:
-        sys.stdout.write("[Welcome to the Jungle] Playwright not installed\n")
+        err("[Welcome to the Jungle] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
     p, browser, page = _open_browser()
@@ -1531,7 +1612,7 @@ def score_jobs(jobs):
             sys.stdout.write("[score] anthropic SDK missing. pip install anthropic\n")
             return
         if not os.environ.get("ANTHROPIC_API_KEY"):
-            sys.stdout.write("[score] ANTHROPIC_API_KEY not set\n")
+            err("[score] ANTHROPIC_API_KEY not set")
             return
         client = anthropic.Anthropic()
 
@@ -1549,9 +1630,9 @@ def score_jobs(jobs):
             results = _score(batch)
         except Exception as e:
             if len(batch) <= 1:
-                sys.stdout.write(f"[score] gave up on 1 job ({batch[0]['url']}): {e}\n")
+                err(f"[score] gave up on 1 job ({batch[0]['url']}): {e}")
                 return {}
-            sys.stdout.write(f"[score] batch of {len(batch)} failed ({e}); splitting\n")
+            err(f"[score] batch of {len(batch)} failed ({e}); splitting")
             mid = len(batch) // 2
             return {**_score_safely(batch[:mid]), **_score_safely(batch[mid:])}
         missing = [j for j in batch if j["url"] not in results]
@@ -2046,28 +2127,50 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
     )
 
 
-NAV_BREAK_BEFORE = {"Apple", "Ableton", "Welcome to the Jungle"}
-
-
 def render_html_nav(entries):
-    buttons = []
+    """Groups nav buttons per GROUP_ORDER, with a labelled row per group."""
+    by_group = {g: [] for g in GROUP_ORDER}
     for name, visible_count in entries:
-        if name in NAV_BREAK_BEFORE and buttons:
-            buttons.append('    <div class="nav-break"></div>')
-        buttons.append(
-            f'    <a class="nav-btn" href="#{slug(name)}">{html.escape(name)} '
+        group = GROUP_OF.get(name, "Autres")
+        by_group.setdefault(group, []).append((name, visible_count))
+    rows = []
+    for group in GROUP_ORDER + [g for g in by_group if g not in GROUP_ORDER]:
+        items = by_group.get(group) or []
+        if not items:
+            continue
+        items.sort(key=lambda kv: kv[0].lower())
+        buttons = "".join(
+            f'<a class="nav-btn" href="#{slug(name)}">{html.escape(name)} '
             f'(<span class="nav-count">{visible_count}</span>)</a>'
+            for name, visible_count in items
         )
-    return '  <nav class="nav">\n' + "\n".join(buttons) + "\n  </nav>"
+        rows.append(
+            '    <div class="nav-row">'
+            f'<span class="nav-group-label">{html.escape(group)}</span>'
+            f'{buttons}'
+            '</div>'
+        )
+    return '  <nav class="nav">\n' + "\n".join(rows) + "\n  </nav>"
 
 
 def _group_locations(locations):
     groups = {}
     for loc in locations:
-        if "remote" in loc.lower() or "friendly" in loc.lower():
+        low = loc.lower()
+        if "remote" in low or "friendly" in low:
             country = "Remote"
         elif "," in loc:
-            country = loc.rsplit(",", 1)[1].strip()
+            tail = loc.rsplit(",", 1)[1].strip()
+            # If the "country" segment is actually a known city (e.g. "New
+            # York City", "San Francisco"), don't group under it — the raw
+            # location is malformed. Reroute via _CITY_TO_COUNTRY of the
+            # first segment.
+            tail_key = _city_key(tail)
+            if tail_key in _CITY_TO_COUNTRY:
+                country = _CITY_TO_COUNTRY[tail_key]
+            else:
+                normalized = _normalize_country(tail)
+                country = normalized or tail
         else:
             # Country-only entries (e.g. "Canada") go in that country's group.
             normalized = _normalize_country(loc)
@@ -2076,7 +2179,12 @@ def _group_locations(locations):
             elif loc.strip().lower() in _KNOWN_COUNTRIES:
                 country = normalized
             else:
-                country = "Other"
+                # Bare city with no country info: look up known city → country.
+                ck = _city_key(loc)
+                if ck in _CITY_TO_COUNTRY:
+                    country = _CITY_TO_COUNTRY[ck]
+                else:
+                    country = "Other"
         groups.setdefault(country, []).append(loc)
     for k in groups:
         groups[k] = sorted(set(groups[k]))
@@ -2304,6 +2412,32 @@ HTML_TEMPLATE = """<!doctype html>
     }
     #total-count { color: var(--severe); }
     .nav-break { flex-basis: 100%; height: 0; }
+    .nav-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+      width: 100%;
+    }
+    .nav-group-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      min-width: 10rem;
+      padding-right: 0.4rem;
+    }
+    .group-heading {
+      margin-top: 2.5rem;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 2px solid var(--border);
+      font-size: 1.15rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--fg-muted);
+    }
 
     .filters {
       display: flex;
@@ -2837,7 +2971,7 @@ def _run_location_debug():
                     for loc in j.get("locations") or []:
                         all_raw.append((src["name"], loc))
             except Exception as e:
-                print(f"  [{src['name']}] fetch failed: {e}")
+                err(f"  [{src['name']}] fetch failed: {e}")
     seen = set()
     for company, raw in all_raw:
         if raw in seen:
@@ -2887,6 +3021,10 @@ def _parse_cli():
 def main():
     args = _parse_cli()
 
+    if args.list:
+        print(",".join(s["name"] for s in SOURCES))
+        return
+
     if args.debug_locations or os.environ.get("JOBS_DEBUG_LOCATIONS") == "1":
         _run_location_debug()
         return
@@ -2930,7 +3068,7 @@ def main():
             try:
                 results[src["name"]] = fut.result()
             except Exception as e:
-                sys.stdout.write(f"[{src['name']}] collect crashed: {e}\n")
+                err(f"[{src['name']}] collect crashed: {e}")
                 results[src["name"]] = {"jobs": [], "spontaneous_url": None}
     t_fetch = time.perf_counter() - t_fetch_start
     sys.stdout.write(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s\n")
@@ -2958,7 +3096,27 @@ def main():
     print("               → seniority) with badges, filters, spontaneous links", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
     t_render_start = time.perf_counter()
+
+    # Sort active_sources by group, then alphabetically inside each group so the
+    # HTML sections render in the same order as the nav pills.
+    def _sort_key(s):
+        g = GROUP_OF.get(s["name"], "Autres")
+        try:
+            gi = GROUP_ORDER.index(g)
+        except ValueError:
+            gi = len(GROUP_ORDER)
+        return (gi, s["name"].lower())
+    active_sources.sort(key=_sort_key)
+
+    current_group = None
     for src in active_sources:
+        group = GROUP_OF.get(src["name"], "Autres")
+        if group != current_group:
+            html_sections.append(
+                f'  <h2 class="group-heading" id="group-{slug(group)}">'
+                f'{html.escape(group)}</h2>'
+            )
+            current_group = group
         result = results[src["name"]]
         all_jobs = result["jobs"]
         visible = [j for j in all_jobs if j["url"] not in rejected]
@@ -2971,7 +3129,15 @@ def main():
         nav_entries.append((src["name"], len(visible)))
         all_visible.extend(visible)
         extra = " · spontaneous✉" if result.get("spontaneous_url") else ""
-        print(f"{src['name']}: {len(visible)} visible, {rejected_here} rejected{extra}", file=sys.stdout)
+        total_fetched = len(all_jobs) + rejected_here  # visible + rejected == fetched
+        line = (
+            f"{src['name']:22} fetched={len(all_jobs):4}  "
+            f"visible={len(visible):4}  rejected={rejected_here:4}{extra}"
+        )
+        if len(all_jobs) == 0:
+            err(line + "  (ZERO fetched!)")
+        else:
+            print(line, file=sys.stdout)
 
     canonical_order = [label for _, label in SENIORITY]
     found_labels = {detect_seniority(j["title"]) for j in all_visible}
@@ -2991,6 +3157,14 @@ def main():
     # Required)" from Anthropic even when they originate from different jobs).
     _raw_locs = list({loc for j in all_visible for loc in j["locations"] if loc})
     all_locations = sorted(_flatten_locations(_raw_locs))
+
+    print(file=sys.stdout)
+    print(f"[locations] {len(all_locations)} unique locations across {len(_raw_locs)} raw entries",
+          file=sys.stdout)
+    for country, cities in _group_locations(all_locations):
+        marker = f"{_RED}{country}{_RESET}" if country == "Other" else country
+        print(f"  {marker} ({len(cities)}): {', '.join(cities)}", file=sys.stdout)
+    print(file=sys.stdout)
     total = len(all_visible)
     total_bar = (
         f'  <div class="total-count">Total: '
