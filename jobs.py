@@ -2920,16 +2920,16 @@ HTML_TEMPLATE = """<!doctype html>
     }
     #total-count { color: var(--severe); }
     .dump-btn {
-      font-size: 0.85rem;
+      font-size: 1rem;
       font-weight: 600;
-      color: var(--fg);
-      background: var(--bg-subtle);
-      border: 1px solid var(--border);
+      color: #ffffff;
+      background: var(--accent);
+      border: 1px solid var(--accent-emphasis);
       border-radius: 6px;
-      padding: 0.4rem 0.8rem;
+      padding: 0.5rem 0.9rem;
       cursor: pointer;
     }
-    .dump-btn:hover { background: var(--bg-inset); border-color: var(--fg-muted); }
+    .dump-btn:hover { background: var(--accent-emphasis); }
     .dump-status { font-size: 0.85rem; color: var(--fg-muted); }
     .nav-break { flex-basis: 100%; height: 0; }
     .nav-row {
@@ -3502,6 +3502,86 @@ document.getElementById('dump-selected')?.addEventListener('click', () => {
   const status = document.getElementById('dump-status');
   if (!urls.length) { status.textContent = 'No +1 jobs visible.'; setTimeout(() => status.textContent = '', 3000); return; }
   copyToClipboard(urls.join('\\n') + '\\n', status, 'Copied ' + urls.length + ' selected URLs.');
+});
+
+/* Build a self-contained bash script that curls every visible job URL and
+   prints anything that looks broken, with enough debug info (final URL after
+   redirects, HTTP code, size, content-type, page title, "not found"/"filled"
+   markers) that we can tell WHY it broke — 404 vs Cloudflare vs job removed
+   vs bad slug. */
+function buildProbeScript(urls) {
+  const arrLines = urls.map(u => '  "' + u.replace(/"/g, '\\\\"') + '"').join('\\n');
+  const now = new Date().toISOString();
+  return [
+    '#!/usr/bin/env bash',
+    '# probe_visible.sh — auto-generated ' + now,
+    '# Checks each visible job URL. Prints one block per URL when it looks',
+    '# broken (non-200, redirects to careers root, "not found" body, etc.).',
+    '# Run: bash probe_visible.sh 2>&1 | tee probe.log',
+    '',
+    'set -uo pipefail',
+    'UA=\\'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\\'',
+    '',
+    'URLS=(',
+    arrLines,
+    ')',
+    '',
+    'BAD=0',
+    'TOTAL=${#URLS[@]}',
+    'echo "== Checking $TOTAL URLs =="',
+    'echo',
+    '',
+    'for u in "${URLS[@]}"; do',
+    '  body=$(mktemp)',
+    '  # -L follows redirects; capture code, final URL, redirect count, ctype, size.',
+    '  meta=$(curl -sS -L -A "$UA" --max-time 20 -o "$body" \\\\',
+    '    -w "%{http_code}|%{url_effective}|%{num_redirects}|%{content_type}|%{size_download}" "$u" 2>/dev/null || echo "ERR|$u|0||0")',
+    '  code=${meta%%|*}; rest=${meta#*|}',
+    '  final=${rest%%|*}; rest=${rest#*|}',
+    '  nred=${rest%%|*}; rest=${rest#*|}',
+    '  ctype=${rest%%|*}; size=${rest##*|}',
+    '',
+    '  # Sniff the body for common "job removed" / not-found markers.',
+    '  title=$(grep -oiE "<title[^>]*>[^<]{1,200}</title>" "$body" | head -1 | sed -E "s#</?title[^>]*>##gi" | tr -d "\\\\n" | head -c 160)',
+    '  marker=""',
+    '  if grep -qiE "(job|position|posting).{0,20}(not found|no longer|removed|filled|closed|expired)" "$body"; then marker="job-removed-marker"; fi',
+    '  if grep -qiE "cloudflare|challenge-platform|cf-chl" "$body"; then marker="${marker:+$marker,}cloudflare"; fi',
+    '  if [[ "$code" == "404" ]]; then marker="${marker:+$marker,}http-404"; fi',
+    '  if [[ "$code" == "403" ]]; then marker="${marker:+$marker,}http-403"; fi',
+    '  if [[ "$code" == "5"* ]]; then marker="${marker:+$marker,}http-$code"; fi',
+    '  # Consider "redirected to a completely different path" broken too.',
+    '  if [[ "$code" == "200" && "$nred" -gt 0 ]]; then',
+    '    orig_path=${u#https://*/}; final_path=${final#https://*/}',
+    '    if [[ "$final_path" != *"$orig_path"* && "$orig_path" != *"$final_path"* ]]; then',
+    '      marker="${marker:+$marker,}redirected-away"',
+    '    fi',
+    '  fi',
+    '',
+    '  if [[ -n "$marker" || "$code" != "200" ]]; then',
+    '    BAD=$((BAD+1))',
+    '    echo "---"',
+    '    echo "URL:      $u"',
+    '    echo "code:     $code   redirects: $nred   size: ${size}B   ctype: $ctype"',
+    '    echo "final:    $final"',
+    '    [[ -n "$title" ]] && echo "title:    $title"',
+    '    [[ -n "$marker" ]] && echo "flags:    $marker"',
+    '    echo',
+    '  else',
+    '    echo "ok  $u"',
+    '  fi',
+    '  rm -f "$body"',
+    'done',
+    '',
+    'echo',
+    'echo "== $BAD / $TOTAL URLs flagged =="',
+    ''
+  ].join('\\n');
+}
+document.getElementById('dump-sh')?.addEventListener('click', () => {
+  const urls = collectUrls('li.job:not(.hidden)');
+  const status = document.getElementById('dump-status');
+  if (!urls.length) { status.textContent = 'No visible jobs.'; setTimeout(() => status.textContent = '', 3000); return; }
+  copyToClipboard(buildProbeScript(urls), status, 'Copied probe script (' + urls.length + ' URLs) — save as probe_visible.sh and run: bash probe_visible.sh');
 });
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
@@ -4136,6 +4216,7 @@ def main():
         f'<span id="total-count">{total}</span> jobs visible</div>\n'
         f'    <button type="button" class="dump-btn" id="dump-all" title="Copy every visible job URL to the clipboard, one per line">Dump all</button>\n'
         f'    <button type="button" class="dump-btn" id="dump-selected" title="Copy the URLs of jobs you +1&#39;d (still visible), one per line">Dump selected</button>\n'
+        f'    <button type="button" class="dump-btn" id="dump-sh" title="Copy a bash script that checks each visible URL and prints the ones that don&#39;t return 200">Copy in .sh</button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'  </div>'
     )
