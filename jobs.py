@@ -253,11 +253,23 @@ def normalize_ashby(raw):
                 locs.append(loc)
         desc_html = j.get("descriptionHtml") or ""
         desc_plain = j.get("descriptionPlain") or re.sub(r"<[^>]+>", " ", desc_html)
+        description = desc_html or desc_plain
+        # Ashby ships the salary in a sidebar field (?includeCompensation=true).
+        # Append it to the description so the scoring LLM sees it — OpenAI and
+        # a few others only surface pay via that field, never in the HTML body.
+        comp = j.get("compensation") or {}
+        comp_summary = (
+            comp.get("compensationTierSummary")
+            or comp.get("summary")
+            or ""
+        )
+        if comp_summary:
+            description = f"{description}\n<p><strong>Compensation:</strong> {html.escape(comp_summary)}</p>"
         out.append({
             "title": j.get("title", ""),
             "locations": locs,
             "url": j.get("jobUrl") or j.get("applyUrl") or "",
-            "description": desc_html or desc_plain,
+            "description": description,
             "blob": " ".join([j.get("title", ""), j.get("department", ""), j.get("team", "")]),
         })
     return out
@@ -284,11 +296,14 @@ def normalize_workable(raw, account_slug=""):
         shortcode = j.get("shortcode", "")
         # Workable's public apply URL is apply.workable.com/<account>/j/<shortcode>
         # (the /j/ segment is required — the account root alone 404s).
-        url = j.get("url") or (
-            f"https://apply.workable.com/{account_slug}/j/{shortcode}"
-            if account_slug and shortcode else
-            f"https://apply.workable.com/j/{shortcode}"
-        )
+        # The API's j["url"] field is the bare shortcode form which 404s, so
+        # always reconstruct when we have both account and shortcode.
+        if account_slug and shortcode:
+            url = f"https://apply.workable.com/{account_slug}/j/{shortcode}"
+        elif shortcode:
+            url = f"https://apply.workable.com/j/{shortcode}"
+        else:
+            url = j.get("url", "")
         out.append({
             "title": _flat(j.get("title")),
             "locations": [loc_str] if loc_str else [],
@@ -362,7 +377,7 @@ def _pick_spontaneous(all_jobs):
 
 
 def fetch_ashby(source):
-    url = f"https://api.ashbyhq.com/posting-api/job-board/{source['slug']}"
+    url = f"https://api.ashbyhq.com/posting-api/job-board/{source['slug']}?includeCompensation=true"
     try:
         raw = http_get_json(url)
     except Exception as e:
@@ -1380,21 +1395,18 @@ provided, the array MUST contain 5 elements. Never merge, summarize, or skip.
 
 Each element:
   {"i": <index from the numbered list>, "score": <integer 0-10>,
-   "reason": "<why this score — 2-3 sentences, ~100-400 chars, cite rubric>",
-   "role": "<neutral 2-3 sentence summary of what the ROLE actually is: main mission, key responsibilities, technical scope. Do NOT judge fit here — that's the reason field. ~100-400 chars.>"__EXTRA_FIELDS__}
+   "reason": "<why this score — 2-3 sentences, ~100-400 chars, cite rubric>"__EXTRA_FIELDS__}
 
 Example (for 2 jobs):
   [
     {"i": 1, "score": 8,
-     "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis.",
-     "role": "Build tooling on top of frontier models to detect and patch software vulnerabilities at scale. IC role on a small team; owns end-to-end pipeline from model call to production PR generation."__EXAMPLE_EXTRA__},
+     "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."__EXAMPLE_EXTRA__},
     {"i": 2, "score": 3,
-     "reason": "Sales/GTM role, not technical. Team focuses on account expansion rather than security engineering; location fits but domain doesn't align with the rubric priorities.",
-     "role": "Enterprise account executive covering EMEA financial services. Owns quota, pipeline generation, and deal cycles for cloud security products. No engineering scope."__EXAMPLE_EXTRA_2__}
+     "reason": "Sales/GTM role, not technical. Team focuses on account expansion rather than security engineering; location fits but domain doesn't align with the rubric priorities."__EXAMPLE_EXTRA_2__}
   ]
 
 Scoring rubric: 9-10 top-priority match, 6-8 solid, 3-5 partial, 0-2 weak.
-The reason field explains the SCORE. The role field is a neutral job summary."""
+The reason field explains the SCORE. The role_long field describes the job."""
 
 
 def _scoring_system():
@@ -1403,15 +1415,15 @@ def _scoring_system():
             SCORING_SYSTEM_BASE
             .replace(
                 "__EXTRA_FIELDS__",
-                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) any salary / compensation / equity information stated verbatim (e.g. \\"$405,000 - $485,000 USD\\"), plus benefits, location constraints, travel, visa. If a section still has no data, write a single bullet \\"not stated in the description\\". No company boilerplate."'
+                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) FIRST bullet MUST be a compensation range in USD only, using one of these two exact formats: \\"$MIN - $MAX USD\\" (when the description gives both a floor and a ceiling) or \\"> $MIN USD\\" (when the description only gives a floor, or wording like \\"starting at\\", \\"from\\", \\"minimum\\"). Numbers formatted with commas (e.g. \\"$405,000 - $485,000 USD\\"). If the description quotes the salary in another currency (EUR, GBP, CHF, CAD), convert to USD using the approximate rates 1 EUR = 1.08 USD, 1 GBP = 1.27 USD, 1 CHF = 1.13 USD, 1 CAD = 0.73 USD and round to the nearest 1,000. Never emit two currencies, never add prose like \\"which is roughly …\\", \\"equivalent to …\\", \\"exceeds …\\". If the description states NO salary at all, the FIRST bullet MUST be exactly \\"no information on salaries\\". Then, on separate bullets, add any equity / bonus / benefits / location constraints / travel / visa info stated. No company boilerplate."'
             )
             .replace(
                 "__EXAMPLE_EXTRA__",
-                ',\n     "role_long": "**Missions:**\\n- Scale Codex to production developer workflows.\\n- Own end-to-end the model-to-PR pipeline used by design partners.\\n\\n**Key responsibilities:**\\n- \\"Design and implement prompt strategies for code-generation tasks\\".\\n- \\"Build and maintain the evaluation harness for auto-PR quality\\".\\n- \\"Ship weekly improvements based on design-partner telemetry\\".\\n- \\"Run post-generation static analysis to catch regressions before merge\\".\\n\\n**Team:**\\n- 8 IC engineers, one Staff TL, embedded PM and applied researcher.\\n\\n**Tech:**\\n- Python (backend), TypeScript (developer-facing surfaces).\\n- Runs on internal Kubernetes; model serving on GPU clusters.\\n- Cryptography: TLS-terminating proxies and signed webhook payloads; no low-level crypto work.\\n\\n**Seniority:**\\n- Title: Member of Technical Staff.\\n- Experience: \\"7+ years shipping production ML systems\\" (quoted).\\n- IC role, no direct reports.\\n\\n**Minimal profile:**\\n- \\"BS in CS or equivalent experience\\".\\n- \\"7+ years shipping production ML systems\\".\\n- \\"Fluency in Python and modern JS\\".\\n\\n**Preferred profile:**\\n- \\"Prior experience with LLM inference stacks (vLLM, TGI)\\".\\n- \\"Contributions to open-source developer tools\\".\\n- \\"Prior work on evaluation harnesses\\".\\n\\n**Salary:**\\n- Annual salary: $405,000 - $485,000 USD (stated in the posting).\\n- Equity refresh yearly."'
+                ',\n     "role_long": "**Missions:**\\n- Scale Codex to production developer workflows.\\n- Own end-to-end the model-to-PR pipeline used by design partners.\\n\\n**Key responsibilities:**\\n- \\"Design and implement prompt strategies for code-generation tasks\\".\\n- \\"Build and maintain the evaluation harness for auto-PR quality\\".\\n- \\"Ship weekly improvements based on design-partner telemetry\\".\\n- \\"Run post-generation static analysis to catch regressions before merge\\".\\n\\n**Team:**\\n- 8 IC engineers, one Staff TL, embedded PM and applied researcher.\\n\\n**Tech:**\\n- Python (backend), TypeScript (developer-facing surfaces).\\n- Runs on internal Kubernetes; model serving on GPU clusters.\\n- Cryptography: TLS-terminating proxies and signed webhook payloads; no low-level crypto work.\\n\\n**Seniority:**\\n- Title: Member of Technical Staff.\\n- Experience: \\"7+ years shipping production ML systems\\" (quoted).\\n- IC role, no direct reports.\\n\\n**Minimal profile:**\\n- \\"BS in CS or equivalent experience\\".\\n- \\"7+ years shipping production ML systems\\".\\n- \\"Fluency in Python and modern JS\\".\\n\\n**Preferred profile:**\\n- \\"Prior experience with LLM inference stacks (vLLM, TGI)\\".\\n- \\"Contributions to open-source developer tools\\".\\n- \\"Prior work on evaluation harnesses\\".\\n\\n**Salary:**\\n- $405,000 - $485,000 USD.\\n- Equity refresh yearly."'
             )
             .replace(
                 "__EXAMPLE_EXTRA_2__",
-                ',\n     "role_long": "**Missions:**\\n- Run quarterly quota on financial-services logos across EMEA (60% new logo, 40% expansion).\\n- Lead technical qualification before handoff to solutions engineering.\\n- Own executive relationships at named accounts.\\n\\n**Team:**\\n- Reports to Regional Sales Director; sits alongside 5 other AEs, supported by 2 SEs and 1 SDR.\\n\\n**Tech:**\\n- Not stated in the description (non-engineering role).\\n\\n**Seniority:**\\n- Experience: \\"5+ years selling enterprise SaaS\\" (quoted).\\n- IC quota-carrying role, no direct reports.\\n\\n**Salary:**\\n- OTE $250-350k (50/50 base/variable) mentioned in the posting; yearly equity refresh.\\n- Travel required to customer sites."'
+                ',\n     "role_long": "**Missions:**\\n- Run quarterly quota on financial-services logos across EMEA (60% new logo, 40% expansion).\\n- Lead technical qualification before handoff to solutions engineering.\\n- Own executive relationships at named accounts.\\n\\n**Team:**\\n- Reports to Regional Sales Director; sits alongside 5 other AEs, supported by 2 SEs and 1 SDR.\\n\\n**Tech:**\\n- Not stated in the description (non-engineering role).\\n\\n**Seniority:**\\n- Experience: \\"5+ years selling enterprise SaaS\\" (quoted).\\n- IC quota-carrying role, no direct reports.\\n\\n**Salary:**\\n- $250,000 - $350,000 USD.\\n- Travel required to customer sites."'
             )
         )
     return (
@@ -1500,11 +1512,12 @@ def _parse_score_response(text, batch):
         except Exception:
             idx = None
         # Fallback 1: when there's no explicit index but positions align with
-        # the batch (small models often skip the "i" field).
-        if idx is None and pos < len(batch):
+        # the batch (small models often skip or invent the "i" field).
+        if (idx is None or not (0 <= idx < len(batch))) and pos < len(batch):
             idx = pos
-        # Fallback 2: for size-1 batches, the item is unambiguously the job.
-        if idx is None and len(batch) == 1:
+        # Fallback 2: for size-1 batches, the item is unambiguously the job
+        # (some models emit i=-1, i=0, i=99, etc.; use the only slot we have).
+        if (idx is None or not (0 <= idx < len(batch))) and len(batch) == 1:
             idx = 0
         if idx is None or not (0 <= idx < len(batch)):
             continue
@@ -1524,7 +1537,6 @@ def _parse_score_response(text, batch):
             out[url] = {
                 "score":     score,
                 "reason":    _clean(item.get("reason", "")),
-                "role":      _clean(item.get("role", "")),
                 "role_long": _clean(role_long_md, maxlen=6000),
             }
         except Exception:
@@ -1574,9 +1586,8 @@ def _ollama_json_schema():
         "i":      {"type": "integer"},
         "score":  {"type": "integer", "minimum": 0, "maximum": 10},
         "reason": {"type": "string",  "minLength": 30},
-        "role":   {"type": "string",  "minLength": 30},
     }
-    required = ["i", "score", "reason", "role"]
+    required = ["i", "score", "reason"]
     if SCORE_LONG_ROLES:
         # role_long is an OBJECT with one array-of-bullets per section. That
         # way the model is forced to fill each section separately — it can't
@@ -1698,7 +1709,6 @@ def score_jobs(jobs):
         if cached:
             j["score"] = cached.get("score", 0)
             j["score_reason"] = cached.get("reason", "")
-            j["role_summary"] = cached.get("role", "")
             j["role_long"] = cached.get("role_long", "")
     if not todo:
         return
@@ -1766,7 +1776,6 @@ def score_jobs(jobs):
                 if r:
                     j["score"] = r["score"]
                     j["score_reason"] = r["reason"]
-                    j["role_summary"] = r.get("role", "")
                     j["role_long"] = r.get("role_long", "")
                     cache[j["url"]] = r
                     new_entries = True
@@ -2374,15 +2383,19 @@ _COMPANY_LEAD_MARKERS = (
 def _strip_company_boilerplate(text):
     """LLMs sometimes ignore the 'no company blurb' rule. If the payload
     starts with a company/mission preamble followed by a real role section
-    (e.g. 'About the Role'), drop the preamble."""
+    (e.g. 'About the Role'), drop the preamble.
+
+    Only applies when the prefix looks like prose — if we already see a
+    proper `**Section:**` marker before the cut, the text is already
+    structured and slicing would break section boundaries."""
+    if re.search(r"\*\*[A-Z][A-Za-z /]{2,32}:\*\*", text):
+        return text
     lower = text.lower()
     best_cut = -1
     for pat in _COMPANY_LEAD_MARKERS:
         m = re.search(rf"\b{pat}\b", lower)
         if m and (best_cut == -1 or m.start() < best_cut):
             best_cut = m.start()
-    # Only strip if the marker is deep enough in the text (not at the start)
-    # AND leaves at least ~150 useful chars behind.
     if best_cut > 80 and len(text) - best_cut > 150:
         return text[best_cut:].lstrip()
     return text
@@ -2470,7 +2483,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         )
         score = j.get("score")
         score_reason = j.get("score_reason") or ""
-        role_summary = j.get("role_summary") or ""
+        role_long = j.get("role_long") or ""
         if score is not None:
             score_cls = "score-hi" if score >= 8 else "score-mid" if score >= 5 else "score-lo"
             score_html = (
@@ -2479,14 +2492,11 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
                 f'{int(score)}</span>'
             )
             summary_parts = []
-            if role_summary:
-                role_long = j.get("role_long") or ""
-                more_html = ""
-                if role_long:
-                    more_html = f'<div class="role-long">{_render_role_long(role_long)}</div>'
+            if role_long:
                 summary_parts.append(
-                    f'<div class="role-summary"><strong>Role</strong> '
-                    f'<span>{html.escape(role_summary)}</span>{more_html}</div>'
+                    f'<div class="role-summary"><strong>Role</strong>'
+                    f'<div class="role-long">{_render_role_long(role_long)}</div>'
+                    f'</div>'
                 )
             if score_reason:
                 summary_parts.append(
@@ -2746,7 +2756,7 @@ def render_html_filters(seniority_labels, all_locations=None):
         '    </div>\n'
         '    <div class="filter-group">\n'
         '      <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>\n'
-        '      <label class="filter-check"><input type="checkbox" id="role-summary-toggle" checked> Show role</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="role-summary-toggle" checked> Show role details</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="score-summary-toggle" checked> Show score reason</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
         '    </div>\n'
@@ -2892,6 +2902,13 @@ HTML_TEMPLATE = """<!doctype html>
     .nav-count { font-weight: 600; }
     .nav-btn.has-jobs .nav-count { color: var(--success); }
     .nav-btn.no-jobs .nav-count { color: var(--fg-muted); }
+    .top-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
     .total-count {
       font-size: 1rem;
       font-weight: 600;
@@ -2900,10 +2917,20 @@ HTML_TEMPLATE = """<!doctype html>
       background: var(--bg-subtle);
       border: 1px solid var(--border);
       border-radius: 6px;
-      display: inline-block;
-      margin-bottom: 1rem;
     }
     #total-count { color: var(--severe); }
+    .dump-btn {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--fg);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+    }
+    .dump-btn:hover { background: var(--bg-inset); border-color: var(--fg-muted); }
+    .dump-status { font-size: 0.85rem; color: var(--fg-muted); }
     .nav-break { flex-basis: 100%; height: 0; }
     .nav-row {
       display: flex;
@@ -3436,6 +3463,47 @@ function applyFilters() {
 loadFilters();
 applyFilters();
 
+/* --- Dump-URLs buttons -------------------------------------------------- */
+function collectUrls(selector) {
+  const urls = [];
+  const seen = new Set();
+  document.querySelectorAll(selector).forEach(li => {
+    // Every visible job has a .reject or .like button with the canonical
+    // URL in data-url, which is more reliable than parsing the desc-body link.
+    const btn = li.querySelector('.reject[data-url], .like[data-url]');
+    const url = btn?.dataset.url;
+    if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
+  });
+  return urls;
+}
+async function copyToClipboard(text, statusEl, okMsg) {
+  try {
+    await navigator.clipboard.writeText(text);
+    statusEl.textContent = okMsg;
+  } catch (e) {
+    // Fallback for non-HTTPS contexts (localhost usually works, but just in case).
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); statusEl.textContent = okMsg; }
+    catch (e2) { statusEl.textContent = 'Copy failed: ' + e2.message; }
+    ta.remove();
+  }
+  setTimeout(() => { statusEl.textContent = ''; }, 3000);
+}
+document.getElementById('dump-all')?.addEventListener('click', () => {
+  const urls = collectUrls('li.job:not(.hidden)');
+  const status = document.getElementById('dump-status');
+  if (!urls.length) { status.textContent = 'No visible jobs.'; setTimeout(() => status.textContent = '', 3000); return; }
+  copyToClipboard(urls.join('\\n') + '\\n', status, 'Copied ' + urls.length + ' URLs.');
+});
+document.getElementById('dump-selected')?.addEventListener('click', () => {
+  const urls = collectUrls('li.job.liked:not(.hidden)');
+  const status = document.getElementById('dump-status');
+  if (!urls.length) { status.textContent = 'No +1 jobs visible.'; setTimeout(() => status.textContent = '', 3000); return; }
+  copyToClipboard(urls.join('\\n') + '\\n', status, 'Copied ' + urls.length + ' selected URLs.');
+});
+
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
 ['loc-filter', 'title-filter', 'text-filter'].forEach(id => {
   const el = document.getElementById(id);
@@ -3550,6 +3618,8 @@ function updateCounters(sid, deltaVisible, deltaRejected) {
   if (totalEl) totalEl.textContent = parseInt(totalEl.textContent) + deltaVisible;
 }
 
+let undoToastTimer = null;
+
 function showUndoToast() {
   let toast = document.getElementById('undo-toast');
   if (!toast) {
@@ -3558,6 +3628,7 @@ function showUndoToast() {
     toast.className = 'undo-toast';
     document.body.appendChild(toast);
   }
+  if (undoToastTimer) { clearTimeout(undoToastTimer); undoToastTimer = null; }
   const count = rejectUndoStack.length;
   if (count === 0) {
     toast.classList.remove('visible');
@@ -3570,6 +3641,12 @@ function showUndoToast() {
     '<button id="undo-btn" class="undo-btn">Undo (' + count + ')</button>';
   toast.classList.add('visible');
   document.getElementById('undo-btn').addEventListener('click', undoLastReject);
+  // Auto-hide after 5s. The undo stack itself stays alive so Cmd-Z still
+  // works even after the toast has faded.
+  undoToastTimer = setTimeout(() => {
+    toast.classList.remove('visible');
+    undoToastTimer = null;
+  }, 5000);
 }
 
 async function undoLastReject() {
@@ -3795,8 +3872,6 @@ def _parse_cli():
                     help="Don't call the LLM for scoring (uses cached scores only).")
     ap.add_argument("--no-list-cache", action="store_true",
                     help="Ignore the per-source list cache and re-fetch everything.")
-    ap.add_argument("--long-roles", action="store_true",
-                    help="Ask the LLM for a longer, detailed role description on top of the short one.")
     ap.add_argument("--no-dump-descriptions", action="store_true",
                     help="Disable the automatic job-description dump under debug/descriptions/.")
     ap.add_argument("--clear-cache", metavar="WHAT",
@@ -3861,11 +3936,6 @@ def main():
 
     dump_dir = None if args.no_dump_descriptions else "debug/descriptions"
 
-    if args.long_roles:
-        # Rebuild the scoring system prompt with the extra `role_long` field.
-        global SCORE_LONG_ROLES, SCORING_SYSTEM
-        SCORE_LONG_ROLES = True
-        SCORING_SYSTEM = _scoring_system()
 
     if args.list:
         print(",".join(s["name"] for s in SOURCES))
@@ -4061,8 +4131,13 @@ def main():
         err(f"[locations] failed to write {RAW_LOCATIONS_FILE}: {e}")
     total = len(all_visible)
     total_bar = (
-        f'  <div class="total-count">Total: '
-        f'<span id="total-count">{total}</span> jobs visible</div>'
+        f'  <div class="top-bar">\n'
+        f'    <div class="total-count">Total: '
+        f'<span id="total-count">{total}</span> jobs visible</div>\n'
+        f'    <button type="button" class="dump-btn" id="dump-all" title="Copy every visible job URL to the clipboard, one per line">Dump all</button>\n'
+        f'    <button type="button" class="dump-btn" id="dump-selected" title="Copy the URLs of jobs you +1&#39;d (still visible), one per line">Dump selected</button>\n'
+        f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
+        f'  </div>'
     )
     html_body = (
         total_bar + "\n"

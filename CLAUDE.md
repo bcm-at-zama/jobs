@@ -36,3 +36,14 @@ In every other case: read the dump first.
 - When adding a new board, always start with `queries: []` so we see every
   posting; the user narrows the queries once we've confirmed the scraper
   works end to end.
+
+## When you need something from me — ask explicitly, and remind
+
+- When you need an input from me (a URL, a probe output, a decision between
+  two options, a confirmation before a destructive action), state it
+  explicitly as a question and stop.
+- If I move on to another topic without answering, you MUST re-ask on your
+  next turn. Do not silently drop the question and do not proceed with a
+  guess.
+- Rationale: it is easy for me to miss a question buried at the end of a
+  long paragraph. Losing the question means losing the correct fix.

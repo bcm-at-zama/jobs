@@ -171,6 +171,21 @@ When ranking, weight roughly like this:
 - **+2** any role at an early-stage or well-funded startup with fewer
   than roughly 20 employees (e.g. SSI, Thinking Machines, Poolside,
   Black Forest Labs, XBOW, DepthFirst, Aisle, ZeroPath, Pixee, Corgea).
+- **+3** description requires **7+ years** of experience (any wording:
+  "7+ years", "seven years", "at least 7 years", etc.).
+- **+5** description requires **10+ years** of experience (or wording
+  like "senior", "10+ years", "at least a decade").
+- **+7** description requires **15+ years** of experience (or a very
+  senior signal like "20+ years", "two decades", or "executive").
+  Note: these three bonuses are mutually exclusive — use only the
+  highest one that applies. They reflect the candidate's 25y
+  background: the more experience the role demands, the better the
+  fit.
+- **+5** description requires **5+ years of management / people
+  leadership experience** (wording variants: "5+ years managing
+  engineering teams", "at least 5 years in a leadership role",
+  "5 years of direct-report management", etc.). This stacks on top of
+  the years-of-experience bonus above.
 - **-2** infra / netsec / cloud-sec-ops as primary focus.
 - **-2** unclear whether the role is technical enough
   (people-manager-only, no build).

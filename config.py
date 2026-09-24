@@ -48,7 +48,7 @@ SCORE_DESC_CHARS = 15000  # description chars sent to the LLM per job. Set high
                           # exceed this; on the current model + laptop the extra
                           # latency is negligible for ~150 jobs.
 SCORE_PARALLEL   = 6      # concurrent calls to Ollama/Claude
-SCORE_LONG_ROLES = False  # if True, LLM also returns a longer 6-10 sentence role summary
+SCORE_LONG_ROLES = True   # role_long (structured markdown) is the only role output now
 
 # =============================================================================
 # Highlights — words drawn with a marker style in titles + descriptions
