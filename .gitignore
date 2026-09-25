@@ -5,6 +5,7 @@ debug-*.html
 list_cache/
 score_cache.json
 desc_cache.json
+seen.json
 __pycache__/
 *.pyc
 
