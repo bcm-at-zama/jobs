@@ -1,0 +1,99 @@
+Companies to add later
+======================
+
+Compiled 2026-09-25 from debug/ats_probe.py runs. These companies are NOT on
+Ashby / Greenhouse / Workable (our three fast-path JSON ATSes), so each one
+requires a dedicated Playwright fetcher (or a Workday generic fetcher).
+
+Effort ranking:
+  [P]  = ~1h Playwright custom scraper (small board or unique HTML)
+  [W]  = Workday-based — build a generic Workday fetcher, then add slug
+  [SR] = SmartRecruiters
+  [??] = need to investigate their ATS
+
+
+### HIGH VALUE (matches Benoit's profile — FHE / crypto / dev tools / French)
+
+  GitGuardian          [P]  French secrets-scanning security co — very relevant
+  BlaBlaCar            [P]  French travel — SmartRecruiters
+  Contentsquare        [P]  French analytics — SmartRecruiters
+  Aikido               [P]  Belgian appsec — greenhouse.io/aikido (embed only?)
+  Cyera                [W]  Israeli data security
+  Legit Security       [W]  Israeli appsec
+  Arnica               [??] Israeli appsec
+  Latacora             [??] US security consultancy
+  NCC Group            [W]  UK security consultancy — Workday
+  Trail of Bits        [OK] already added
+  Groq                 [W]  LPU inference chips — Lever or Workday
+  Duality Technologies [P]  FHE (direct competitor to Zama)
+  Enveil               [P]  FHE
+  Inpher               [P]  FHE (Swiss)
+  Nillion              [P]  SMPC
+  Sakana AI            [W]  Tokyo AI lab — flaky Workable, keep an eye on it
+
+### MEDIUM VALUE (music tech — Benoit's founder space)
+
+  Native Instruments   [P]  Berlin (Germany bonus)
+  iZotope              [P]  Cambridge MA — audio plugins
+  Splash               [P]  music AI
+  Serato               [P]  DJ software
+  Bandcamp             [P]  Epic Games subsidiary
+  SoundCloud           [P]
+  Spotify              [W]  huge board — Workday-hosted; scrape careers.spotify.com
+  LANDR                [P]  Montreal — mastering / music AI
+  Roli                 [P]  London MIDI hardware
+  Sennheiser           [P]  German mic maker — SmartRecruiters?
+  Focusrite            [P]  UK — owns Novation, ADAM, Sequential
+  Bitwig               [P]  Berlin — DAW
+  Moog Music           [P]  Asheville NC synth co.
+  Sequential           [P]  Dave Smith Instruments (Focusrite subsidiary)
+  Korg / Roland / Yamaha [P]  Japanese giants — proprietary careers sites
+  Bose                 [W]  workday
+  Sonos                [W]  workday
+  Dolby                [W]  workday
+  Avid                 [W]  workday — Pro Tools
+  Deezer               [P]  Paris — French streaming
+  Tidal                [P]  Block subsidiary but separate ATS
+  Beatport             [P]  Denver electronic-music store
+
+### GAFAM-adjacent (huge boards — likely Workday)
+
+  Amazon / AWS         [W]  Amazon's own ATS. Massive volume.
+  Adobe                [W]  workday
+  Salesforce / Slack   [W]  workday
+  Intel                [W]  workday
+  Qualcomm             [W]  workday
+  Samsung              [P]  proprietary careers site
+  IBM                  [W]  workday
+  Uber                 [W]  smartrecruiters
+  Netflix              [W]  workday
+  Palantir             [W]  workday
+  Tesla                [W]  workday
+  ByteDance / TikTok   [P]  proprietary (jobs.bytedance.com)
+  Booking.com          [W]  workday
+  Shopify              [W]  smartrecruiters (careers.shopify.com)
+  PayPal               [W]  workday
+  Square (= Block)     already added under Block
+  SAP                  [W]  SAP-hosted careers
+  Oracle               [W]  Oracle Recruiting
+  ServiceNow           [W]  smartrecruiters
+  Atlassian            [W]  smartrecruiters
+  Zoom                 [W]  workday
+  Unity                [W]  workday
+  Cisco                [W]  workday
+  VMware / Broadcom    [W]  workday (post-acquisition)
+
+### Flaky results (worked once, then didn't — retry probe)
+
+  Voyage AI            [Workable] — was 200 with jobs=0, then 404
+  HashiCorp            [Workable] — was 200 with jobs=0, then 404
+  Sakana AI            [Workable] — same
+
+### Next step suggestion
+
+Build a generic Workday fetcher (`kind: "workday"`). Most Workday sites share
+the same JSON API pattern:
+  POST https://<tenant>.wd<N>.myworkdayjobs.com/wday/cxs/<tenant>/<board>/jobs
+with a search payload. If we crack that, we unlock ~20 companies at once
+(Amazon, Adobe, Salesforce, Intel, Qualcomm, IBM, Uber, Netflix, Palantir,
+Tesla, Booking, PayPal, Cisco, Unity, VMware, Zoom, Oracle, Spotify).
