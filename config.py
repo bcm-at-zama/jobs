@@ -18,6 +18,9 @@ REJECTED_DB         = "rejected.json"
 LIKED_DB            = "liked.json"
 TO_APPLY_DB         = "to_apply.json"
 APPLIED_DB          = "applied.json"
+# {url: {reason, feedback, ts}} — jobs where I applied and the company
+# rejected me. Kept even after the job is removed from the board.
+APP_REJECTED_DB     = "app_rejected.json"
 SEEN_DB             = "seen.json"
 # {url: {title, locations, source}} — used to render orphans (jobs the user
 # +1'd / marked but no longer returned by the source board).

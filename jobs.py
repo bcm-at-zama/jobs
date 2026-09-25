@@ -59,7 +59,7 @@ Step 6 — Serve
 # The engine below imports it wholesale. If you want to fork this for a
 # different profile, keep this file untouched and duplicate `config.py`.
 from config import (  # noqa: E402,F401 — public config surface
-    OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, SEEN_DB, JOB_INDEX_DB, PROFILE_FILE,
+    OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, APP_REJECTED_DB, SEEN_DB, JOB_INDEX_DB, PROFILE_FILE,
     SCORE_CACHE, DESC_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
@@ -183,8 +183,46 @@ def save_seen(seen):
 
 def load_to_apply():   return _load_set(TO_APPLY_DB)
 def save_to_apply(s):  _save_set(TO_APPLY_DB, s)
-def load_applied():    return _load_set(APPLIED_DB)
-def save_applied(s):   _save_set(APPLIED_DB, s)
+
+
+def load_applied():
+    """Load applied jobs as {url: {ts}} dict. Backwards-compatible with the
+    old set-of-URLs format: any legacy list gets migrated on read using
+    today's date as the fallback timestamp."""
+    try:
+        with open(APPLIED_DB, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    if isinstance(data, list):
+        today = time.strftime("%Y-%m-%d %H:%M:%S")
+        return {u: {"ts": today} for u in data}
+    if isinstance(data, dict):
+        # Filter out non-dict values just in case.
+        return {u: (v if isinstance(v, dict) else {"ts": time.strftime("%Y-%m-%d %H:%M:%S")}) for u, v in data.items()}
+    return {}
+
+
+def save_applied(d):
+    """Persist applied dict `{url: {ts}}` sorted by URL for stable diffs."""
+    ordered = dict(sorted(d.items()))
+    with open(APPLIED_DB, "w", encoding="utf-8") as f:
+        json.dump(ordered, f, indent=2)
+
+
+def load_app_rejected():
+    """{url: {reason, feedback, ts}} — company rejected my application.
+    Persistent, keyed by URL. Separate from `rejected.json` (user hides posting)."""
+    try:
+        with open(APP_REJECTED_DB, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_app_rejected(d):
+    with open(APP_REJECTED_DB, "w", encoding="utf-8") as f:
+        json.dump(d, f, indent=2)
 
 
 def load_job_index():
@@ -395,7 +433,8 @@ def fetch_workable(source):
         return {"jobs": [], "spontaneous_url": None}
     all_jobs = normalize_workable(raw, account_slug=slug)
     matched = [j for j in all_jobs if matches(j, source["queries"])]
-    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(all_jobs)}
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(all_jobs),
+            "total_board": len(all_jobs)}
 
 
 def normalize_greenhouse(raw):
@@ -461,7 +500,8 @@ def fetch_ashby(source):
             f"[{source['name']}] Ashby returned {len(all_jobs)} jobs but 0 matched "
             f"queries {source['queries']!r}. Set queries=[] to see them all.\n"
         )
-    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(all_jobs)}
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(all_jobs),
+            "total_board": len(all_jobs)}
 
 
 def fetch_greenhouse(source):
@@ -475,6 +515,7 @@ def fetch_greenhouse(source):
     return {
         "jobs": [j for j in all_jobs if matches(j, source["queries"])],
         "spontaneous_url": _pick_spontaneous(all_jobs),
+        "total_board": len(all_jobs),
     }
 
 
@@ -732,6 +773,12 @@ def _render(page, url, wait_selector=None, timeout=15000, debug_path=None):
     return content
 
 
+_APPLE_RESULT_COUNT_RE = re.compile(
+    r'id="search-result-count"[^>]*>\s*([0-9,]+)\+?\s*Result',
+    re.IGNORECASE,
+)
+
+
 def fetch_apple(source):
     if not HAS_PLAYWRIGHT:
         sys.stdout.write(
@@ -740,6 +787,7 @@ def fetch_apple(source):
         )
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
+    total_board = None
     p, browser, page = _open_browser()
     try:
         for q in source["queries"]:
@@ -759,6 +807,13 @@ def fetch_apple(source):
                         f"json={len(from_json)}, links={len(from_links)} "
                         f"(HTML dumped to {debug})\n"
                     )
+                    # Apple's search page shows "600+ Result(s)" — the board
+                    # global open-position count, independent of the query.
+                    # Grab it from any of our per-query fetches.
+                    if total_board is None:
+                        m = _APPLE_RESULT_COUNT_RE.search(text)
+                        if m:
+                            total_board = int(m.group(1).replace(",", ""))
                 if not jobs:
                     break
                 added = 0
@@ -775,7 +830,11 @@ def fetch_apple(source):
     finally:
         browser.close()
         p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+    return {
+        "jobs": filtered,
+        "spontaneous_url": _pick_spontaneous(out),
+        "total_board": total_board,
+    }
 
 
 _LD_RE = re.compile(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', re.IGNORECASE | re.DOTALL)
@@ -818,6 +877,9 @@ def _google_extract_from_ld(text):
     return out
 
 
+_GOOGLE_TOTAL_RE = re.compile(r'class="SWhIm">\s*([0-9,]+)\s*</span>')
+
+
 def fetch_google(source):
     if not HAS_PLAYWRIGHT:
         sys.stdout.write(
@@ -827,8 +889,19 @@ def fetch_google(source):
         return {"jobs": [], "spontaneous_url": None}
     base = source.get("search_url") or "https://www.google.com/about/careers/applications/jobs/results/?hl=en_US"
     out, seen = [], set()
+    total_board = None
     p, browser, page = _open_browser()
     try:
+        # One extra query-less fetch to grab the full board total. Google's
+        # careers SPA renders "N jobs matched" in <span class="SWhIm">.
+        try:
+            text = _render(page, base, wait_selector="span.SWhIm", debug_path="debug/debug-google-total.html")
+            m = _GOOGLE_TOTAL_RE.search(text)
+            if m:
+                total_board = int(m.group(1).replace(",", ""))
+                sys.stdout.write(f"[Google] board total = {total_board}\n")
+        except Exception as e:
+            err(f"[Google] board-total fetch failed: {e}")
         queries = source.get("queries") or [""]
         for q in queries:
             for pnum in range(1, 2):     # 1 page only — Google's SPA shows all matches page 1
@@ -880,13 +953,33 @@ def fetch_google(source):
     finally:
         browser.close()
         p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board}
 
 
 _MICROSOFT_JOB_RE = re.compile(
     r'href="/careers/job/(\d+)"[^>]*>(.*?)</a>',
     re.IGNORECASE | re.DOTALL,
 )
+
+# Phenom-based boards (Microsoft, NVIDIA) render the running total as
+# `<h2 aria-level="2">2430 jobs</h2>`. Same regex works on both.
+_PHENOM_TOTAL_RE = re.compile(r'>\s*([0-9,]+)\s+jobs\b', re.IGNORECASE)
+
+
+def _phenom_board_total(page, label, base_url, debug_path):
+    """Fetch the query-less board page for a Phenom-hosted careers site and
+    extract the "N jobs" summary count. Used for Microsoft and NVIDIA."""
+    try:
+        text = _render(page, base_url, wait_selector='a[id^="job-card-"]', debug_path=debug_path)
+        m = _PHENOM_TOTAL_RE.search(text)
+        if m:
+            n = int(m.group(1).replace(",", ""))
+            sys.stdout.write(f"[{label}] board total = {n}\n")
+            return n
+    except Exception as e:
+        err(f"[{label}] board-total fetch failed: {e}")
+    return None
 
 
 def fetch_microsoft(source):
@@ -898,7 +991,13 @@ def fetch_microsoft(source):
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
     p, browser, page = _open_browser()
+    total_board = None
     try:
+        total_board = _phenom_board_total(
+            page, "Microsoft",
+            "https://apply.careers.microsoft.com/careers?start=0&sort_by=relevance",
+            "debug/debug-microsoft-total.html",
+        )
         for q in source["queries"]:
             for pnum in range(10):
                 start = pnum * 20
@@ -944,7 +1043,8 @@ def fetch_microsoft(source):
     finally:
         browser.close()
         p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board}
 
 
 def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a"):
@@ -1142,6 +1242,12 @@ def fetch_checkmarx(source):
     return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
 
 
+_GITHUB_TOTAL_RE = re.compile(
+    r'search-results-indicator[^>]*>\s*([0-9,]+)\s+results',
+    re.IGNORECASE,
+)
+
+
 def fetch_github(source):
     """GitHub careers page — anchors carry the title as text; the generic
     scraper would use the URL slug instead which loses the title."""
@@ -1149,8 +1255,25 @@ def fetch_github(source):
         err("[GitHub] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
+    total_board = None
     p, browser, page = _open_browser()
     try:
+        # Query-less fetch first to grab the board total; extract N from
+        # <h2 id="search-results-indicator">78 results</h2>.
+        try:
+            base_text = _render(
+                page,
+                "https://www.github.careers/careers-home/jobs",
+                wait_selector='#search-results-indicator',
+                debug_path="debug/debug-github-total.html",
+            )
+            m = _GITHUB_TOTAL_RE.search(base_text)
+            if m:
+                total_board = int(m.group(1).replace(",", ""))
+                sys.stdout.write(f"[GitHub] board total = {total_board}\n")
+        except Exception as e:
+            err(f"[GitHub] board-total fetch failed: {e}")
+
         url = source.get("search_url") or "https://www.github.careers/careers-home/jobs"
         debug = "debug/debug-github-1.html"
         text = _render(page, url, wait_selector='a[href*="/careers-home/jobs/"]', debug_path=debug)
@@ -1182,7 +1305,14 @@ def fetch_github(source):
     finally:
         browser.close()
         p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board}
+
+
+_SCALE_TOTAL_RE = re.compile(
+    r'>\s*([0-9,]{2,7})\s+(?:roles|jobs|positions?|openings?)\b',
+    re.IGNORECASE,
+)
 
 
 def fetch_scale(source):
@@ -1192,11 +1322,16 @@ def fetch_scale(source):
         err("[Scale AI] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
+    total_board = None
     p, browser, page = _open_browser()
     try:
         url = source.get("search_url") or "https://scale.com/careers"
         debug = "debug/debug-scale-ai-1.html"
         text = _render(page, url, wait_selector='a[href*="/careers/"]', debug_path=debug)
+        m = _SCALE_TOTAL_RE.search(text)
+        if m:
+            total_board = int(m.group(1).replace(",", ""))
+            sys.stdout.write(f"[Scale AI] board total = {total_board}\n")
         pattern = re.compile(
             r'<a[^>]+href="(/careers/(\d+))"[^>]*>(.*?)</a>',
             re.IGNORECASE | re.DOTALL,
@@ -1224,10 +1359,17 @@ def fetch_scale(source):
     finally:
         browser.close()
         p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board}
 
 
 _META_JOB_RE = re.compile(r'/profile/job_details/(\d{5,})', re.IGNORECASE)
+
+
+_META_TOTAL_RE = re.compile(
+    r'>\s*([0-9,]{2,7})\s+(?:items|results|jobs|open positions?|roles)\b',
+    re.IGNORECASE,
+)
 
 
 def fetch_meta(source):
@@ -1235,8 +1377,23 @@ def fetch_meta(source):
         err("[Meta] Playwright not installed")
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
+    total_board = None
     p, browser, page = _open_browser()
     try:
+        try:
+            base_text = _render(
+                page,
+                "https://www.metacareers.com/jobsearch/",
+                wait_selector="a[href*='/profile/job_details/']",
+                debug_path="debug/debug-meta-total.html",
+            )
+            m = _META_TOTAL_RE.search(base_text)
+            if m:
+                total_board = int(m.group(1).replace(",", ""))
+                sys.stdout.write(f"[Meta] board total = {total_board}\n")
+        except Exception as e:
+            err(f"[Meta] board-total fetch failed: {e}")
+
         for q in source["queries"]:
             url = f"https://www.metacareers.com/jobsearch/?q={urllib.parse.quote(q)}"
             debug = f"debug/debug-meta-{q}-1.html"
@@ -1272,7 +1429,8 @@ def fetch_meta(source):
     finally:
         browser.close()
         p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board}
 
 
 _PHENOM_JOB_RE = re.compile(
@@ -1289,7 +1447,13 @@ def fetch_phenom(source):
     out, seen = [], set()
     p, browser, page = _open_browser()
     origin = source.get("search_url", "").split("/careers")[0] or "https://jobs.example.com"
+    total_board = None
     try:
+        total_board = _phenom_board_total(
+            page, source["name"],
+            f"{origin}/careers?start=0&sort_by=relevance",
+            f"debug/debug-{slug(source['name'])}-total.html",
+        )
         for q in source["queries"]:
             for pnum in range(10):
                 start = pnum * 20
@@ -1333,7 +1497,8 @@ def fetch_phenom(source):
     finally:
         browser.close()
         p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board}
 
 
 _WTTJ_JOB_RE = re.compile(
@@ -2400,9 +2565,17 @@ def collect(source):
     ]
     jobs = dedup_by_url(jobs)
     jobs.sort(key=lambda j: j["title"].lower())
-    final = {"jobs": jobs, "spontaneous_url": result.get("spontaneous_url")}
+    final = {
+        "jobs": jobs,
+        "spontaneous_url": result.get("spontaneous_url"),
+        "total_board": result.get("total_board"),
+    }
     if source_kind == "fresh":
-        _save_list_cache(source, {"jobs": raw_jobs, "spontaneous_url": result.get("spontaneous_url")})
+        _save_list_cache(source, {
+            "jobs": raw_jobs,
+            "spontaneous_url": result.get("spontaneous_url"),
+            "total_board": result.get("total_board"),
+        })
     return final
 
 
@@ -2544,16 +2717,18 @@ def _render_role_long(text):
     return "".join(out)
 
 
-def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None):
+def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None, app_rejected=None, fetched_count=None):
     to_apply = to_apply or set()
     applied = applied or set()
+    app_rejected = app_rejected or {}
     sid = slug(name)
     def _state_rank(u):
         # Lower rank = higher on the page.
-        if u in applied:  return 0
+        if u in applied and u not in app_rejected: return 0
         if u in to_apply: return 1
         if u in liked:    return 2
-        return 3
+        if u in app_rejected: return 3   # applied → rejected, keep grouped but below fresh applications
+        return 4
     ordered = sorted(
         visible,
         key=lambda j: (
@@ -2640,6 +2815,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         is_liked = url in liked
         is_toapply = url in to_apply
         is_applied = url in applied
+        is_app_rejected = url in app_rejected
         like_state = "on" if is_liked else "off"
         like_btn = (
             f'<button class="like" data-url="{url_esc}" data-state="{like_state}" title="Like">+1</button>'
@@ -2660,11 +2836,38 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         )
         # "Applied" button: only shown once the job is at least in To apply.
         applied_state = "on" if is_applied else "off"
+        applied_meta = applied.get(url, {}) if isinstance(applied, dict) and is_applied else {}
+        applied_tooltip = (
+            f"Applied on {applied_meta['ts']}" if applied_meta.get("ts")
+            else "Mark as Applied"
+        )
         applied_btn = (
             f'<button class="applied" data-url="{url_esc}" data-state="{applied_state}" '
-            f'title="Mark as Applied">✓</button>'
+            f'title="{html.escape(applied_tooltip, quote=True)}">✓</button>'
             if url and (is_toapply or is_applied) else ""
         )
+        # "Rejected by company" button: shown once the job is Applied.
+        # Clicking it opens a dialog asking for reason + feedback.
+        app_rej_state = "on" if is_app_rejected else "off"
+        app_rej_meta = app_rejected.get(url, {}) if is_app_rejected else {}
+        # Full tooltip: timestamp, reason, feedback (each on its own line).
+        # The native `title` attribute renders newlines as line breaks in every
+        # modern browser tooltip, so the whole story fits into one hover.
+        if is_app_rejected:
+            _lines = [f"Rejected on {app_rej_meta.get('ts','')}"]
+            if app_rej_meta.get("reason"):
+                _lines.append(f"Reason: {app_rej_meta['reason']}")
+            if app_rej_meta.get("feedback"):
+                _lines.append(f"Feedback: {app_rej_meta['feedback']}")
+            app_rej_tooltip = html.escape("\n".join(_lines), quote=True)
+        else:
+            app_rej_tooltip = "Mark this application as rejected by the company"
+        app_rej_btn = (
+            f'<button class="app-rejected-btn" data-url="{url_esc}" data-state="{app_rej_state}" '
+            f'title="{app_rej_tooltip}">R</button>'
+            if url and (is_applied or is_app_rejected) else ""
+        )
+        app_rej_panel_html = ""
         open_link = (
             f'<a href="{url_esc}" target="_blank" rel="noopener">Open original ↗</a>'
             if url else ""
@@ -2677,8 +2880,11 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             if url else ""
         )
         # Highest state wins for the <li> visual class (used to move to top).
+        # app-rejected takes precedence over applied — the row goes grey.
         state_class = ""
-        if is_applied:
+        if is_app_rejected:
+            state_class = "app-rejected"
+        elif is_applied:
             state_class = "applied"
         elif is_toapply:
             state_class = "toapply"
@@ -2688,7 +2894,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         items.append(
             f'    <li class="{li_class}" data-seniority="{seniority_attr}" '
             f'data-locations="{locs_attr}">'
-            f'{reject_btn}{like_btn}{toapply_btn}{applied_btn}<details>\n'
+            f'{reject_btn}{like_btn}{toapply_btn}{applied_btn}{app_rej_btn}<details>\n'
             f'      <summary title="{title_attr} — {locs_attr}">'
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
@@ -2700,14 +2906,22 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'        <div class="desc-actions">{open_link}</div>\n'
             f'        <div class="desc-body">{desc_html}</div>\n'
             f'      </div>\n'
-            f'    </details>{score_summary_html}</li>'
+            f'    </details>{app_rej_panel_html}{score_summary_html}</li>'
         )
     ul_content = "\n".join(items) if items else "    <li><em>none</em></li>"
     visible_count = len(visible)
+    total_bit = ""
+    if fetched_count is not None:
+        total_bit = (
+            f' · <span class="t" title="Total open positions on this board, '
+            f'before our query filter and before rejects.">'
+            f'{fetched_count} total</span>'
+        )
     counter = (
         f'<span class="counter">'
         f'<span class="v">{visible_count}</span> visible · '
         f'<span class="r">{rejected_count}</span> rejected'
+        f'{total_bit}'
         f'</span>'
     )
     board_link = (
@@ -2765,11 +2979,26 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
 
 
 def render_html_nav(entries):
-    """Groups nav buttons per GROUP_ORDER, with a labelled row per group."""
+    """Groups nav buttons per GROUP_ORDER, with a labelled row per group.
+
+    Each entry is (name, visible_count, fetched_count). We emit one of three
+    classes so the CSS colour tells you WHY a company shows (0):
+      - has-jobs   : at least one job passes the current filters (green)
+      - no-match   : the source returned jobs but none pass the filters or
+                     all were rejected (orange — worth revisiting)
+      - no-fetched : the source itself returned zero (grey — scraper broken
+                     or the source really has no matching listings)
+    """
+    def _btn_class(visible, fetched):
+        if visible > 0:      return "has-jobs"
+        if fetched > 0:      return "no-match"
+        return "no-fetched"
     by_group = {g: [] for g in GROUP_ORDER}
-    for name, visible_count in entries:
+    for entry in entries:
+        # Back-compat: old callers may still pass 2-tuples.
+        name, visible_count, fetched_count = (entry + (0,))[:3] if len(entry) == 2 else entry
         group = GROUP_OF.get(name, "Other")
-        by_group.setdefault(group, []).append((name, visible_count))
+        by_group.setdefault(group, []).append((name, visible_count, fetched_count))
     rows = []
     for group in GROUP_ORDER + [g for g in by_group if g not in GROUP_ORDER]:
         items = by_group.get(group) or []
@@ -2777,10 +3006,10 @@ def render_html_nav(entries):
             continue
         items.sort(key=lambda kv: kv[0].lower())
         buttons = "".join(
-            f'<a class="nav-btn {"has-jobs" if visible_count > 0 else "no-jobs"}" '
-            f'href="#{slug(name)}">{html.escape(name)} '
+            f'<a class="nav-btn {_btn_class(visible_count, fetched_count)}" '
+            f'href="#{slug(name)}" data-fetched="{fetched_count}">{html.escape(name)} '
             f'(<span class="nav-count">{visible_count}</span>)</a>'
-            for name, visible_count in items
+            for name, visible_count, fetched_count in items
         )
         rows.append(
             '    <div class="nav-row">'
@@ -2952,10 +3181,10 @@ HTML_TEMPLATE = """<!doctype html>
       --danger: #d1242f;
       --danger-emphasis: #a40e26;
     }
-    /* Shrink the root font-size 1px below the browser default (16 → 15).
+    /* Shrink the root font-size 3px below the browser default (16 → 13).
        Every rem-based size in this stylesheet scales down proportionally so
-       we get about 6% more content per screenful with no per-rule tweaking. */
-    html { scroll-behavior: smooth; font-size: 15px; }
+       we get ~19% more content per screenful with no per-rule tweaking. */
+    html { scroll-behavior: smooth; font-size: 13px; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       max-width: 960px;
@@ -2999,6 +3228,7 @@ HTML_TEMPLATE = """<!doctype html>
     }
     .counter .v { color: var(--fg); }
     .counter .r { color: var(--danger); }
+    .counter .t { color: var(--fg-muted); }
     .queries {
       display: inline-flex;
       gap: 0.3rem;
@@ -3060,13 +3290,26 @@ HTML_TEMPLATE = """<!doctype html>
       background: rgba(63, 185, 80, 0.22);
       border-color: var(--success);
     }
-    .nav-btn.no-jobs {
+    /* Two "empty" states: no-match (source has jobs, none pass filters —
+       orange, still worth checking) vs no-fetched (source returned zero —
+       grey, likely unsupported or broken). */
+    .nav-btn.no-match {
+      color: var(--attention);
+      border-color: rgba(154, 103, 0, 0.4);
+      background: rgba(255, 213, 128, 0.15);
+    }
+    .nav-btn.no-match:hover {
+      background: rgba(255, 213, 128, 0.30);
+      border-color: var(--attention);
+    }
+    .nav-btn.no-fetched {
       color: var(--fg-muted);
       opacity: 0.7;
     }
     .nav-count { font-weight: 600; }
-    .nav-btn.has-jobs .nav-count { color: var(--success); }
-    .nav-btn.no-jobs .nav-count { color: var(--fg-muted); }
+    .nav-btn.has-jobs   .nav-count { color: var(--success); }
+    .nav-btn.no-match   .nav-count { color: var(--attention); }
+    .nav-btn.no-fetched .nav-count { color: var(--fg-muted); }
     .top-bar {
       display: flex;
       align-items: center;
@@ -3114,6 +3357,9 @@ HTML_TEMPLATE = """<!doctype html>
     .dump-btn.open-btn-toapply:hover { background: var(--danger-emphasis); }
     .dump-btn.open-btn-applied { background: #8250df; }
     .dump-btn.open-btn-applied:hover { background: #6639ba; }
+    /* Probe button: pushed to the far right of the row, black. */
+    .dump-btn.dump-btn-probe { margin-left: auto; background: #000; border-color: #000; }
+    .dump-btn.dump-btn-probe:hover { background: #2c2c2c; }
     .dump-status { font-size: 0.85rem; color: var(--fg-muted); }
     .nav-break { flex-basis: 100%; height: 0; }
     .nav-row {
@@ -3354,6 +3600,85 @@ HTML_TEMPLATE = """<!doctype html>
       border-radius: 4px;
     }
     li.applied .reject { display: none; }
+
+    /* Application rejected by company — much darker grey. */
+    button.app-rejected-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid #1c1f24;
+      color: #1c1f24;
+      border-radius: 999px;
+      padding: 0 0.4rem;
+      height: 1.3rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 1;
+      align-self: center;
+    }
+    button.app-rejected-btn:hover { background: #1c1f24; color: #ffffff; border-color: #000; }
+    button.app-rejected-btn[data-state="on"] { background: #1c1f24; color: #ffffff; }
+    li.app-rejected {
+      background: rgba(28, 31, 36, 0.35);
+      border-left: 3px solid #1c1f24;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      opacity: 0.85;
+    }
+    li.app-rejected .reject { display: none; }
+    /* Feedback / reason panel injected under the summary when applicable. */
+    .app-reject-panel {
+      flex-basis: 100%;
+      margin: 0.15rem 0 0 2.1rem;
+      padding: 0.35rem 0.6rem;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      border-left: 3px solid #1c1f24;
+      background: rgba(28, 31, 36, 0.15);
+      color: var(--fg);
+    }
+    .app-reject-panel strong { color: #1c1f24; margin-right: 0.4rem; }
+    .app-reject-panel .app-reject-fb {
+      display: block; margin-top: 0.25rem;
+      white-space: pre-wrap; color: var(--fg-muted); font-style: italic;
+    }
+
+    /* Modal used for the "Application rejected" reason + feedback dialog. */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .modal-backdrop.visible { display: flex; }
+    .modal-backdrop .modal {
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem 1.4rem;
+      width: min(520px, 92vw);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    }
+    .modal h3 { margin-top: 0; margin-bottom: 0.9rem; font-size: 1.1rem; }
+    .modal label { display: block; margin-bottom: 0.7rem; font-size: 0.9rem; color: var(--fg-muted); }
+    .modal input, .modal textarea {
+      width: 100%; box-sizing: border-box;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: var(--bg); color: var(--fg);
+      font: inherit;
+      margin-top: 0.25rem;
+    }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.4rem; }
+    .modal-actions button {
+      padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg-subtle); color: var(--fg);
+      font-weight: 600;
+    }
+    .modal-actions button.primary {
+      background: var(--accent); color: #ffffff; border-color: var(--accent-emphasis);
+    }
+    .modal-actions button.primary:hover { background: var(--accent-emphasis); }
 
     .badge {
       display: inline-block;
@@ -3717,8 +4042,10 @@ function applyFilters() {
       navCount.textContent = visible;
       const btn = navCount.closest('.nav-btn');
       if (btn) {
-        btn.classList.toggle('has-jobs', visible > 0);
-        btn.classList.toggle('no-jobs',  visible === 0);
+        const fetched = parseInt(btn.dataset.fetched) || 0;
+        btn.classList.toggle('has-jobs',   visible > 0);
+        btn.classList.toggle('no-match',   visible === 0 && fetched > 0);
+        btn.classList.toggle('no-fetched', visible === 0 && fetched === 0);
       }
     }
     const v = document.querySelector('#' + sid + ' .counter .v');
@@ -4079,12 +4406,17 @@ if (heToggle) {
 /* --- Like -------------------------------------------------------------- */
 async function apiPost(path, url) {
   const base = location.protocol === 'file:' ? SERVER_URL : '';
+  const body = JSON.stringify({url});
   const res = await fetch(base + path, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({url})
+    body,
   });
-  if (!res.ok) throw new Error('http ' + res.status);
+  if (!res.ok) {
+    // Include the actual URL and body we sent so a 400 tells us WHY.
+    console.error('apiPost failed', {path, url, body, status: res.status});
+    throw new Error('http ' + res.status + ' — url=' + JSON.stringify(url));
+  }
 }
 
 /* --- Like / To apply / Applied state machine -------------------------- */
@@ -4092,11 +4424,13 @@ async function apiPost(path, url) {
 // from a visual standpoint (li can only be in one bucket) but the
 // underlying stores are independent so we don't lose state when demoting.
 function refreshLiState(li) {
-  li.classList.remove('liked', 'toapply', 'applied');
-  const likeOn = li.querySelector('.like')?.dataset.state === 'on';
-  const taOn   = li.querySelector('.toapply')?.dataset.state === 'on';
-  const apOn   = li.querySelector('.applied')?.dataset.state === 'on';
-  if (apOn)      li.classList.add('applied');
+  li.classList.remove('liked', 'toapply', 'applied', 'app-rejected');
+  const likeOn = li.querySelector('button.like')?.dataset.state === 'on';
+  const taOn   = li.querySelector('button.toapply')?.dataset.state === 'on';
+  const apOn   = li.querySelector('button.applied')?.dataset.state === 'on';
+  const arOn   = li.querySelector('button.app-rejected-btn')?.dataset.state === 'on';
+  if (arOn)      li.classList.add('app-rejected');
+  else if (apOn) li.classList.add('applied');
   else if (taOn) li.classList.add('toapply');
   else if (likeOn) li.classList.add('liked');
 }
@@ -4108,8 +4442,8 @@ function refreshLiState(li) {
 // buttons were server-rendered.
 function ensureStateButton(li, cls, glyph, title) {
   if (li.querySelector('.' + cls)) return li.querySelector('.' + cls);
-  const url = li.querySelector('.like')?.dataset.url
-    || li.querySelector('.reject')?.dataset.url;
+  const url = li.querySelector('button.like')?.dataset.url
+    || li.querySelector('button.reject')?.dataset.url;
   if (!url) return null;
   const btn = document.createElement('button');
   btn.className = cls;
@@ -4120,10 +4454,11 @@ function ensureStateButton(li, cls, glyph, title) {
   wireStateButton(btn, cls);
   const priorClass = cls === 'toapply' ? 'like'
                   : cls === 'applied' ? 'toapply'
+                  : cls === 'app-rejected-btn' ? 'applied'
                   : null;
   const anchor = (priorClass && li.querySelector('.' + priorClass))
-    || li.querySelector('.like')
-    || li.querySelector('.reject');
+    || li.querySelector('button.like')
+    || li.querySelector('button.reject');
   const details = li.querySelector('details');
   if (anchor) anchor.after(btn);
   else if (details) li.insertBefore(btn, details);
@@ -4169,6 +4504,18 @@ function wireStateButton(btn, cls) {
       if (!on && cls === 'toapply') {
         ensureStateButton(li, 'applied', '\u2713', 'Mark as Applied');
       }
+      if (!on && cls === 'applied') {
+        // Expose the "Rejected by company" pill.
+        const arBtn = ensureStateButton(li, 'app-rejected-btn', 'R',
+          'Mark this application as rejected by the company');
+        if (arBtn && !arBtn.__wired) {
+          arBtn.__wired = true;
+          arBtn.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            toggleAppRejected(arBtn);
+          });
+        }
+      }
       refreshLiState(li);
       moveLiToTop(li);
       refreshStateCounts();
@@ -4180,9 +4527,103 @@ function wireStateButton(btn, cls) {
   });
 }
 
-document.querySelectorAll('.like').forEach(btn => wireStateButton(btn, 'like'));
-document.querySelectorAll('.toapply').forEach(btn => wireStateButton(btn, 'toapply'));
-document.querySelectorAll('.applied').forEach(btn => wireStateButton(btn, 'applied'));
+// Scope selectors to `button.` — the class names .toapply and .applied are
+// ALSO used on <li> rows (li.toapply, li.applied). Without the button
+// prefix, wireStateButton would attach a click handler to the entire row,
+// and any click on the row (including the disclosure arrow to expand the
+// description) would fire an /applied POST with dataset.url === undefined.
+document.querySelectorAll('button.like').forEach(btn => wireStateButton(btn, 'like'));
+document.querySelectorAll('button.toapply').forEach(btn => wireStateButton(btn, 'toapply'));
+document.querySelectorAll('button.applied').forEach(btn => wireStateButton(btn, 'applied'));
+
+/* --- Application rejected by company: modal + toggle ------------------ */
+function openAppRejectModal(prefill) {
+  return new Promise((resolve) => {
+    let modal = document.getElementById('app-reject-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'app-reject-modal';
+      modal.className = 'modal-backdrop';
+      modal.innerHTML =
+        '<div class="modal">' +
+        '  <h3>Application rejected — why?</h3>' +
+        '  <label>Reason (short)<br>' +
+        '    <input type="text" id="ar-reason" placeholder="e.g. no response, HR ghosted, bad fit">' +
+        '  </label>' +
+        '  <label>Feedback (details, optional)<br>' +
+        '    <textarea id="ar-feedback" rows="5" placeholder="What did you learn? Interview notes? Recruiter said?"></textarea>' +
+        '  </label>' +
+        '  <div class="modal-actions">' +
+        '    <button type="button" id="ar-cancel">Cancel</button>' +
+        '    <button type="button" id="ar-save" class="primary">Save</button>' +
+        '  </div>' +
+        '</div>';
+      document.body.appendChild(modal);
+    }
+    const reason = modal.querySelector('#ar-reason');
+    const feedback = modal.querySelector('#ar-feedback');
+    reason.value   = prefill?.reason   || '';
+    feedback.value = prefill?.feedback || '';
+    modal.classList.add('visible');
+    setTimeout(() => reason.focus(), 50);
+    const cleanup = (result) => {
+      modal.classList.remove('visible');
+      modal.querySelector('#ar-cancel').onclick = null;
+      modal.querySelector('#ar-save').onclick = null;
+      resolve(result);
+    };
+    modal.querySelector('#ar-cancel').onclick = () => cleanup(null);
+    modal.querySelector('#ar-save').onclick = () => cleanup({
+      reason: reason.value.trim(),
+      feedback: feedback.value.trim(),
+    });
+  });
+}
+
+async function toggleAppRejected(btn) {
+  const url = btn.dataset.url;
+  const li = btn.closest('li');
+  const on = btn.dataset.state === 'on';
+  btn.disabled = true;
+  try {
+    if (on) {
+      // Un-reject: no dialog, straight to POST.
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const res = await fetch(base + '/un-app-rejected', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url}),
+      });
+      if (!res.ok) throw new Error('http ' + res.status);
+      btn.dataset.state = 'off';
+    } else {
+      // Open dialog first; cancel = do nothing.
+      const answers = await openAppRejectModal();
+      if (!answers) return;
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const res = await fetch(base + '/app-rejected', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url, ...answers}),
+      });
+      if (!res.ok) throw new Error('http ' + res.status);
+      btn.dataset.state = 'on';
+    }
+    refreshLiState(li);
+    moveLiToTop(li);
+    refreshStateCounts();
+  } catch (e) {
+    alert('Application-rejected toggle failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.querySelectorAll('button.app-rejected-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleAppRejected(btn);
+  });
+});
 
 /* --- Reject + Undo ----------------------------------------------------- */
 const rejectUndoStack = [];   // {url, sid, li, next, ul}
@@ -4201,8 +4642,10 @@ function updateCounters(sid, deltaVisible, deltaRejected) {
     navCount.textContent = newVal;
     const btn = navCount.closest('.nav-btn');
     if (btn) {
-      btn.classList.toggle('has-jobs', newVal > 0);
-      btn.classList.toggle('no-jobs',  newVal === 0);
+      const fetched = parseInt(btn.dataset.fetched) || 0;
+      btn.classList.toggle('has-jobs',   newVal > 0);
+      btn.classList.toggle('no-match',   newVal === 0 && fetched > 0);
+      btn.classList.toggle('no-fetched', newVal === 0 && fetched === 0);
     }
   }
   const totalEl = document.getElementById('total-count');
@@ -4392,6 +4835,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/like", "/unlike",
             "/toapply", "/untoapply",
             "/applied", "/unapplied",
+            "/app-rejected", "/un-app-rejected",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -4462,11 +4906,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
             s = load_to_apply(); s.discard(url); save_to_apply(s)
             sys.stdout.write(f"un-toapp: {url}\n")
         elif self.path == "/applied":
-            s = load_applied(); s.add(url); save_applied(s)
-            sys.stdout.write(f"applied:  {url}\n")
+            d = load_applied()
+            # Preserve existing timestamp if the entry already exists
+            # (allows quick off/on toggling without losing the original date).
+            if url not in d:
+                d[url] = {"ts": time.strftime("%Y-%m-%d %H:%M:%S")}
+            save_applied(d)
+            sys.stdout.write(f"applied:  {url} — ts={d[url]['ts']}\n")
         elif self.path == "/unapplied":
-            s = load_applied(); s.discard(url); save_applied(s)
+            d = load_applied(); d.pop(url, None); save_applied(d)
             sys.stdout.write(f"un-appl:  {url}\n")
+        elif self.path == "/app-rejected":
+            d = load_app_rejected()
+            d[url] = {
+                "reason":   (payload.get("reason") or "").strip(),
+                "feedback": (payload.get("feedback") or "").strip(),
+                "ts":       time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            save_app_rejected(d)
+            sys.stdout.write(f"app-rej:  {url} — reason={d[url]['reason']!r}\n")
+        elif self.path == "/un-app-rejected":
+            d = load_app_rejected()
+            d.pop(url, None)
+            save_app_rejected(d)
+            sys.stdout.write(f"un-appR:  {url}\n")
         self.send_response(204)
         self._cors()
         self.end_headers()
@@ -4640,11 +5103,13 @@ def main():
     liked = load_liked()
     to_apply = load_to_apply()
     applied = load_applied()
+    app_rejected = load_app_rejected()
     seen = load_seen()
     job_index = load_job_index()
     # Loaded once and reused when building orphan job dicts — see the
     # per-source render loop below. Kept separate from the live scoring path.
     _score_cache_for_orphans = _load_score_cache()
+    _desc_cache_for_orphans = _load_desc_cache()
     html_sections = []
     nav_entries = []
     all_visible = []
@@ -4759,11 +5224,12 @@ def main():
         for u in orphan_urls:
             meta = job_index.get(u, {})
             score_entry = _score_cache_for_orphans.get(u, {})
+            cached_desc = _desc_cache_for_orphans.get(u, "")
             orphans.append({
                 "title": meta.get("title", "(unknown)"),
                 "locations": meta.get("locations") or [],
                 "url": u,
-                "description": "<em>Original posting has been removed from this board. Cached score / role data may be shown below.</em>",
+                "description": cached_desc or "<em>Original posting has been removed from this board. Cached score / role data may be shown below.</em>",
                 "score": score_entry.get("score"),
                 "score_reason": score_entry.get("reason", ""),
                 "role_long": score_entry.get("role_long", ""),
@@ -4780,9 +5246,16 @@ def main():
             board_url_for(src), result.get("spontaneous_url"),
             liked, src.get("queries", []),
             rejected_jobs=rejected_jobs,
-            to_apply=to_apply, applied=applied,
+            to_apply=to_apply, applied=applied, app_rejected=app_rejected,
+            # Only show "total" when the source can report the true board-wide
+            # count (Ashby / Greenhouse / Workable — they return the full list
+            # and we filter client-side). Playwright sources search per query
+            # so len(all_jobs) is a query-filtered subset, not the real total;
+            # showing that number would be misleading, so we hide it entirely.
+            fetched_count=result.get("total_board"),
         ))
-        nav_entries.append((src["name"], len(visible)))
+        # (name, visible-after-rejects-and-orphans, fetched-from-source-this-run)
+        nav_entries.append((src["name"], len(visible), len(all_jobs)))
         all_visible.extend(visible)
         # Optional: dump this source's visible jobs' descriptions for audit.
         if dump_dir:
@@ -4872,23 +5345,18 @@ def main():
     # below. The state check matches li.applied → applied > toapply > liked
     # so a job in "applied" doesn't get double-counted in liked.
     visible_urls = {j["url"] for j in all_visible}
-    n_liked   = len((liked   & visible_urls) - to_apply - applied)
-    n_toapply = len((to_apply & visible_urls) - applied)
-    n_applied = len(applied  & visible_urls)
+    # `applied` is now a dict {url: {ts}} — treat keys as the set for math.
+    applied_keys = set(applied.keys()) if isinstance(applied, dict) else set(applied)
+    n_liked   = len((liked   & visible_urls) - to_apply - applied_keys)
+    n_toapply = len((to_apply & visible_urls) - applied_keys)
+    n_applied = len(applied_keys & visible_urls)
     total_bar = (
-        f'  <div class="top-bar">\n'
-        f'    <div class="total-count">Total: '
-        f'<span id="total-count">{total}</span> jobs visible</div>\n'
-        f'    <div class="state-count state-liked"   title="Visible jobs currently in +1 (excluding those promoted to TA or Applied)">Liked: <span id="liked-count">{n_liked}</span></div>\n'
-        f'    <div class="state-count state-toapply" title="Visible jobs currently in To apply (excluding those promoted to Applied)">To apply: <span id="toapply-count">{n_toapply}</span></div>\n'
-        f'    <div class="state-count state-applied" title="Visible jobs currently in Applied">Applied: <span id="applied-count">{n_applied}</span></div>\n'
-        f'  </div>\n'
         f'  <div class="top-bar top-bar-row2">\n'
-        f'    <button type="button" class="dump-btn" id="dump-sh" title="Save a Python+Playwright script to debug/probe_visible.py that renders each visible URL in real Chromium and flags the broken ones">Save probe .py for debugging links</button>\n'
-        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Open every +1 (Liked) URL in your browser AND save the same list as debug/open_liked.sh">Open Liked</button>\n'
-        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Open every To apply URL in your browser AND save the same list as debug/open_toapply.sh">Open To Apply</button>\n'
-        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied</button>\n'
+        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Open every +1 (Liked) URL in your browser AND save the same list as debug/open_liked.sh">Open Liked: <span id="liked-count">{n_liked}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Open every To apply URL in your browser AND save the same list as debug/open_toapply.sh">Open To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied: <span id="applied-count">{n_applied}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
+        f'    <button type="button" class="dump-btn dump-btn-probe" id="dump-sh" title="Save a Python+Playwright script to debug/probe_visible.py that renders each visible URL in real Chromium and flags the broken ones">Save probe .py for debugging links</button>\n'
         f'  </div>'
     )
     html_body = (

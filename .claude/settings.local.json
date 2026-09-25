@@ -4,7 +4,12 @@
       "WebFetch(domain:openai.com)",
       "Bash(curl *)",
       "WebSearch",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(grep -oiE 'total-pages[^\"<>]{0,80}|totalpages[^\"<>]{0,80}|total results[^\"<>]{0,80}' /workspace/debug/debug-apple-security-1.html)",
+      "Bash(grep -oE '.{60}\\(totalRecords|\"totalCount\"|\"total\":[0-9]|globalnav-searchresults-count[^<]{0,150}\\).{60}' /workspace/debug/debug-apple-security-1.html)",
+      "Bash(grep -oiE 'totalpages[^,}]{0,50}|current-page[^,}]{0,50}|filter-header[^<]{0,80}' /workspace/debug/debug-apple-security-1.html)",
+      "Bash(grep -oE '.{30}\\(matched|match|Match\\).{30}|.{30}[0-9,]+ jobs.{30}|.{30}found[^<>]{0,30}' /workspace/debug/debug-google-codemender-1.html)",
+      "Bash(grep -oE '.{25}[0-9,]{3,7}[^<>]{0,20}\\(jobs|results|matches|positions|found|available\\)' /workspace/debug/debug-microsoft-security-0.html)"
     ]
   }
 }
