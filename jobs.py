@@ -59,7 +59,7 @@ Step 6 — Serve
 # The engine below imports it wholesale. If you want to fork this for a
 # different profile, keep this file untouched and duplicate `config.py`.
 from config import (  # noqa: E402,F401 — public config surface
-    OUTPUT_HTML, REJECTED_DB, LIKED_DB, PROFILE_FILE,
+    OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, SEEN_DB, JOB_INDEX_DB, PROFILE_FILE,
     SCORE_CACHE, DESC_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
@@ -168,6 +168,39 @@ def load_liked():
 
 def save_liked(liked):
     _save_set(LIKED_DB, liked)
+
+
+def load_seen():
+    """URLs we have already surfaced in a previous run. Anything not in this
+    set on the current run is a NEW posting and gets a badge. Never cleared
+    by --clear-cache (unless the user explicitly asks for `seen`)."""
+    return _load_set(SEEN_DB)
+
+
+def save_seen(seen):
+    _save_set(SEEN_DB, seen)
+
+
+def load_to_apply():   return _load_set(TO_APPLY_DB)
+def save_to_apply(s):  _save_set(TO_APPLY_DB, s)
+def load_applied():    return _load_set(APPLIED_DB)
+def save_applied(s):   _save_set(APPLIED_DB, s)
+
+
+def load_job_index():
+    """Persistent {url: {title, locations, source}} map. Every job we fetch
+    is remembered here so that liked/to_apply/applied URLs which vanish from
+    a source board can still be rendered as "orphans" in their section."""
+    try:
+        with open(JOB_INDEX_DB, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_job_index(idx):
+    with open(JOB_INDEX_DB, "w", encoding="utf-8") as f:
+        json.dump(idx, f, indent=2)
 
 
 _UNSAFE_RE = re.compile(r"<(script|iframe|object|embed|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
@@ -532,74 +565,45 @@ def _apple_extract_from_links(text, queries=None):
     return out
 
 
-_shared_pw_lock = threading.Lock()
-_shared_pw = {"p": None, "browser": None, "context": None}
-
-
-def _get_shared_browser():
-    """Return (playwright, browser, context), starting Chromium the first time.
-    Called by fetchers; each fetcher creates its own page from the shared
-    context, so parallel Playwright sources don't race."""
-    with _shared_pw_lock:
-        if _shared_pw["browser"] is None:
-            p = sync_playwright().start()
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-features=IsolateOrigins,site-per-process",
-                ],
-            )
-            ctx = browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                ),
-                viewport={"width": 1280, "height": 800},
-                locale="en-US",
-            )
-            # Hide navigator.webdriver flag for all pages spawned from this ctx.
-            ctx.add_init_script(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-            )
-            _shared_pw["p"] = p
-            _shared_pw["browser"] = browser
-            _shared_pw["context"] = ctx
-            timing("[browser] Chromium launched (shared across all sources)")
-        return _shared_pw["p"], _shared_pw["browser"], _shared_pw["context"]
-
-
 def _close_shared_browser():
-    with _shared_pw_lock:
-        if _shared_pw["browser"] is not None:
-            try:
-                _shared_pw["context"].close()
-                _shared_pw["browser"].close()
-                _shared_pw["p"].stop()
-            except Exception:
-                pass
-            _shared_pw["p"] = None
-            _shared_pw["browser"] = None
-            _shared_pw["context"] = None
+    """No-op kept for backwards compatibility with callers that still invoke
+    it after fetch. The current design starts a fresh Playwright per fetcher,
+    which each fetcher closes in its own finally block."""
+    pass
 
 
 def _open_browser():
-    """Compatibility shim. Returns (playwright, browser, page) but reuses the
-    shared browser + context under the hood. Callers should still call
-    `browser.close(); p.stop()` in their finally block — we make those no-ops
-    to keep the sync/singleton semantics stable."""
-    p, browser, ctx = _get_shared_browser()
+    """Start a fresh Playwright + Chromium + page. Each fetcher call gets its
+    own instance, tied to the current thread's greenlet. Callers MUST call
+    `browser.close(); p.stop()` in their finally block.
+
+    Rationale: Playwright's sync API binds the browser to the greenlet that
+    launched it, so a shared browser cannot be used by another thread — that
+    triggers "Cannot switch to a different thread" crashes when running under
+    ThreadPoolExecutor. Starting per-fetcher costs ~1-2s of Chromium boot per
+    source but keeps every Playwright source parallelizable, which is a
+    massive net win over sequential execution."""
+    p = sync_playwright().start()
+    browser = p.chromium.launch(
+        headless=True,
+        args=[
+            "--disable-blink-features=AutomationControlled",
+            "--disable-features=IsolateOrigins,site-per-process",
+        ],
+    )
+    ctx = browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        viewport={"width": 1280, "height": 800},
+        locale="en-US",
+    )
+    ctx.add_init_script(
+        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+    )
     page = ctx.new_page()
-
-    class _NoopBrowser:
-        def close(self):
-            try: page.close()
-            except Exception: pass
-
-    class _NoopPlaywright:
-        def stop(self): pass
-
-    return _NoopPlaywright(), _NoopBrowser(), page
+    return p, browser, page
 
 
 def _fetch_description_via_page(page, url):
@@ -2540,12 +2544,21 @@ def _render_role_long(text):
     return "".join(out)
 
 
-def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None):
+def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None):
+    to_apply = to_apply or set()
+    applied = applied or set()
     sid = slug(name)
+    def _state_rank(u):
+        # Lower rank = higher on the page.
+        if u in applied:  return 0
+        if u in to_apply: return 1
+        if u in liked:    return 2
+        return 3
     ordered = sorted(
         visible,
         key=lambda j: (
-            0 if j["url"] in liked else 1,
+            _state_rank(j["url"]),
+            0 if j.get("is_new") else 1,
             -int(j.get("score") or 0),
             _seniority_rank(detect_seniority(j["title"])),
             j["title"].lower(),
@@ -2572,6 +2585,29 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         ic_html = (
             f'<span class="badge ic-level" title="Internal level band from the description">{html.escape(ic_level)}</span>'
             if ic_level else ""
+        )
+        new_html = (
+            '<span class="badge new-badge" title="First seen in this run — not present in the previous run">NEW</span>'
+            if j.get("is_new") else ""
+        )
+        orphan_html = (
+            '<span class="badge orphan-badge" title="You marked this job before, but it is no longer listed on the source board. Cached data shown.">REMOVED</span>'
+            if j.get("is_orphan") else ""
+        )
+        # Highlight badges: one per HIGHLIGHTS word actually present in the
+        # title / description / role_long. Longest-first so "Codex Security"
+        # takes precedence over "Codex" alone when both would match.
+        highlight_hits = []
+        _search_blob = " ".join([
+            j.get("title") or "", j.get("description") or "", role_long,
+        ])
+        for kw in sorted(HIGHLIGHTS, key=lambda s: -len(s)):
+            if re.search(rf"\b{re.escape(kw)}\b", _search_blob, re.I):
+                highlight_hits.append(kw)
+        highlight_html = "".join(
+            f'<span class="badge highlight-badge" title="Match on '
+            f'{html.escape(kw, quote=True)}">{html.escape(kw)}</span>'
+            for kw in highlight_hits
         )
         score = j.get("score")
         score_reason = j.get("score_reason") or ""
@@ -2601,6 +2637,8 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         desc = sanitize_html(j["description"])
         desc_html = desc if desc else '<em>No description available.</em>'
         is_liked = url in liked
+        is_toapply = url in to_apply
+        is_applied = url in applied
         like_state = "on" if is_liked else "off"
         like_btn = (
             f'<button class="like" data-url="{url_esc}" data-state="{like_state}" title="Like">+1</button>'
@@ -2609,6 +2647,22 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         reject_btn = (
             f'<button class="reject" data-url="{url_esc}" title="Reject">×</button>'
             if url else ""
+        )
+        # "To apply" button: only shown when the job is +1 or already in a
+        # later state. Click toggles the to-apply flag. Applied jobs still
+        # show it (in case user wants to demote back).
+        toapply_state = "on" if is_toapply else "off"
+        toapply_btn = (
+            f'<button class="toapply" data-url="{url_esc}" data-state="{toapply_state}" '
+            f'title="Mark as To apply">TA</button>'
+            if url and (is_liked or is_toapply or is_applied) else ""
+        )
+        # "Applied" button: only shown once the job is at least in To apply.
+        applied_state = "on" if is_applied else "off"
+        applied_btn = (
+            f'<button class="applied" data-url="{url_esc}" data-state="{applied_state}" '
+            f'title="Mark as Applied">✓</button>'
+            if url and (is_toapply or is_applied) else ""
         )
         open_link = (
             f'<a href="{url_esc}" target="_blank" rel="noopener">Open original ↗</a>'
@@ -2621,15 +2675,23 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'title="Open original ↗" onclick="event.stopPropagation()">↗</a>'
             if url else ""
         )
-        li_class = "job liked" if is_liked else "job"
+        # Highest state wins for the <li> visual class (used to move to top).
+        state_class = ""
+        if is_applied:
+            state_class = "applied"
+        elif is_toapply:
+            state_class = "toapply"
+        elif is_liked:
+            state_class = "liked"
+        li_class = ("job " + state_class).strip()
         items.append(
             f'    <li class="{li_class}" data-seniority="{seniority_attr}" '
             f'data-locations="{locs_attr}">'
-            f'{reject_btn}{like_btn}<details>\n'
+            f'{reject_btn}{like_btn}{toapply_btn}{applied_btn}<details>\n'
             f'      <summary title="{title_attr} — {locs_attr}">'
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
-            f'{seniority_html}{ic_html}'
+            f'{new_html}{orphan_html}{seniority_html}{ic_html}{highlight_html}'
             f'{summary_link}'
             f'<span class="locs"> — {locs}</span>'
             f'</summary>\n'
@@ -3217,6 +3279,56 @@ HTML_TEMPLATE = """<!doctype html>
     }
     li.liked .reject { display: none; }
 
+    /* To apply — red pill, "TA" glyph */
+    .toapply {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid var(--danger);
+      color: var(--danger);
+      border-radius: 999px;
+      padding: 0 0.4rem;
+      height: 1.3rem;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1;
+      align-self: center;
+    }
+    .toapply:hover { background: var(--danger); color: #ffffff; border-color: var(--danger-emphasis); }
+    .toapply[data-state="on"] { background: var(--danger); color: #ffffff; }
+    li.toapply {
+      background: rgba(209, 36, 47, 0.10);
+      border-left: 3px solid var(--danger);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+    }
+    li.toapply .reject { display: none; }
+
+    /* Applied — purple pill, "✓" glyph */
+    .applied {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid #8250df;
+      color: #8250df;
+      border-radius: 999px;
+      padding: 0 0.4rem;
+      height: 1.3rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 1;
+      align-self: center;
+    }
+    .applied:hover { background: #8250df; color: #ffffff; border-color: #6639ba; }
+    .applied[data-state="on"] { background: #8250df; color: #ffffff; }
+    li.applied {
+      background: rgba(130, 80, 223, 0.10);
+      border-left: 3px solid #8250df;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+    }
+    li.applied .reject { display: none; }
+
     .badge {
       display: inline-block;
       padding: 0 0.5rem;
@@ -3239,6 +3351,26 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--attention);
       background: rgba(255, 213, 128, 0.25);
       font-weight: 600;
+    }
+    .badge.new-badge {
+      color: #ffffff;
+      background: var(--danger);
+      border-color: #000;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .badge.orphan-badge {
+      color: #ffffff;
+      background: #57606a;
+      border-color: #000;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .badge.highlight-badge {
+      color: #1f2328;
+      background: #fff8c5;
+      border-color: rgba(154, 103, 0, 0.4);
+      font-weight: 500;
     }
     .summary-link {
       display: inline-block;
@@ -3620,7 +3752,8 @@ document.getElementById('dump-all')?.addEventListener('click', () => {
   copyToClipboard(urls.join('\\n') + '\\n', status, 'Copied ' + urls.length + ' URLs.');
 });
 document.getElementById('dump-selected')?.addEventListener('click', () => {
-  const urls = collectUrls('li.job.liked:not(.hidden)');
+  // "Selected" = any of +1, To apply, Applied (three states).
+  const urls = collectUrls('li.job.liked:not(.hidden), li.job.toapply:not(.hidden), li.job.applied:not(.hidden)');
   const status = document.getElementById('dump-status');
   if (!urls.length) { status.textContent = 'No +1 jobs visible.'; setTimeout(() => status.textContent = '', 3000); return; }
   copyToClipboard(urls.join('\\n') + '\\n', status, 'Copied ' + urls.length + ' selected URLs.');
@@ -3774,6 +3907,60 @@ document.getElementById('dump-sh')?.addEventListener('click', async () => {
   setTimeout(() => { status.textContent = ''; }, 5000);
 });
 
+// Build a bash script that opens each +1 URL in the default browser. Uses
+// macOS `open`, Linux `xdg-open`, Windows `start` — the shebang picks bash
+// so `open` works out of the box on the user's Mac.
+function buildOpenSelectedScript(urls) {
+  const arrLines = urls.map(u => '  "' + u.replace(/"/g, '\\\\"') + '"').join('\\n');
+  return [
+    '#!/usr/bin/env bash',
+    '# open_selected.sh - opens every liked (+1) job URL in your browser.',
+    '# Auto-generated ' + new Date().toISOString(),
+    '# Run:  bash debug/open_selected.sh',
+    '',
+    'set -uo pipefail',
+    '',
+    'URLS=(',
+    arrLines,
+    ')',
+    '',
+    'opener() {',
+    '  if command -v open >/dev/null 2>&1; then open "$1";',
+    '  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1";',
+    '  else echo "no browser opener found for $1"; fi',
+    '}',
+    '',
+    'for u in "${URLS[@]}"; do',
+    '  echo "opening $u"',
+    '  opener "$u"',
+    '  sleep 0.15   # avoid overwhelming the browser',
+    'done',
+    'echo "done - opened ${#URLS[@]} URLs"',
+    ''
+  ].join('\\n');
+}
+document.getElementById('open-selected-sh')?.addEventListener('click', async () => {
+  const urls = collectUrls('li.job.liked:not(.hidden), li.job.toapply:not(.hidden), li.job.applied:not(.hidden)');
+  const status = document.getElementById('dump-status');
+  if (!urls.length) { status.textContent = 'No +1 jobs visible.'; setTimeout(() => status.textContent = '', 3000); return; }
+  const script = buildOpenSelectedScript(urls);
+  try {
+    const base = location.protocol === 'file:' ? SERVER_URL : '';
+    const res = await fetch(base + '/save-open-selected', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({script})
+    });
+    if (!res.ok) throw new Error('http ' + res.status);
+    status.textContent = 'Wrote debug/open_selected.sh (' + urls.length + ' URLs) — run: bash debug/open_selected.sh';
+  } catch (e) {
+    status.textContent = 'Save failed (' + e.message + ') — falling back to clipboard.';
+    copyToClipboard(script, status, 'Copied open script (' + urls.length + ' URLs) — paste into debug/open_selected.sh');
+    return;
+  }
+  setTimeout(() => { status.textContent = ''; }, 5000);
+});
+
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
 ['loc-filter', 'title-filter', 'text-filter'].forEach(id => {
   const el = document.getElementById(id);
@@ -3834,34 +4021,95 @@ async function apiPost(path, url) {
   if (!res.ok) throw new Error('http ' + res.status);
 }
 
-document.querySelectorAll('.like').forEach(btn => {
+/* --- Like / To apply / Applied state machine -------------------------- */
+// Highest-priority active class on <li>. The trio is mutually exclusive
+// from a visual standpoint (li can only be in one bucket) but the
+// underlying stores are independent so we don't lose state when demoting.
+function refreshLiState(li) {
+  li.classList.remove('liked', 'toapply', 'applied');
+  const likeOn = li.querySelector('.like')?.dataset.state === 'on';
+  const taOn   = li.querySelector('.toapply')?.dataset.state === 'on';
+  const apOn   = li.querySelector('.applied')?.dataset.state === 'on';
+  if (apOn)      li.classList.add('applied');
+  else if (taOn) li.classList.add('toapply');
+  else if (likeOn) li.classList.add('liked');
+}
+
+// Insert a button into the action bar (right after existing .reject/.like)
+// if it isn't already there. Reused when a job becomes liked/toapply and
+// the server hadn't rendered the follow-up buttons.
+function ensureStateButton(li, cls, glyph, title) {
+  if (li.querySelector('.' + cls)) return li.querySelector('.' + cls);
+  const url = li.querySelector('.like')?.dataset.url
+    || li.querySelector('.reject')?.dataset.url;
+  if (!url) return null;
+  const btn = document.createElement('button');
+  btn.className = cls;
+  btn.dataset.url = url;
+  btn.dataset.state = 'off';
+  btn.title = title;
+  btn.textContent = glyph;
+  wireStateButton(btn, cls);
+  // Insert after the .like button (or after .reject if no .like).
+  const anchor = li.querySelector('.like') || li.querySelector('.reject');
+  const details = li.querySelector('details');
+  if (anchor) anchor.after(btn);
+  else if (details) li.insertBefore(btn, details);
+  return btn;
+}
+
+function moveLiToTop(li) {
+  const ul = li.closest('ul');
+  if (!ul) return;
+  // Priority order: applied > toapply > liked > neither
+  const rank = e => e.classList.contains('applied') ? 0
+             : e.classList.contains('toapply') ? 1
+             : e.classList.contains('liked')   ? 2 : 3;
+  const my = rank(li);
+  const peers = [...ul.querySelectorAll('li.job')];
+  const before = peers.find(e => e !== li && rank(e) > my);
+  if (before) ul.insertBefore(li, before);
+  else ul.appendChild(li);
+}
+
+function wireStateButton(btn, cls) {
+  // cls is one of 'like', 'toapply', 'applied'. Each maps to a pair of
+  // endpoints (/like /unlike, /toapply /untoapply, /applied /unapplied).
+  const endpoints = {
+    like:    ['/like',    '/unlike'],
+    toapply: ['/toapply', '/untoapply'],
+    applied: ['/applied', '/unapplied'],
+  }[cls];
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     const url = btn.dataset.url;
     const li = btn.closest('li');
-    const ul = li.closest('ul');
     const on = btn.dataset.state === 'on';
     btn.disabled = true;
     try {
-      await apiPost(on ? '/unlike' : '/like', url);
+      await apiPost(on ? endpoints[1] : endpoints[0], url);
       btn.dataset.state = on ? 'off' : 'on';
-      if (on) {
-        li.classList.remove('liked');
-      } else {
-        li.classList.add('liked');
-        // move to top of the ul, after any already-liked entries
-        const firstUnliked = ul.querySelector('li.job:not(.liked)');
-        if (firstUnliked && firstUnliked !== li) ul.insertBefore(li, firstUnliked);
-        else ul.insertBefore(li, ul.firstElementChild);
+      // When you turn something ON, expose the next state's button too.
+      if (!on && cls === 'like') {
+        ensureStateButton(li, 'toapply', 'TA', 'Mark as To apply');
       }
+      if (!on && cls === 'toapply') {
+        ensureStateButton(li, 'applied', '\u2713', 'Mark as Applied');
+      }
+      refreshLiState(li);
+      moveLiToTop(li);
     } catch (err) {
-      alert('Like failed: ' + err.message);
+      alert(cls + ' toggle failed: ' + err.message);
     } finally {
       btn.disabled = false;
     }
   });
-});
+}
+
+document.querySelectorAll('.like').forEach(btn => wireStateButton(btn, 'like'));
+document.querySelectorAll('.toapply').forEach(btn => wireStateButton(btn, 'toapply'));
+document.querySelectorAll('.applied').forEach(btn => wireStateButton(btn, 'applied'));
 
 /* --- Reject + Undo ----------------------------------------------------- */
 const rejectUndoStack = [];   // {url, sid, li, next, ul}
@@ -4050,7 +4298,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        if self.path not in ("/reject", "/unreject", "/like", "/unlike", "/save-probe"):
+        if self.path not in (
+            "/reject", "/unreject",
+            "/like", "/unlike",
+            "/toapply", "/untoapply",
+            "/applied", "/unapplied",
+            "/save-probe", "/save-open-selected",
+        ):
             self.send_response(404)
             self.end_headers()
             return
@@ -4074,6 +4328,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 sys.stdout.write(f"probe:    save failed: {e}\n")
                 self.send_response(500); self._cors(); self.end_headers(); return
             self.send_response(204); self._cors(); self.end_headers(); return
+        if self.path == "/save-open-selected":
+            script = payload.get("script") or ""
+            if not script:
+                self.send_response(400); self._cors(); self.end_headers(); return
+            try:
+                os.makedirs("debug", exist_ok=True)
+                path = os.path.join("debug", "open_selected.sh")
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(script)
+                os.chmod(path, 0o755)
+                sys.stdout.write(f"open-sel: wrote {path} ({len(script)} bytes)\n")
+            except Exception as e:
+                sys.stdout.write(f"open-sel: save failed: {e}\n")
+                self.send_response(500); self._cors(); self.end_headers(); return
+            self.send_response(204); self._cors(); self.end_headers(); return
         url = (payload.get("url") or "").strip()
         if not url:
             self.send_response(400)
@@ -4092,6 +4361,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/unlike":
             s = load_liked(); s.discard(url); save_liked(s)
             sys.stdout.write(f"unliked:  {url}\n")
+        elif self.path == "/toapply":
+            s = load_to_apply(); s.add(url); save_to_apply(s)
+            sys.stdout.write(f"toapply:  {url}\n")
+        elif self.path == "/untoapply":
+            s = load_to_apply(); s.discard(url); save_to_apply(s)
+            sys.stdout.write(f"un-toapp: {url}\n")
+        elif self.path == "/applied":
+            s = load_applied(); s.add(url); save_applied(s)
+            sys.stdout.write(f"applied:  {url}\n")
+        elif self.path == "/unapplied":
+            s = load_applied(); s.discard(url); save_applied(s)
+            sys.stdout.write(f"un-appl:  {url}\n")
         self.send_response(204)
         self._cors()
         self.end_headers()
@@ -4161,8 +4442,10 @@ def _parse_cli():
                     help="Disable the automatic job-description dump under debug/descriptions/.")
     ap.add_argument("--clear-cache", metavar="WHAT",
                     help="Wipe caches before running. WHAT is a comma-separated "
-                         "subset of {scores,descriptions,list,all}. "
-                         "Rejected / liked / raw_locations are always kept.")
+                         "subset of {scores,descriptions,list,seen,all}. "
+                         "Rejected / liked / raw_locations are always kept. "
+                         "`seen` (used to mark NEW jobs) is only cleared when "
+                         "explicitly listed — NOT included in `all`.")
     ap.add_argument("--debug-locations", action="store_true",
                     help="Dump raw→normalized locations and exit.")
     ap.add_argument("--no-open", action="store_true",
@@ -4182,6 +4465,7 @@ def main():
             "description": "descriptions", "descriptions": "descriptions",
             "desc": "descriptions", "descs": "descriptions",
             "list": "list", "lists": "list",
+            "seen": "seen",  # explicit only — `all` does NOT include seen.
             "all": "all",
         }
         wanted = set()
@@ -4197,7 +4481,7 @@ def main():
         if unknown:
             err(
                 f"[clear-cache] unknown parts: {sorted(unknown)}. "
-                "Accepted: scores, descriptions, list, all. Aborting."
+                "Accepted: scores, descriptions, list, seen, all. Aborting."
             )
             sys.exit(2)
         if "all" in wanted:
@@ -4207,6 +4491,9 @@ def main():
             except FileNotFoundError: pass
         if "descriptions" in wanted:
             try: os.remove(DESC_CACHE); print(f"[clear-cache] removed {DESC_CACHE}")
+            except FileNotFoundError: pass
+        if "seen" in wanted:
+            try: os.remove(SEEN_DB); print(f"[clear-cache] removed {SEEN_DB}")
             except FileNotFoundError: pass
         if "list" in wanted:
             import shutil
@@ -4253,6 +4540,13 @@ def main():
 
     rejected = load_rejected()
     liked = load_liked()
+    to_apply = load_to_apply()
+    applied = load_applied()
+    seen = load_seen()
+    job_index = load_job_index()
+    # Loaded once and reused when building orphan job dicts — see the
+    # per-source render loop below. Kept separate from the live scoring path.
+    _score_cache_for_orphans = _load_score_cache()
     html_sections = []
     nav_entries = []
     all_visible = []
@@ -4262,36 +4556,16 @@ def main():
     print("               headless Chromium for SPAs like Apple/Google/MS)", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
     t_fetch_start = time.perf_counter()
-    # Playwright's sync API is greenlet-bound to the thread that started it.
-    # Running Playwright sources from ThreadPoolExecutor workers triggers
-    # "Cannot switch to a different thread" crashes. So we split the work:
-    #   - HTTP-only sources run in a ThreadPoolExecutor (real parallelism).
-    #   - Playwright sources run sequentially in the MAIN thread (the one
-    #     that will later start sync_playwright), all sharing one Chromium.
-    # Both groups start at the same time thanks to the executor being
-    # non-blocking; we only wait on them before moving to Step 2.
-    http_sources = [s for s in active_sources if s["kind"] not in pw_kinds]
-    pw_sources   = [s for s in active_sources if s["kind"]     in pw_kinds]
-    results = {}
-
-    def _collect_one(src):
-        try:
-            return src["name"], collect(src)
-        except Exception as e:
-            err(f"[{src['name']}] collect crashed: {e}")
-            return src["name"], {"jobs": [], "spontaneous_url": None}
-
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=max(1, len(http_sources))
-    ) as ex:
-        futures = [ex.submit(_collect_one, src) for src in http_sources]
-        # While HTTP workers run, execute Playwright sources in the main thread.
-        for src in pw_sources:
-            name, r = _collect_one(src)
-            results[name] = r
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_sources))) as ex:
+        futures = {ex.submit(collect, src): src for src in active_sources}
+        results = {}
         for fut in concurrent.futures.as_completed(futures):
-            name, r = fut.result()
-            results[name] = r
+            src = futures[fut]
+            try:
+                results[src["name"]] = fut.result()
+            except Exception as e:
+                err(f"[{src['name']}] collect crashed: {e}")
+                results[src["name"]] = {"jobs": [], "spontaneous_url": None}
     t_fetch = time.perf_counter() - t_fetch_start
     timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s")
 
@@ -4341,14 +4615,61 @@ def main():
             current_group = group
         result = results[src["name"]]
         all_jobs = result["jobs"]
-        visible = [j for j in all_jobs if j["url"] not in rejected]
+        # A job is NEW when we haven't seen its URL in any previous run.
+        # `seen` is only updated once per run below, so re-running twice in a
+        # row doesn't cause postings to "un-new" mid-processing.
+        # Guard: a job you already +1'd or rejected can NEVER be NEW — you
+        # must have interacted with it in a prior run. This also gracefully
+        # handles the first-run case where seen.json doesn't exist yet.
+        for j in all_jobs:
+            u = j["url"]
+            j["is_new"] = u not in seen and u not in liked and u not in rejected
+            j["is_orphan"] = False
+            # Remember this job in the persistent index so we can render it
+            # later if it disappears from the board.
+            job_index[u] = {
+                "title": j.get("title", ""),
+                "locations": j.get("locations") or [],
+                "source": src["name"],
+            }
+        # Orphans: jobs the user cares about (liked / to_apply / applied) that
+        # (a) used to belong to this source per job_index, (b) are NOT in this
+        # run's result, and (c) are not rejected. Reconstruct them from the
+        # index + desc/score caches and inject at the top of `visible`.
+        fresh_urls = {j["url"] for j in all_jobs}
+        cared = (liked | to_apply | applied)
+        orphan_urls = [
+            u for u in cared
+            if u not in fresh_urls
+            and u not in rejected
+            and job_index.get(u, {}).get("source") == src["name"]
+        ]
+        orphans = []
+        for u in orphan_urls:
+            meta = job_index.get(u, {})
+            score_entry = _score_cache_for_orphans.get(u, {})
+            orphans.append({
+                "title": meta.get("title", "(unknown)"),
+                "locations": meta.get("locations") or [],
+                "url": u,
+                "description": "<em>Original posting has been removed from this board. Cached score / role data may be shown below.</em>",
+                "score": score_entry.get("score"),
+                "score_reason": score_entry.get("reason", ""),
+                "role_long": score_entry.get("role_long", ""),
+                "is_new": False,
+                "is_orphan": True,
+            })
+        visible = orphans + [j for j in all_jobs if j["url"] not in rejected]
         rejected_jobs = [j for j in all_jobs if j["url"] in rejected]
-        rejected_here = len(all_jobs) - len(visible)
+        # rejected_here = count of jobs from this run's fetch that were rejected.
+        # Orphans don't count as rejected (they're just gone from the board).
+        rejected_here = len(rejected_jobs)
         html_sections.append(render_html_section(
             src["name"], visible, rejected_here,
             board_url_for(src), result.get("spontaneous_url"),
             liked, src.get("queries", []),
             rejected_jobs=rejected_jobs,
+            to_apply=to_apply, applied=applied,
         ))
         nav_entries.append((src["name"], len(visible)))
         all_visible.extend(visible)
@@ -4442,6 +4763,7 @@ def main():
         f'    <button type="button" class="dump-btn" id="dump-all" title="Copy every visible job URL to the clipboard, one per line">Dump all</button>\n'
         f'    <button type="button" class="dump-btn" id="dump-selected" title="Copy the URLs of jobs you +1&#39;d (still visible), one per line">Dump selected</button>\n'
         f'    <button type="button" class="dump-btn" id="dump-sh" title="Save a Python+Playwright script to debug/probe_visible.py that renders each visible URL in real Chromium and flags the broken ones">Save probe .py for debugging links</button>\n'
+        f'    <button type="button" class="dump-btn" id="open-selected-sh" title="Save a bash script to debug/open_selected.sh that opens every +1 URL in your default browser">Open selected in .sh</button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'  </div>'
     )
@@ -4462,10 +4784,22 @@ def main():
         f.write(html_output)
     t_render = time.perf_counter() - t_render_start
     timing(f"[timing] render + write → {t_render:.1f}s")
+
+    # Persist the union of "seen so far" ∪ "everything we surfaced this run".
+    # Doing this AFTER the HTML render means the current run's NEW badges are
+    # already baked in — the update only affects future runs.
+    all_urls_this_run = {j["url"] for j in all_visible} | {
+        j["url"] for src in active_sources for j in results[src["name"]]["jobs"]
+    }
+    new_this_run = all_urls_this_run - seen
+    save_seen(seen | all_urls_this_run)
+    save_job_index(job_index)
+
     elapsed = time.perf_counter() - t0
     timing(
         f"wrote {OUTPUT_HTML} · total {elapsed:.1f}s · "
-        f"rejected DB: {REJECTED_DB} ({len(rejected)} entries)"
+        f"rejected DB: {REJECTED_DB} ({len(rejected)} entries) · "
+        f"NEW this run: {len(new_this_run)}"
     )
 
     # All Playwright work is done — release the shared Chromium instance so

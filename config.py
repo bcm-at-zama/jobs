@@ -16,6 +16,12 @@ the engine reads whatever is in *this* file.
 OUTPUT_HTML         = "jobs.html"
 REJECTED_DB         = "rejected.json"
 LIKED_DB            = "liked.json"
+TO_APPLY_DB         = "to_apply.json"
+APPLIED_DB          = "applied.json"
+SEEN_DB             = "seen.json"
+# {url: {title, locations, source}} — used to render orphans (jobs the user
+# +1'd / marked but no longer returned by the source board).
+JOB_INDEX_DB        = "job_index.json"
 PROFILE_FILE        = "PROFILE.md"
 SCORE_CACHE         = "score_cache.json"
 DESC_CACHE          = "desc_cache.json"
@@ -329,7 +335,7 @@ SOURCES = [
     {"name": "GitHub",    "kind": "github",     "slug": "github",    "queries": ["security"],
      "board": "https://www.github.careers/careers-home/jobs?keywords=security",
      "search_url": "https://www.github.careers/careers-home/jobs?keywords=security"},
-    {"name": "Apple",     "kind": "apple",      "slug": "apple",      "queries": ["security", "Logic"],
+    {"name": "Apple",     "kind": "apple",      "slug": "apple",      "queries": ["security", "Logic", "Creative"],
      "board": "https://jobs.apple.com/en-us/search?search=security"},
     {"name": "Microsoft", "kind": "microsoft",  "slug": "microsoft",  "queries": ["security"],
      "board": "https://apply.careers.microsoft.com/careers?query=Security&pid=1970393556942260&sort_by=relevance"},
