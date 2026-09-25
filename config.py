@@ -86,6 +86,8 @@ TITLE_CASE_OVERRIDES = {
 # =============================================================================
 # If any of these substrings appear in a job title (case-insensitive), hide.
 TITLE_BLACKLIST = [
+    "Creative Director, Investment",
+    "Global Event",
     "Data Scientist",
     "Developper Experience",
     "Developer Experience",

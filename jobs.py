@@ -10,7 +10,7 @@ Pipeline
 Step 1 — Load state
     Read `rejected.json`, `liked.json`, `score_cache.json`, `desc_cache.json`,
     `PROFILE.md`. Parse env-var knobs (JOBS_ONLY / JOBS_SKIP /
-    JOBS_SKIP_PLAYWRIGHT / JOBS_SKIP_SCORING) to decide which sources run.
+    JOBS_SKIP_PLAYWRIGHT / JOBS_SKIP_LLM) to decide which sources run.
 
 Step 2 — Fetch (parallel across sources)
     A ThreadPoolExecutor calls `collect(source)` on each active SOURCE:
@@ -2609,8 +2609,12 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'{html.escape(kw, quote=True)}">{html.escape(kw)}</span>'
             for kw in highlight_hits
         )
+        # Score, score reason and role_long are three INDEPENDENT signals.
+        # Each is rendered iff its data is present — no cross-conditional.
         score = j.get("score")
         score_reason = j.get("score_reason") or ""
+        score_cls = ""
+        score_html = ""
         if score is not None:
             score_cls = "score-hi" if score >= 8 else "score-mid" if score >= 5 else "score-lo"
             score_html = (
@@ -2618,22 +2622,19 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
                 f'title="{html.escape(score_reason, quote=True)}">'
                 f'{int(score)}</span>'
             )
-            summary_parts = []
-            if role_long:
-                summary_parts.append(
-                    f'<div class="role-summary"><strong>Role</strong>'
-                    f'<div class="role-long">{_render_role_long(role_long)}</div>'
-                    f'</div>'
-                )
-            if score_reason:
-                summary_parts.append(
-                    f'<div class="score-summary {score_cls}"><strong>Score</strong> '
-                    f'<span>{html.escape(score_reason)}</span></div>'
-                )
-            score_summary_html = "".join(summary_parts)
-        else:
-            score_html = ""
-            score_summary_html = ""
+        summary_parts = []
+        if role_long:
+            summary_parts.append(
+                f'<div class="role-summary"><strong>Role</strong>'
+                f'<div class="role-long">{_render_role_long(role_long)}</div>'
+                f'</div>'
+            )
+        if score_reason:
+            summary_parts.append(
+                f'<div class="score-summary {score_cls}"><strong>Score</strong> '
+                f'<span>{html.escape(score_reason)}</span></div>'
+            )
+        score_summary_html = "".join(summary_parts)
         desc = sanitize_html(j["description"])
         desc_html = desc if desc else '<em>No description available.</em>'
         is_liked = url in liked
@@ -2951,7 +2952,10 @@ HTML_TEMPLATE = """<!doctype html>
       --danger: #d1242f;
       --danger-emphasis: #a40e26;
     }
-    html { scroll-behavior: smooth; }
+    /* Shrink the root font-size 1px below the browser default (16 → 15).
+       Every rem-based size in this stylesheet scales down proportionally so
+       we get about 6% more content per screenful with no per-rule tweaking. */
+    html { scroll-behavior: smooth; font-size: 15px; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       max-width: 960px;
@@ -3080,6 +3084,18 @@ HTML_TEMPLATE = """<!doctype html>
       padding: 0.5rem 0.9rem;
     }
     #total-count { color: #ffffff; }
+    .top-bar-row2 { margin-top: -0.5rem; }
+    .state-count {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #ffffff;
+      border: 1px solid #000;
+      border-radius: 6px;
+      padding: 0.5rem 0.9rem;
+    }
+    .state-count.state-liked   { background: var(--success); }
+    .state-count.state-toapply { background: var(--danger); }
+    .state-count.state-applied { background: #8250df; }
     .dump-btn {
       font-size: 1rem;
       font-weight: 600;
@@ -3091,6 +3107,13 @@ HTML_TEMPLATE = """<!doctype html>
       cursor: pointer;
     }
     .dump-btn:hover { background: var(--accent-emphasis); }
+    /* Per-state open buttons — colour matches the state counters. */
+    .dump-btn.open-btn-liked   { background: var(--success); }
+    .dump-btn.open-btn-liked:hover   { background: var(--success-emphasis); }
+    .dump-btn.open-btn-toapply { background: var(--danger); }
+    .dump-btn.open-btn-toapply:hover { background: var(--danger-emphasis); }
+    .dump-btn.open-btn-applied { background: #8250df; }
+    .dump-btn.open-btn-applied:hover { background: #6639ba; }
     .dump-status { font-size: 0.85rem; color: var(--fg-muted); }
     .nav-break { flex-basis: 100%; height: 0; }
     .nav-row {
@@ -3279,8 +3302,10 @@ HTML_TEMPLATE = """<!doctype html>
     }
     li.liked .reject { display: none; }
 
-    /* To apply — red pill, "TA" glyph */
-    .toapply {
+    /* To apply — red pill, "TA" glyph. Scoped to button so the same class
+       name on <li> (li.toapply, used for row highlight) doesn't inherit
+       these pill styles. */
+    button.toapply {
       flex-shrink: 0;
       background: transparent;
       border: 1.5px solid var(--danger);
@@ -3294,8 +3319,8 @@ HTML_TEMPLATE = """<!doctype html>
       line-height: 1;
       align-self: center;
     }
-    .toapply:hover { background: var(--danger); color: #ffffff; border-color: var(--danger-emphasis); }
-    .toapply[data-state="on"] { background: var(--danger); color: #ffffff; }
+    button.toapply:hover { background: var(--danger); color: #ffffff; border-color: var(--danger-emphasis); }
+    button.toapply[data-state="on"] { background: var(--danger); color: #ffffff; }
     li.toapply {
       background: rgba(209, 36, 47, 0.10);
       border-left: 3px solid var(--danger);
@@ -3304,8 +3329,9 @@ HTML_TEMPLATE = """<!doctype html>
     }
     li.toapply .reject { display: none; }
 
-    /* Applied — purple pill, "✓" glyph */
-    .applied {
+    /* Applied — purple pill, "✓" glyph. Scoped to button (same reasoning
+       as button.toapply above). */
+    button.applied {
       flex-shrink: 0;
       background: transparent;
       border: 1.5px solid #8250df;
@@ -3319,8 +3345,8 @@ HTML_TEMPLATE = """<!doctype html>
       line-height: 1;
       align-self: center;
     }
-    .applied:hover { background: #8250df; color: #ffffff; border-color: #6639ba; }
-    .applied[data-state="on"] { background: #8250df; color: #ffffff; }
+    button.applied:hover { background: #8250df; color: #ffffff; border-color: #6639ba; }
+    button.applied[data-state="on"] { background: #8250df; color: #ffffff; }
     li.applied {
       background: rgba(130, 80, 223, 0.10);
       border-left: 3px solid #8250df;
@@ -3703,6 +3729,7 @@ function applyFilters() {
   });
   const totalEl = document.getElementById('total-count');
   if (totalEl) totalEl.textContent = total;
+  refreshStateCounts();
   // Hide a nav-row (category label + all its company buttons) when every
   // button inside it has zero visible jobs. Runs after per-btn counts are
   // updated above so we react to filters, not just the initial render.
@@ -3712,6 +3739,19 @@ function applyFilters() {
     row.classList.toggle('empty', btns.length > 0 && !anyHit);
   });
   saveFilters();
+}
+
+// Count visible <li> in each terminal state (applied excludes toapply/liked,
+// toapply excludes liked). Kept as a function so we can call it after every
+// state-button toggle without re-running the full filter pass.
+function refreshStateCounts() {
+  const applied = document.querySelectorAll('li.job.applied:not(.hidden)').length;
+  const toapply = document.querySelectorAll('li.job.toapply:not(.hidden)').length;
+  const liked   = document.querySelectorAll('li.job.liked:not(.hidden)').length;
+  const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
+  set('liked-count', liked);
+  set('toapply-count', toapply);
+  set('applied-count', applied);
 }
 
 loadFilters();
@@ -3939,27 +3979,53 @@ function buildOpenSelectedScript(urls) {
     ''
   ].join('\\n');
 }
-document.getElementById('open-selected-sh')?.addEventListener('click', async () => {
-  const urls = collectUrls('li.job.liked:not(.hidden), li.job.toapply:not(.hidden), li.job.applied:not(.hidden)');
-  const status = document.getElementById('dump-status');
-  if (!urls.length) { status.textContent = 'No +1 jobs visible.'; setTimeout(() => status.textContent = '', 3000); return; }
-  const script = buildOpenSelectedScript(urls);
-  try {
-    const base = location.protocol === 'file:' ? SERVER_URL : '';
-    const res = await fetch(base + '/save-open-selected', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({script})
-    });
-    if (!res.ok) throw new Error('http ' + res.status);
-    status.textContent = 'Wrote debug/open_selected.sh (' + urls.length + ' URLs) — run: bash debug/open_selected.sh';
-  } catch (e) {
-    status.textContent = 'Save failed (' + e.message + ') — falling back to clipboard.';
-    copyToClipboard(script, status, 'Copied open script (' + urls.length + ' URLs) — paste into debug/open_selected.sh');
-    return;
-  }
-  setTimeout(() => { status.textContent = ''; }, 5000);
-});
+// Per-state "Open …" buttons: opens every URL in a new tab AND writes a .sh
+// mirror to debug/. window.open must run inside the user-gesture handler
+// (not inside an await continuation) or Safari/Firefox block popups. We
+// open first, then POST the script save request in the background.
+function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const urls = collectUrls(selector);
+    const status = document.getElementById('dump-status');
+    if (!urls.length) {
+      status.textContent = emptyMsg;
+      setTimeout(() => status.textContent = '', 3000);
+      return;
+    }
+    // Open every URL synchronously — this must happen in the click handler.
+    let opened = 0;
+    for (const u of urls) {
+      const win = window.open(u, '_blank', 'noopener,noreferrer');
+      if (win) opened++;
+    }
+    status.textContent = 'Opening ' + opened + '/' + urls.length + ' ' + label + ' URLs…';
+    if (opened < urls.length) {
+      status.textContent += ' (browser blocked some popups — allow popups for this site)';
+    }
+    // Fire-and-forget the .sh save.
+    const script = buildOpenSelectedScript(urls);
+    (async () => {
+      try {
+        const base = location.protocol === 'file:' ? SERVER_URL : '';
+        const res = await fetch(base + '/save-open-selected', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({script, filename}),
+        });
+        if (!res.ok) throw new Error('http ' + res.status);
+        status.textContent += ' · saved debug/' + filename;
+      } catch (e) {
+        status.textContent += ' · save failed (' + e.message + ')';
+      }
+      setTimeout(() => { status.textContent = ''; }, 6000);
+    })();
+  });
+}
+wireOpenButton('open-liked',   'li.job.liked:not(.hidden)',   'open_liked.sh',   'No Liked jobs visible.',    'Liked');
+wireOpenButton('open-toapply', 'li.job.toapply:not(.hidden)', 'open_toapply.sh', 'No To apply jobs visible.', 'To apply');
+wireOpenButton('open-applied', 'li.job.applied:not(.hidden)', 'open_applied.sh', 'No Applied jobs visible.',  'Applied');
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
 ['loc-filter', 'title-filter', 'text-filter'].forEach(id => {
@@ -4035,9 +4101,11 @@ function refreshLiState(li) {
   else if (likeOn) li.classList.add('liked');
 }
 
-// Insert a button into the action bar (right after existing .reject/.like)
-// if it isn't already there. Reused when a job becomes liked/toapply and
-// the server hadn't rendered the follow-up buttons.
+// Insert a button into the action bar in the CORRECT left-to-right order:
+//   × (reject)  +1 (like)  TA (toapply)  ✓ (applied)
+// The anchor is the button representing the immediately-previous state so
+// that newly-created buttons land in the right slot regardless of which
+// buttons were server-rendered.
 function ensureStateButton(li, cls, glyph, title) {
   if (li.querySelector('.' + cls)) return li.querySelector('.' + cls);
   const url = li.querySelector('.like')?.dataset.url
@@ -4050,8 +4118,12 @@ function ensureStateButton(li, cls, glyph, title) {
   btn.title = title;
   btn.textContent = glyph;
   wireStateButton(btn, cls);
-  // Insert after the .like button (or after .reject if no .like).
-  const anchor = li.querySelector('.like') || li.querySelector('.reject');
+  const priorClass = cls === 'toapply' ? 'like'
+                  : cls === 'applied' ? 'toapply'
+                  : null;
+  const anchor = (priorClass && li.querySelector('.' + priorClass))
+    || li.querySelector('.like')
+    || li.querySelector('.reject');
   const details = li.querySelector('details');
   if (anchor) anchor.after(btn);
   else if (details) li.insertBefore(btn, details);
@@ -4099,6 +4171,7 @@ function wireStateButton(btn, cls) {
       }
       refreshLiState(li);
       moveLiToTop(li);
+      refreshStateCounts();
     } catch (err) {
       alert(cls + ' toggle failed: ' + err.message);
     } finally {
@@ -4134,6 +4207,22 @@ function updateCounters(sid, deltaVisible, deltaRejected) {
   }
   const totalEl = document.getElementById('total-count');
   if (totalEl) totalEl.textContent = parseInt(totalEl.textContent) + deltaVisible;
+  refreshStateCounts();
+  // If the section is now empty, mark it .empty so hide-empty-sections works.
+  // We recompute across the affected section rather than trust the delta —
+  // reject can push visible to 0 mid-page (Cmd-Z can bring it back).
+  const ul = document.querySelector('ul[data-section="' + sid + '"]');
+  if (ul) {
+    const visible = ul.querySelectorAll('li.job:not(.hidden)').length;
+    const section = ul.closest('.company-section');
+    if (section) section.classList.toggle('empty', visible === 0);
+  }
+  // Then re-collapse any category row that lost its last hit.
+  document.querySelectorAll('.nav-row').forEach(row => {
+    const btns = row.querySelectorAll('.nav-btn');
+    const anyHit = [...btns].some(b => b.classList.contains('has-jobs'));
+    row.classList.toggle('empty', btns.length > 0 && !anyHit);
+  });
 }
 
 let undoToastTimer = null;
@@ -4330,11 +4419,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(204); self._cors(); self.end_headers(); return
         if self.path == "/save-open-selected":
             script = payload.get("script") or ""
+            # Sanitize filename — only [a-z0-9_.-], default to open_liked.sh.
+            requested = payload.get("filename") or "open_liked.sh"
+            safe = re.sub(r"[^a-z0-9_.-]+", "_", requested.lower())
+            if not safe.endswith(".sh"):
+                safe += ".sh"
             if not script:
                 self.send_response(400); self._cors(); self.end_headers(); return
             try:
                 os.makedirs("debug", exist_ok=True)
-                path = os.path.join("debug", "open_selected.sh")
+                path = os.path.join("debug", safe)
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(script)
                 os.chmod(path, 0o755)
@@ -4420,7 +4514,7 @@ def _parse_cli():
         epilog=(
             "Examples:\n"
             "  python3 jobs.py                              # full run\n"
-            "  python3 jobs.py --skip-scoring               # fetch only, no LLM\n"
+            "  python3 jobs.py --skip-llm                   # fetch only, no LLM\n"
             "  python3 jobs.py --only OpenAI,Anthropic      # just two boards\n"
             "  python3 jobs.py --skip Apple,Google,Meta     # skip these\n"
             "  python3 jobs.py --skip-playwright            # HTTP-only sources\n"
@@ -4434,8 +4528,11 @@ def _parse_cli():
                     help="Skip these board names (comma-separated).")
     ap.add_argument("--skip-playwright", action="store_true",
                     help="Skip all Playwright-based boards (Apple/Google/MS/…).")
-    ap.add_argument("--skip-scoring", action="store_true",
-                    help="Don't call the LLM for scoring (uses cached scores only).")
+    ap.add_argument("--skip-llm", "--skip-scoring", action="store_true",
+                    dest="skip_llm",
+                    help="Don't call the LLM (uses cached score / reason / "
+                         "role_long only — all three are produced by the same "
+                         "call). --skip-scoring kept as a deprecated alias.")
     ap.add_argument("--no-list-cache", action="store_true",
                     help="Ignore the per-source list cache and re-fetch everything.")
     ap.add_argument("--no-dump-descriptions", action="store_true",
@@ -4526,7 +4623,8 @@ def main():
     only  = _split(args.only) or _split(os.environ.get("JOBS_ONLY", ""))
     skip  = _split(args.skip) or _split(os.environ.get("JOBS_SKIP", ""))
     skip_pw    = args.skip_playwright or os.environ.get("JOBS_SKIP_PLAYWRIGHT") == "1"
-    skip_score = args.skip_scoring    or os.environ.get("JOBS_SKIP_SCORING") == "1"
+    skip_score = args.skip_llm or os.environ.get("JOBS_SKIP_LLM") == "1" \
+                 or os.environ.get("JOBS_SKIP_SCORING") == "1"
     pw_kinds = {"apple", "google", "microsoft", "meta", "phenom", "scale", "github", "checkmarx", "pixee", "ableton", "lucca", "pw", "wttj"}
     active_sources = [
         s for s in SOURCES
@@ -4583,7 +4681,20 @@ def main():
     if not skip_score:
         score_jobs(all_visible_for_score)
     else:
-        timing("[timing] scoring SKIPPED (JOBS_SKIP_SCORING=1)")
+        # Even with --skip-llm we still want role_long / score / reason
+        # from the persistent cache attached to fresh jobs. Otherwise the HTML
+        # renders with none of that data and the "Show role details" toggle
+        # has nothing to hide/show.
+        _cached_scores = _load_score_cache()
+        _hits = 0
+        for j in all_visible_for_score:
+            cached = _cached_scores.get(j["url"])
+            if cached:
+                j["score"] = cached.get("score", 0)
+                j["score_reason"] = cached.get("reason", "")
+                j["role_long"] = cached.get("role_long", "")
+                _hits += 1
+        timing(f"[timing] scoring SKIPPED (attached {_hits} cached scores)")
     t_score = time.perf_counter() - t_score_start
     timing(f"[timing] score ({len(all_visible_for_score)} jobs) → {t_score:.1f}s")
 
@@ -4756,14 +4867,27 @@ def main():
     except Exception as e:
         err(f"[locations] failed to write {RAW_LOCATIONS_FILE}: {e}")
     total = len(all_visible)
+    # Counters derived from the visible-across-all-sources list. The client
+    # keeps them in sync when the user toggles a button — see updateCounters
+    # below. The state check matches li.applied → applied > toapply > liked
+    # so a job in "applied" doesn't get double-counted in liked.
+    visible_urls = {j["url"] for j in all_visible}
+    n_liked   = len((liked   & visible_urls) - to_apply - applied)
+    n_toapply = len((to_apply & visible_urls) - applied)
+    n_applied = len(applied  & visible_urls)
     total_bar = (
         f'  <div class="top-bar">\n'
         f'    <div class="total-count">Total: '
         f'<span id="total-count">{total}</span> jobs visible</div>\n'
-        f'    <button type="button" class="dump-btn" id="dump-all" title="Copy every visible job URL to the clipboard, one per line">Dump all</button>\n'
-        f'    <button type="button" class="dump-btn" id="dump-selected" title="Copy the URLs of jobs you +1&#39;d (still visible), one per line">Dump selected</button>\n'
+        f'    <div class="state-count state-liked"   title="Visible jobs currently in +1 (excluding those promoted to TA or Applied)">Liked: <span id="liked-count">{n_liked}</span></div>\n'
+        f'    <div class="state-count state-toapply" title="Visible jobs currently in To apply (excluding those promoted to Applied)">To apply: <span id="toapply-count">{n_toapply}</span></div>\n'
+        f'    <div class="state-count state-applied" title="Visible jobs currently in Applied">Applied: <span id="applied-count">{n_applied}</span></div>\n'
+        f'  </div>\n'
+        f'  <div class="top-bar top-bar-row2">\n'
         f'    <button type="button" class="dump-btn" id="dump-sh" title="Save a Python+Playwright script to debug/probe_visible.py that renders each visible URL in real Chromium and flags the broken ones">Save probe .py for debugging links</button>\n'
-        f'    <button type="button" class="dump-btn" id="open-selected-sh" title="Save a bash script to debug/open_selected.sh that opens every +1 URL in your default browser">Open selected in .sh</button>\n'
+        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Open every +1 (Liked) URL in your browser AND save the same list as debug/open_liked.sh">Open Liked</button>\n'
+        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Open every To apply URL in your browser AND save the same list as debug/open_toapply.sh">Open To Apply</button>\n'
+        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied</button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'  </div>'
     )
