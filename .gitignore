@@ -6,6 +6,10 @@ list_cache/
 score_cache.json
 desc_cache.json
 seen.json
+app_rejected.json
+applied.json
+job_index.json
+to_apply.json
 __pycache__/
 *.pyc
 
