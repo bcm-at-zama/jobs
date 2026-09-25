@@ -26,7 +26,7 @@ SEEN_DB             = "seen.json"
 # +1'd / marked but no longer returned by the source board).
 JOB_INDEX_DB        = "job_index.json"
 PROFILE_FILE        = "PROFILE.md"
-SCORE_CACHE         = "score_cache.json"
+SCORE_CACHE         = "llm_cache.json"
 DESC_CACHE          = "desc_cache.json"
 RAW_LOCATIONS_FILE  = "debug/raw_locations.txt"
 LIST_CACHE_DIR      = "list_cache"
@@ -344,7 +344,7 @@ SOURCES = [
      "board": "https://jobs.apple.com/en-us/search?search=security"},
     {"name": "Microsoft", "kind": "microsoft",  "slug": "microsoft",  "queries": ["security"],
      "board": "https://apply.careers.microsoft.com/careers?query=Security&pid=1970393556942260&sort_by=relevance"},
-    {"name": "Google",    "kind": "google",     "slug": "google",     "queries": ["security", "codemender", "DeepMind", "Big Sleep"],
+    {"name": "Google",    "kind": "google",     "slug": "google",     "queries": ["security", "codemender", "DeepMind", "Big Sleep", "Gemini"],
      "board": "https://www.google.com/about/careers/applications/jobs/results/?q=security&hl=en_US",
      "search_url": "https://www.google.com/about/careers/applications/jobs/results?hl=en_US&target_level=DIRECTOR_PLUS&target_level=ADVANCED&employment_type=FULL_TIME"},
     {"name": "Meta",      "kind": "meta",       "slug": "meta",       "queries": ["security"],
@@ -366,15 +366,124 @@ SOURCES = [
     {"name": "Welcome to the Jungle", "kind": "wttj", "slug": "wttj", "queries": ["security"],
      "board": "https://www.welcometothejungle.com/fr/jobs?query=security",
      "search_url": "https://www.welcometothejungle.com/fr/jobs?query=security"},
+
+    # --- Added via debug/ats_probe.py 2026-09-25 ---------------------------
+    # AI Startups — filtered on Security or Manager to keep the list scoped.
+    {"name": "Perplexity",           "kind": "ashby",      "slug": "perplexity",           "queries": ["security", "manager"]},
+    {"name": "Modal",                "kind": "ashby",      "slug": "modal",                "queries": ["security", "manager"]},
+    {"name": "Together AI",          "kind": "greenhouse", "slug": "togetherai",           "queries": ["security", "manager"]},
+    {"name": "Fireworks AI",         "kind": "ashby",      "slug": "fireworks",            "queries": ["security", "manager"]},
+    {"name": "Sakana AI",            "kind": "workable",   "slug": "sakana-ai",            "queries": ["security", "manager"]},
+    {"name": "Prime Intellect",      "kind": "ashby",      "slug": "primeintellect",       "queries": ["security", "manager"]},
+    {"name": "Physical Intelligence","kind": "ashby",      "slug": "physicalintelligence", "queries": ["security", "manager"]},
+    {"name": "Voyage AI",            "kind": "workable",   "slug": "voyage",               "queries": ["security", "manager"]},
+    {"name": "Rewind AI",            "kind": "ashby",      "slug": "rewind",               "queries": ["security", "manager"]},
+    {"name": "Replit",               "kind": "ashby",      "slug": "replit",               "queries": ["security", "manager"]},
+    {"name": "Vercel",               "kind": "ashby",      "slug": "vercel",               "queries": ["security", "manager"]},
+    {"name": "LangChain",            "kind": "ashby",      "slug": "langchain",            "queries": ["security", "manager"]},
+    {"name": "Runway",               "kind": "ashby",      "slug": "runway",               "queries": ["security", "manager"]},
+    {"name": "Pika",                 "kind": "ashby",      "slug": "pika",                 "queries": ["security", "manager"]},
+    {"name": "Character AI",         "kind": "ashby",      "slug": "character",            "queries": ["security", "manager"]},
+    # Music
+    {"name": "Suno",                 "kind": "ashby",      "slug": "suno",                 "queries": []},
+    {"name": "Udio",                 "kind": "greenhouse", "slug": "udio",                 "queries": []},
+    # Security
+    {"name": "Chainguard",           "kind": "greenhouse", "slug": "chainguard",           "queries": []},
+    {"name": "Endor Labs",           "kind": "greenhouse", "slug": "endorlabs",            "queries": []},
+    {"name": "Socket",               "kind": "ashby",      "slug": "socket",               "queries": []},
+    {"name": "Wiz",                  "kind": "ashby",      "slug": "wiz",                  "queries": []},
+    {"name": "Cloudflare",           "kind": "greenhouse", "slug": "cloudflare",           "queries": ["security"]},
+    {"name": "1Password",            "kind": "ashby",      "slug": "1password",            "queries": []},
+    {"name": "Okta",                 "kind": "greenhouse", "slug": "okta",                 "queries": ["security"]},
+    {"name": "Cybereason",           "kind": "greenhouse", "slug": "cybereason",           "queries": []},
+    {"name": "Elastic",              "kind": "greenhouse", "slug": "elastic",              "queries": ["security"]},
+    # Other (dev tools / data)
+    {"name": "HashiCorp",            "kind": "workable",   "slug": "hashicorp",            "queries": []},
+    {"name": "GitLab",               "kind": "greenhouse", "slug": "gitlab",               "queries": ["security", "manager"]},
+    {"name": "Databricks",           "kind": "greenhouse", "slug": "databricks",           "queries": ["security"]},
+    {"name": "Snowflake",            "kind": "ashby",      "slug": "snowflake",            "queries": ["security"]},
+
+    # --- Wave 2 via debug/ats_probe.py 2026-09-25 --------------------------
+    # FHE / PQC / privacy-preserving crypto (Zama-adjacent, top interest)
+    {"name": "SandboxAQ",            "kind": "ashby",      "slug": "sandboxaq",            "queries": []},
+    {"name": "Cape Privacy",         "kind": "ashby",      "slug": "cape",                 "queries": []},
+    # AI chips
+    {"name": "Cerebras",             "kind": "ashby",      "slug": "cerebras",             "queries": ["security", "manager"]},
+    {"name": "Etched",               "kind": "ashby",      "slug": "etched",               "queries": ["security", "manager"]},
+    {"name": "Tenstorrent",          "kind": "greenhouse", "slug": "tenstorrent",          "queries": ["security", "manager"]},
+    {"name": "MatX",                 "kind": "ashby",      "slug": "matx",                 "queries": ["security", "manager"]},
+    {"name": "Rain",                 "kind": "ashby",      "slug": "rain",                 "queries": ["security", "manager"]},
+    # AI infra / compute / inference
+    {"name": "Anyscale",             "kind": "ashby",      "slug": "anyscale",             "queries": ["security", "manager"]},
+    {"name": "Baseten",              "kind": "ashby",      "slug": "baseten",              "queries": ["security", "manager"]},
+    {"name": "Coreweave",            "kind": "greenhouse", "slug": "coreweave",            "queries": ["security", "manager"]},
+    {"name": "Nebius",               "kind": "greenhouse", "slug": "nebius",               "queries": ["security", "manager"]},
+    {"name": "Crusoe",               "kind": "ashby",      "slug": "crusoe",               "queries": ["security", "manager"]},
+    {"name": "Lambda",               "kind": "ashby",      "slug": "lambda",               "queries": ["security", "manager"]},
+    # AI dev tools / evals / embeddings / vector DBs
+    {"name": "Braintrust",           "kind": "ashby",      "slug": "braintrust",           "queries": ["security", "manager"]},
+    {"name": "LlamaIndex",           "kind": "ashby",      "slug": "llamaindex",           "queries": ["security", "manager"]},
+    {"name": "Nomic",                "kind": "ashby",      "slug": "nomic",                "queries": ["security", "manager"]},
+    {"name": "Weaviate",             "kind": "ashby",      "slug": "weaviate",             "queries": ["security", "manager"]},
+    {"name": "Pinecone",             "kind": "ashby",      "slug": "pinecone",             "queries": ["security", "manager"]},
+    # Voice / audio AI
+    {"name": "Deepgram",             "kind": "ashby",      "slug": "deepgram",             "queries": ["security", "manager"]},
+    {"name": "AssemblyAI",           "kind": "greenhouse", "slug": "assemblyai",           "queries": ["security", "manager"]},
+    # Code / dev tools
+    {"name": "Zed",                  "kind": "ashby",      "slug": "zed",                  "queries": []},
+    {"name": "Cline",                "kind": "greenhouse", "slug": "cline",                "queries": []},
+    # Security (Wave 2)
+    {"name": "Doppler",              "kind": "ashby",      "slug": "doppler",              "queries": []},
+    {"name": "BeyondTrust",          "kind": "greenhouse", "slug": "beyondtrust",          "queries": []},
+    {"name": "Nord Security",        "kind": "ashby",      "slug": "nord-security",        "queries": []},
+    {"name": "Bitwarden",            "kind": "greenhouse", "slug": "bitwarden",            "queries": []},
+    {"name": "Yubico",               "kind": "greenhouse", "slug": "yubico",               "queries": []},
+    {"name": "Trail of Bits",        "kind": "ashby",      "slug": "trail",                "queries": []},
+    # Music
+    {"name": "Spitfire Audio",       "kind": "greenhouse", "slug": "spitfire",             "queries": []},
+    {"name": "Splice",               "kind": "greenhouse", "slug": "splice",               "queries": []},
+    # France / EU
+    {"name": "Doctolib",             "kind": "ashby",      "slug": "doctolib",             "queries": ["security", "manager"]},
+    {"name": "Alan",                 "kind": "ashby",      "slug": "alan",                 "queries": ["security", "manager"]},
+    {"name": "Qonto",                "kind": "ashby",      "slug": "qonto",                "queries": ["security", "manager"]},
+    {"name": "Dataiku",              "kind": "greenhouse", "slug": "dataiku",              "queries": ["security", "manager"]},
+    {"name": "Owkin",                "kind": "ashby",      "slug": "owkin",                "queries": []},
+    # Adjacent
+    {"name": "Fastly",               "kind": "greenhouse", "slug": "fastly",               "queries": ["security", "manager"]},
+    {"name": "Datadog",              "kind": "greenhouse", "slug": "datadog",              "queries": ["security", "manager"]},
+
+    # --- Wave 3 via debug/ats_probe.py 2026-09-25 (quasi-GAFAM) ------------
+    # Big consumer tech
+    {"name": "Airbnb",               "kind": "greenhouse", "slug": "airbnb",               "queries": ["security"]},
+    {"name": "LinkedIn",             "kind": "greenhouse", "slug": "linkedin",             "queries": ["security"]},
+    {"name": "Pinterest",            "kind": "greenhouse", "slug": "pinterest",            "queries": ["security"]},
+    {"name": "Reddit",               "kind": "ashby",      "slug": "reddit",               "queries": []},
+    {"name": "Discord",              "kind": "greenhouse", "slug": "discord",              "queries": ["security"]},
+    {"name": "Roblox",               "kind": "greenhouse", "slug": "roblox",               "queries": ["security"]},
+    # Enterprise / infra
+    {"name": "Stripe",               "kind": "greenhouse", "slug": "stripe",               "queries": ["security"]},
+    {"name": "Twilio",               "kind": "greenhouse", "slug": "twilio",               "queries": ["security"]},
+    {"name": "Dropbox",              "kind": "greenhouse", "slug": "dropbox",              "queries": ["security"]},
+    # Fintech (crypto/trading — relevant to Benoit's crypto background)
+    {"name": "Block",                "kind": "greenhouse", "slug": "block",                "queries": ["security"]},
+    {"name": "Coinbase",             "kind": "ashby",      "slug": "coinbase",             "queries": []},
+    {"name": "Robinhood",            "kind": "greenhouse", "slug": "robinhood",            "queries": ["security"]},
+
+    # --- Wave 4 via debug/ats_probe.py 2026-09-25 (music/audio) ------------
+    {"name": "Fender",               "kind": "greenhouse", "slug": "fender",               "queries": []},
+    {"name": "Universal Audio",      "kind": "greenhouse", "slug": "universalaudio",       "queries": []},
+    {"name": "Slate Digital",        "kind": "ashby",      "slug": "slate",                "queries": []},
+    {"name": "Output",               "kind": "ashby",      "slug": "output",               "queries": []},
+    {"name": "Pioneer DJ",           "kind": "ashby",      "slug": "pioneer",              "queries": []},
 ]
 
 # =============================================================================
 # Grouping — sections in the nav and HTML
 # =============================================================================
 GROUP_ORDER = [
+    "Big Tech",
     "Major AI Companies",
     "AI Startups",
-    "Big Tech",
     "Security Companies",
     "Music Companies",
     "Other",
@@ -426,6 +535,106 @@ GROUP_OF = {
     "Steinberg": "Music Companies",
     # Other
     "Welcome to the Jungle": "Other",
+
+    # --- Added via debug/ats_probe.py 2026-09-25 ---------------------------
+    # AI Startups (Manager-or-Security filter applied)
+    "Perplexity":            "AI Startups",
+    "Modal":                 "AI Startups",
+    "Together AI":           "AI Startups",
+    "Fireworks AI":          "AI Startups",
+    "Sakana AI":             "AI Startups",
+    "Prime Intellect":       "AI Startups",
+    "Physical Intelligence": "AI Startups",
+    "Voyage AI":             "AI Startups",
+    "Rewind AI":             "AI Startups",
+    "Replit":                "AI Startups",
+    "Vercel":                "AI Startups",
+    "LangChain":             "AI Startups",
+    "Runway":                "AI Startups",
+    "Pika":                  "AI Startups",
+    "Character AI":          "AI Startups",
+    # Music
+    "Suno":                  "Music Companies",
+    "Udio":                  "Music Companies",
+    # Security
+    "Chainguard":            "Security Companies",
+    "Endor Labs":            "Security Companies",
+    "Socket":                "Security Companies",
+    "Wiz":                   "Security Companies",
+    "Cloudflare":            "Security Companies",
+    "1Password":             "Security Companies",
+    "Okta":                  "Security Companies",
+    "Cybereason":            "Security Companies",
+    "Elastic":               "Security Companies",
+    # Other
+    "HashiCorp":             "Other",
+    "GitLab":                "Other",
+    "Databricks":            "Other",
+    "Snowflake":             "Other",
+
+    # --- Wave 2 (2026-09-25) -----------------------------------------------
+    # AI Startups (infra / chips / inference / evals / vector DBs / voice)
+    "SandboxAQ":             "Security Companies",  # PQC/crypto — Benoit's specialty
+    "Cape Privacy":          "Security Companies",  # FHE
+    "Cerebras":              "AI Startups",
+    "Etched":                "AI Startups",
+    "Tenstorrent":           "AI Startups",
+    "MatX":                  "AI Startups",
+    "Rain":                  "AI Startups",
+    "Anyscale":              "AI Startups",
+    "Baseten":               "AI Startups",
+    "Coreweave":             "AI Startups",
+    "Nebius":                "AI Startups",
+    "Crusoe":                "AI Startups",
+    "Lambda":                "AI Startups",
+    "Braintrust":            "AI Startups",
+    "LlamaIndex":            "AI Startups",
+    "Nomic":                 "AI Startups",
+    "Weaviate":              "AI Startups",
+    "Pinecone":              "AI Startups",
+    "Deepgram":              "AI Startups",
+    "AssemblyAI":            "AI Startups",
+    "Zed":                   "AI Startups",
+    "Cline":                 "AI Startups",
+    # Security (Wave 2)
+    "Doppler":               "Security Companies",
+    "BeyondTrust":           "Security Companies",
+    "Nord Security":         "Security Companies",
+    "Bitwarden":             "Security Companies",
+    "Yubico":                "Security Companies",
+    "Trail of Bits":         "Security Companies",
+    # Music
+    "Spitfire Audio":        "Music Companies",
+    "Splice":                "Music Companies",
+    # Other (French / EU / infra)
+    "Doctolib":              "Other",
+    "Alan":                  "Other",
+    "Qonto":                 "Other",
+    "Dataiku":               "Other",
+    "Owkin":                 "Other",
+    "Fastly":                "Other",
+    "Datadog":               "Other",
+
+    # --- Wave 3 (2026-09-25) — quasi-GAFAM / hyperscalers ------------------
+    "Airbnb":                "Big Tech",
+    "LinkedIn":              "Big Tech",
+    "Pinterest":             "Big Tech",
+    "Reddit":                "Big Tech",
+    "Discord":               "Big Tech",
+    "Roblox":                "Big Tech",
+    "Stripe":                "Big Tech",
+    "Twilio":                "Big Tech",
+    "Dropbox":               "Big Tech",
+    "Block":                 "Big Tech",
+    "Coinbase":              "Big Tech",
+    "Robinhood":             "Big Tech",
+
+    # --- Wave 4 (2026-09-25) — music / audio -------------------------------
+    "Fender":                "Music Companies",
+    "Universal Audio":       "Music Companies",
+    "Slate Digital":         "Music Companies",
+    "Output":                "Music Companies",
+    "Pioneer DJ":            "Music Companies",
 }
 
 # =============================================================================

@@ -1622,7 +1622,7 @@ def _scoring_system():
             SCORING_SYSTEM_BASE
             .replace(
                 "__EXTRA_FIELDS__",
-                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND any internal IC-level band mentioned anywhere in the description — quote verbatim (e.g. \\"IC5\\", \\"IC6\\", \\"L5\\", \\"L6\\", \\"E5\\", \\"M2\\", \\"Level 5\\", \\"Staff (IC5)\\", \\"Principal (IC6)\\") — these usually appear in the compensation table or a levels breakdown; AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) FIRST bullet MUST be a compensation range in USD only, using one of these two exact formats: \\"$MIN - $MAX USD\\" (when the description gives both a floor and a ceiling) or \\"> $MIN USD\\" (when the description only gives a floor, or wording like \\"starting at\\", \\"from\\", \\"minimum\\"). Numbers formatted with commas (e.g. \\"$405,000 - $485,000 USD\\"). If the description quotes the salary in another currency (EUR, GBP, CHF, CAD), convert to USD using the approximate rates 1 EUR = 1.08 USD, 1 GBP = 1.27 USD, 1 CHF = 1.13 USD, 1 CAD = 0.73 USD and round to the nearest 1,000. Never emit two currencies, never add prose like \\"which is roughly …\\", \\"equivalent to …\\", \\"exceeds …\\". If the description states NO salary at all, the FIRST bullet MUST be exactly \\"no information on salaries\\". Then, on separate bullets, add any equity / bonus / benefits / location constraints / travel / visa info stated. No company boilerplate."'
+                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND any internal IC-level band mentioned anywhere in the description — quote verbatim (e.g. \\"IC5\\", \\"IC6\\", \\"L5\\", \\"L6\\", \\"E5\\", \\"M2\\", \\"Level 5\\", \\"Staff (IC5)\\", \\"Principal (IC6)\\") — these usually appear in the compensation table or a levels breakdown; AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) FIRST bullet MUST be a compensation range in USD only, using one of these two exact formats: \\"$MIN - $MAX USD\\" (when the description gives both a floor and a ceiling) or \\"> $MIN USD\\" (when the description only gives a floor, or wording like \\"starting at\\", \\"from\\", \\"minimum\\"). Numbers formatted with commas (e.g. \\"$405,000 - $485,000 USD\\"). If the description quotes the salary in another currency (EUR, GBP, CHF, CAD), convert to USD using the approximate rates 1 EUR = 1.08 USD, 1 GBP = 1.27 USD, 1 CHF = 1.13 USD, 1 CAD = 0.73 USD and round to the nearest 1,000. Never emit two currencies, never add prose like \\"which is roughly …\\", \\"equivalent to …\\", \\"exceeds …\\". If the description states NO salary at all, the FIRST bullet MUST be exactly \\"no information on salaries\\". Then, on separate bullets, add any equity / bonus / benefits / location constraints / travel / visa info stated. ABSOLUTELY NO HTML — strip every tag before you quote (never emit <br>, <strong>, </span>, <p>, <li>, <div>, &amp;, &nbsp;, class=…, style=…, or any other tag/attribute/entity). If you copy from the description, decode entities first (&amp; → &, &lt; → <, &nbsp; → space, etc.) and drop every tag. Use only plain text, markdown **bold** and markdown - bullets. No company boilerplate. TOP PRIORITY sections for this reader are **Seniority:** and **Salary:** — invest extra effort there: quote every level indicator (title, IC/L/E/M bands, years of experience, PhD/certifications, manager-vs-IC signal) and every compensation datapoint (range, bonus, equity, location differentials). If any detail is fuzzy, prefer QUOTING the source verbatim over paraphrasing so the reader can judge."'
             )
             .replace(
                 "__EXAMPLE_EXTRA__",
@@ -2734,7 +2734,6 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         key=lambda j: (
             _state_rank(j["url"]),
             0 if j.get("is_new") else 1,
-            -int(j.get("score") or 0),
             _seniority_rank(detect_seniority(j["title"])),
             j["title"].lower(),
         ),
@@ -2784,30 +2783,17 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'{html.escape(kw, quote=True)}">{html.escape(kw)}</span>'
             for kw in highlight_hits
         )
-        # Score, score reason and role_long are three INDEPENDENT signals.
-        # Each is rendered iff its data is present — no cross-conditional.
-        score = j.get("score")
-        score_reason = j.get("score_reason") or ""
-        score_cls = ""
+        # Score / reason removed from the UI — noisy and the LLM's absolute
+        # numbers weren't useful. Only role_long (the structured job summary)
+        # is rendered. The scorer still runs (same LLM call produces both) so
+        # the cache stays warm and role_long remains available.
         score_html = ""
-        if score is not None:
-            score_cls = "score-hi" if score >= 8 else "score-mid" if score >= 5 else "score-lo"
-            score_html = (
-                f'<span class="badge score {score_cls}" '
-                f'title="{html.escape(score_reason, quote=True)}">'
-                f'{int(score)}</span>'
-            )
         summary_parts = []
         if role_long:
             summary_parts.append(
                 f'<div class="role-summary"><strong>Role</strong>'
                 f'<div class="role-long">{_render_role_long(role_long)}</div>'
                 f'</div>'
-            )
-        if score_reason:
-            summary_parts.append(
-                f'<div class="score-summary {score_cls}"><strong>Score</strong> '
-                f'<span>{html.escape(score_reason)}</span></div>'
             )
         score_summary_html = "".join(summary_parts)
         desc = sanitize_html(j["description"])
@@ -3148,7 +3134,6 @@ def render_html_filters(seniority_labels, all_locations=None):
         '    <div class="filter-group">\n'
         '      <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="role-summary-toggle" checked> Show role details</label>\n'
-        '      <label class="filter-check"><input type="checkbox" id="score-summary-toggle" checked> Show score reason</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
         '    </div>\n'
         '  </section>'
@@ -3357,6 +3342,8 @@ HTML_TEMPLATE = """<!doctype html>
     .dump-btn.open-btn-toapply:hover { background: var(--danger-emphasis); }
     .dump-btn.open-btn-applied { background: #8250df; }
     .dump-btn.open-btn-applied:hover { background: #6639ba; }
+    .dump-btn.open-btn-app-rejected { background: #000; border-color: #000; }
+    .dump-btn.open-btn-app-rejected:hover { background: #2c2c2c; }
     /* Probe button: pushed to the far right of the row, black. */
     .dump-btn.dump-btn-probe { margin-left: auto; background: #000; border-color: #000; }
     .dump-btn.dump-btn-probe:hover { background: #2c2c2c; }
@@ -4075,10 +4062,12 @@ function refreshStateCounts() {
   const applied = document.querySelectorAll('li.job.applied:not(.hidden)').length;
   const toapply = document.querySelectorAll('li.job.toapply:not(.hidden)').length;
   const liked   = document.querySelectorAll('li.job.liked:not(.hidden)').length;
+  const appRej  = document.querySelectorAll('li.job.app-rejected:not(.hidden)').length;
   const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
   set('liked-count', liked);
   set('toapply-count', toapply);
   set('applied-count', applied);
+  set('app-rejected-count', appRej);
 }
 
 loadFilters();
@@ -4353,6 +4342,7 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
 wireOpenButton('open-liked',   'li.job.liked:not(.hidden)',   'open_liked.sh',   'No Liked jobs visible.',    'Liked');
 wireOpenButton('open-toapply', 'li.job.toapply:not(.hidden)', 'open_toapply.sh', 'No To apply jobs visible.', 'To apply');
 wireOpenButton('open-applied', 'li.job.applied:not(.hidden)', 'open_applied.sh', 'No Applied jobs visible.',  'Applied');
+wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden)', 'open_app_rejected.sh', 'No Rejected-by-company jobs visible.', 'Rejected');
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
 ['loc-filter', 'title-filter', 'text-filter'].forEach(id => {
@@ -5213,7 +5203,8 @@ def main():
         # run's result, and (c) are not rejected. Reconstruct them from the
         # index + desc/score caches and inject at the top of `visible`.
         fresh_urls = {j["url"] for j in all_jobs}
-        cared = (liked | to_apply | applied)
+        # `applied` is now a dict {url: {ts}}; treat its keys as the set.
+        cared = liked | to_apply | set(applied.keys() if isinstance(applied, dict) else applied)
         orphan_urls = [
             u for u in cared
             if u not in fresh_urls
@@ -5347,16 +5338,21 @@ def main():
     visible_urls = {j["url"] for j in all_visible}
     # `applied` is now a dict {url: {ts}} — treat keys as the set for math.
     applied_keys = set(applied.keys()) if isinstance(applied, dict) else set(applied)
-    n_liked   = len((liked   & visible_urls) - to_apply - applied_keys)
-    n_toapply = len((to_apply & visible_urls) - applied_keys)
-    n_applied = len(applied_keys & visible_urls)
+    # app_rejected is dict too; count visible ones that stayed in Applied at
+    # some point but got the company-rejection flag on top.
+    app_rej_keys = set(app_rejected.keys()) if isinstance(app_rejected, dict) else set(app_rejected)
+    n_liked        = len((liked & visible_urls) - to_apply - applied_keys - app_rej_keys)
+    n_toapply      = len((to_apply & visible_urls) - applied_keys - app_rej_keys)
+    # An applied+rejected job counts as Rejected, NOT Applied — mutually exclusive.
+    n_applied      = len((applied_keys & visible_urls) - app_rej_keys)
+    n_app_rejected = len(app_rej_keys & visible_urls)
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Open every +1 (Liked) URL in your browser AND save the same list as debug/open_liked.sh">Open Liked: <span id="liked-count">{n_liked}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Open every To apply URL in your browser AND save the same list as debug/open_toapply.sh">Open To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied: <span id="applied-count">{n_applied}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Open every Rejected-by-company URL in your browser AND save the same list as debug/open_app_rejected.sh">Open Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
-        f'    <button type="button" class="dump-btn dump-btn-probe" id="dump-sh" title="Save a Python+Playwright script to debug/probe_visible.py that renders each visible URL in real Chromium and flags the broken ones">Save probe .py for debugging links</button>\n'
         f'  </div>'
     )
     html_body = (

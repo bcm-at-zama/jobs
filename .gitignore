@@ -3,7 +3,7 @@ jobs.html
 debug/
 debug-*.html
 list_cache/
-score_cache.json
+llm_cache.json
 desc_cache.json
 seen.json
 app_rejected.json
