@@ -69,7 +69,7 @@ from config import (  # noqa: E402,F401 — public config surface
     TITLE_BLACKLIST, LOCATION_BLACKLIST,
     SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES,
     SOURCES, SPONTANEOUS_PATTERNS,
-    GROUP_ORDER, GROUP_OF,
+    GROUP_ORDER, GROUP_OF, COMPANY_INFO,
 )
 
 
@@ -2099,6 +2099,10 @@ _CITY_ALIASES = {
     "nyc": "new york",
     "new york city": "new york",
     "new york, ny": "new york",
+    # German cities with local-language forms
+    "koln": "cologne",     # Köln → Cologne
+    "munchen": "munich",   # München → Munich
+    "osnabruck": "osnabrück",
     "sf": "san francisco",
     "sfo": "san francisco",
     "sf bay": "san francisco",
@@ -2191,6 +2195,31 @@ _CITY_TO_COUNTRY = {
     "emea": "EMEA", "europe": "EMEA",
     "southern europe": "EMEA",
     "us east coast": "USA",
+    # India cities that were slipping through
+    "noida": "India", "hyderabad": "India", "pune": "India",
+    "gurgaon": "India", "chennai": "India", "kolkata": "India",
+    "gurugram": "India",
+    # France cities
+    "nantes": "France", "montpellier": "France",
+    "sophia antipolis": "France", "annecy": "France",
+    "biarritz": "France", "bethune": "France", "béthune": "France",
+    "hauts de france": "France", "hauts-de-france": "France",
+    # Germany cities (including non-ASCII variants)
+    "cologne": "Germany", "koln": "Germany", "köln": "Germany",
+    "munich": "Germany", "munchen": "Germany", "münchen": "Germany",
+    "hannover": "Germany", "hanover": "Germany",
+    "osnabruck": "Germany", "osnabrück": "Germany",
+    "north rhine westphalia": "Germany",
+    # Other missing cities
+    "chiba": "Japan", "seoul": "South Korea",
+    "vienna": "Austria",
+    "belgrade": "Serbia",
+    "kaunas": "Lithuania", "tallinn": "Estonia",
+    "ramat gan": "Israel",
+    "yerevan": "Armenia",
+    "dakar": "Senegal",
+    "shanghai": "China", "beijing": "China",
+    "taoyuan": "Taiwan",
 }
 
 # Known country names / codes. If the FIRST segment matches, the location is
@@ -2224,6 +2253,12 @@ _COUNTRY_ALIASES = {
     "australia": "Australia", "netherlands": "Netherlands",
     "switzerland": "Switzerland", "ireland": "Ireland",
     "singapore": "Singapore", "brazil": "Brazil",
+    # Mexico variants
+    "mx": "Mexico", "mexico": "Mexico", "méxico": "Mexico", "mexique": "Mexico",
+    # "Delhi NCR" (National Capital Region) is India
+    "delhi ncr": "India", "ncr": "India",
+    # Sometimes Israel comes through as IL (state code collision — but if we
+    # only match single-segment, IL alone will more often be Illinois. Leave alone.)
 }
 
 
@@ -2283,6 +2318,23 @@ _WORK_MODE_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Leading "Remote ..." / "Remote - ..." prefix. When we can identify a real
+# country/city after it, strip the "Remote" prefix so the location gets
+# grouped by country (Remote - New York → New York, USA), not lumped into
+# the generic "Remote" bucket. Common typo "Unites States" also caught.
+_LEADING_REMOTE_RE = re.compile(
+    r"^\s*remote\s*[-–—:,]?\s*",
+    re.IGNORECASE,
+)
+# Common typos in Remote+country strings.
+_REMOTE_TYPO_FIX = {
+    "unites states": "United States",
+    "united states": "United States",
+    "united kingdom": "United Kingdom",
+    "north america": "USA",
+    "europe": "Europe",
+}
+
 # Simple ASCII fold for common accented chars (é, è → e etc.).
 try:
     import unicodedata
@@ -2305,6 +2357,16 @@ _MEANINGLESS_CITY = re.compile(
 _DEPARTMENT_WORDS = {
     "engineering", "privacy", "program management", "security",
     "software engineering", "technical security", "product", "design",
+    # Meta team names that leak into the location slot.
+    "ai infrastructure ar/vr", "ai infrastructure",
+    "facebook reality labs", "reality labs", "facebook",
+    # Office descriptors that aren't locations.
+    "office", "headquarters", "hq",
+    # More generic non-location leaks.
+    "pebl", "privy", "network engineering", "technical account management",
+    "client solutions", "artificial intelligence",
+    "federal", "distributed",
+    "amer", "ar/vr", "ar vr",
     "research", "data", "marketing", "sales", "operations",
     "infrastructure", "legal", "finance", "people", "hr", "recruiting",
     "customer success", "customer support", "support", "trust & safety",
@@ -2318,6 +2380,9 @@ def _looks_like_location(s):
         return False
     if s.lower().strip() in _DEPARTMENT_WORDS:
         return False
+    # Timezone-only strings like "Remote (UTC-5) to UTC+2" are not locations.
+    if re.search(r"\butc\s*[+-−–—]?\s*\d", s, re.IGNORECASE):
+        return False
     return True
 
 
@@ -2325,6 +2390,28 @@ _TRAILING_REMOTE_RE = re.compile(
     r"\s*[\(\[]?\s*remote\s*[\)\]]?\s*$",
     re.IGNORECASE,
 )
+
+
+_MS_STATE_DC_SUFFIX_RE = re.compile(
+    # Microsoft data-center flags: "CA - DC", "OH - DC", "LA - US", "OK - US (1)",
+    # "IL - Data Center". Drop the suffix — the leading token is a US state
+    # so the location falls back to that state, which then normalizes to USA.
+    r"\s*[-–—]\s*(?:DC|US|Data\s*Center)\s*(?:\(\d+\))?\s*$",
+    re.IGNORECASE,
+)
+# Cleanup for trailing parenthesized status / tag: "(DL/IDL)", "(STAFF)",
+# "(East Coast)", "(SoHo)", "(1)", "(First St)", "(preferred)", "(HQ)".
+_TRAILING_PAREN_RE = re.compile(r"\s*\([^)]*\)\s*$")
+# Trailing dash / hyphen with nothing after: "Remote -", "France -".
+_TRAILING_DASH_RE = re.compile(r"\s*[-–—]\s*$")
+# Trailing office/status word: "Palo Alto Office", "Bellevue Office",
+# "Santa Clara Hybrid", "Palo Alto HQ".
+_TRAILING_OFFICE_RE = re.compile(
+    r"\s+(?:Office|HQ|Hybrid|Headquarters)\s*$", re.IGNORECASE,
+)
+# Trailing "-XYZ" suffixes on cities: "Bangalore-MSO", "Warsaw-Lixa C".
+# Only strip when the prefix is a plausible city.
+_TRAILING_DASH_TAG_RE = re.compile(r"\s*[-–—]\s*[A-Za-z][A-Za-z0-9 ]{0,15}\s*$")
 
 
 def _clean_loc(part):
@@ -2335,14 +2422,56 @@ def _clean_loc(part):
     # "(Baltimore, MD)" → "Baltimore, MD"
     if s.startswith("(") and s.endswith(")"):
         s = s[1:-1].strip()
+    # Microsoft "CA - DC", "OK - US (1)", "IL - Data Center" style: drop suffix.
+    s = _MS_STATE_DC_SUFFIX_RE.sub("", s).strip()
+    # Generic trailing parenthesized tag: "(HQ)", "(East Coast)", "(1)".
+    # Skip if it eats the whole string.
+    tmp = _TRAILING_PAREN_RE.sub("", s).strip()
+    if tmp and _looks_like_location(tmp):
+        s = tmp
+    # Trailing office/HQ/Hybrid word.
+    tmp = _TRAILING_OFFICE_RE.sub("", s).strip()
+    if tmp and _looks_like_location(tmp):
+        s = tmp
+    # Trailing dash: "Remote -", "France -", "Australia -".
+    s = _TRAILING_DASH_RE.sub("", s).strip()
+    # Mid-segment trailing dash before a comma: "Tel Aviv -, USA" → "Tel Aviv, USA".
+    s = re.sub(r"\s*[-–—]\s*(?=,)", "", s)
+    # Trailing dangling comma or closing paren: "Canada)", "Remote (United States"
+    s = re.sub(r"[,)]\s*$", "", s).strip()
+    # Leading dangling open paren: "(United States" (from "Remote (United States")
+    s = re.sub(r"^\s*\(\s*", "", s).strip()
     # "Austria (Remote)" / "Denmark(Remote)" / "Canada remote" → strip suffix.
-    # We keep the country so the entry is grouped correctly; anything without
-    # a country is left alone (the Remote group will still catch it).
     stripped = _TRAILING_REMOTE_RE.sub("", s).strip()
     if stripped and stripped.lower() != s.lower():
-        # Only apply if what's left looks like a real place.
         if _looks_like_location(stripped):
             s = stripped
+    # Leading "Remote - <country>" / "Remote <city>" — drop the "Remote"
+    # prefix so what remains gets classified by country/city instead of
+    # dumped into the generic Remote bucket.
+    leading = _LEADING_REMOTE_RE.sub("", s).strip()
+    if leading and leading.lower() != s.lower():
+        # Common typos in what's left.
+        low = leading.lower()
+        if low in _REMOTE_TYPO_FIX:
+            leading = _REMOTE_TYPO_FIX[low]
+        if _looks_like_location(leading):
+            s = leading
+    # "Anywhere in France" / "Anywhere in <Country>" — extract the country.
+    m = re.match(r"^\s*anywhere\s+in\s+(.+)$", s, re.IGNORECASE)
+    if m:
+        rest = m.group(1).strip().rstrip(",").strip()
+        # Handle "Anywhere in France, Spain" (mis-split OR) by taking just
+        # the first token before the comma.
+        rest_head = rest.split(",", 1)[0].strip()
+        if rest_head:
+            s = rest_head
+    # Trailing "-Tag" suffixes on cities: "Bangalore-MSO" → "Bangalore",
+    # "Warsaw-Lixa C" → "Warsaw". Only strip when the head looks like a city
+    # we already know about.
+    tmp = _TRAILING_DASH_TAG_RE.sub("", s).strip()
+    if tmp and tmp != s and _city_key(tmp) in _CITY_TO_COUNTRY:
+        s = tmp
     return s
 
 
@@ -2365,14 +2494,41 @@ def _parse_loc(part):
     Handles both Western order (city, state, country) and Microsoft's
     reverse order (country, state, city) via a known-country probe."""
     cleaned = _clean_loc(part)
-    segments = [s.strip() for s in cleaned.split(",") if s.strip()]
+    # Split on commas that are NOT inside parens. Otherwise
+    # "The Americas (North, South)" splits into "The Americas (North" and
+    # "South)" — the latter then bubbles up as a fake country.
+    segments = []
+    buf, depth = "", 0
+    for ch in cleaned:
+        if ch == "(":
+            depth += 1
+            buf += ch
+        elif ch == ")":
+            depth = max(0, depth - 1)
+            buf += ch
+        elif ch == "," and depth == 0:
+            if buf.strip():
+                segments.append(buf.strip())
+            buf = ""
+        else:
+            buf += ch
+    if buf.strip():
+        segments.append(buf.strip())
+    # Drop segments that are department words / meaningless tags. Catches
+    # "Distributed, AMER" (both segments dropped → entry disappears) and
+    # mixed cases like "Distributed, USA" (Distributed dropped, USA kept).
+    segments = [s for s in segments if _looks_like_location(s)]
     if not segments:
-        return "", "", cleaned
+        # Nothing salvageable — return empty so _flatten_locations drops it.
+        return "", "", ""
     if len(segments) == 1:
         s = segments[0]
         if s.lower() in _KNOWN_COUNTRIES:
             c = _normalize_country(s)
             return c, c, c
+        # US state standalone ("Delaware", "New Jersey", "Texas") → state, USA
+        if s.lower() in _US_STATES:
+            return s.title(), "USA", f"{s.title()}, USA"
         # Known city → pin to its country and canonicalize the display name.
         s_key = _city_key(s)
         if s_key in _CITY_TO_COUNTRY:
@@ -2446,6 +2602,10 @@ def _flatten_locations(locs):
                 if not sub or not _looks_like_location(sub):
                     continue
                 city, country, display = _parse_loc(sub)
+                # _parse_loc returns empty ("", "", "") when everything was
+                # filtered out (all-department-word segments) — drop those.
+                if not display:
+                    continue
                 parsed.append((_city_key(city), city, country, display))
 
     # First pass: find a country for each city_key when at least one entry has one.
@@ -2500,11 +2660,26 @@ def is_title_blacklisted(job):
     return any(w.lower() in title for w in TITLE_BLACKLIST)
 
 
+def _location_is_blacklisted_str(loc, bl_lower):
+    """True if this single location string matches any blacklist substring."""
+    l = loc.lower()
+    return any(b in l for b in bl_lower)
+
+
 def is_location_blacklisted(job):
-    if not LOCATION_BLACKLIST or not job["locations"]:
+    """Filter blacklisted locations out of job['locations'] in place. Returns
+    True (drop the job) only when NO location survives. This way a job listed
+    as ['Berlin, Germany', 'Warsaw, Poland'] with Poland blacklisted keeps
+    only 'Berlin, Germany' instead of being either kept-with-Poland or fully
+    dropped."""
+    if not LOCATION_BLACKLIST or not job.get("locations"):
         return False
     bl = [b.lower() for b in LOCATION_BLACKLIST]
-    return all(any(b in loc.lower() for b in bl) for loc in job["locations"])
+    kept = [loc for loc in job["locations"] if not _location_is_blacklisted_str(loc, bl)]
+    if not kept:
+        return True   # every location was blacklisted → drop the job
+    job["locations"] = kept
+    return False
 
 
 def _list_cache_path(source):
@@ -2742,7 +2917,10 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
     for j in ordered:
         title_html = highlight_title(j["title"])
         title_attr = html.escape(j["title"], quote=True)
-        locs_txt = ", ".join(j["locations"]) if j["locations"] else "N/A"
+        # Skip the " — N/A" tail when no locations. Spontaneous applications
+        # (and any job with an empty locations list) render without it.
+        has_locs = bool(j["locations"])
+        locs_txt = ", ".join(j["locations"]) if has_locs else ""
         locs = html.escape(locs_txt)
         locs_attr = html.escape(locs_txt, quote=True)
         url = j["url"]
@@ -2810,6 +2988,14 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         reject_btn = (
             f'<button class="reject" data-url="{url_esc}" title="Reject">×</button>'
             if url else ""
+        )
+        # "Review" button: only visible on jobs with no state yet. Clicking
+        # appends the title to TOREVIEW.md AND rejects the URL, so the user
+        # can later batch-add common patterns to TITLE_BLACKLIST.
+        review_btn = (
+            f'<button class="review" data-url="{url_esc}" data-title="{title_attr}" '
+            f'title="Queue title for review (writes to TOREVIEW.md) and remove">R</button>'
+            if url and not (is_liked or is_toapply or is_applied or is_app_rejected) else ""
         )
         # "To apply" button: only shown when the job is +1 or already in a
         # later state. Click toggles the to-apply flag. Applied jobs still
@@ -2880,13 +3066,13 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         items.append(
             f'    <li class="{li_class}" data-seniority="{seniority_attr}" '
             f'data-locations="{locs_attr}">'
-            f'{reject_btn}{like_btn}{toapply_btn}{applied_btn}{app_rej_btn}<details>\n'
-            f'      <summary title="{title_attr} — {locs_attr}">'
+            f'{review_btn}{reject_btn}{like_btn}{toapply_btn}{applied_btn}{app_rej_btn}<details>\n'
+            f'      <summary title="{title_attr}{" — " + locs_attr if has_locs else ""}">'
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
             f'{new_html}{orphan_html}{seniority_html}{ic_html}{highlight_html}'
             f'{summary_link}'
-            f'<span class="locs"> — {locs}</span>'
+            f'{"".join(["<span class=\"locs\"> — ", locs, "</span>"]) if has_locs else ""}'
             f'</summary>\n'
             f'      <div class="description">\n'
             f'        <div class="desc-actions">{open_link}</div>\n'
@@ -2894,7 +3080,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'      </div>\n'
             f'    </details>{app_rej_panel_html}{score_summary_html}</li>'
         )
-    ul_content = "\n".join(items) if items else "    <li><em>none</em></li>"
+    ul_content = "\n".join(items) if items else ""
     visible_count = len(visible)
     total_bit = ""
     if fetched_count is not None:
@@ -2914,6 +3100,20 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         f'<a class="board-link" href="{html.escape(board_url, quote=True)}" '
         f'target="_blank" rel="noopener">{html.escape(name)}</a>'
         if board_url else html.escape(name)
+    )
+    # Company info line: blurb + employees + revenue. Only rendered when
+    # we have data for the company; empty otherwise.
+    info = COMPANY_INFO.get(name) or {}
+    info_parts = []
+    if info.get("blurb"):
+        info_parts.append(html.escape(info["blurb"]))
+    if info.get("employees") and info["employees"] != "n/a":
+        info_parts.append(f'👥 {html.escape(info["employees"])}')
+    if info.get("revenue") and info["revenue"] != "n/a":
+        info_parts.append(f'💰 {html.escape(info["revenue"])}')
+    company_info_row = (
+        f'  <div class="company-info">{" · ".join(info_parts)}</div>\n'
+        if info_parts else ""
     )
     spontaneous = (
         f'<a class="spontaneous-link" href="{html.escape(spontaneous_url, quote=True)}" '
@@ -2954,9 +3154,14 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'  </details>\n'
         )
 
+    # Sections with a spontaneous application link get `has-spontaneous`;
+    # applyFilters keeps them visible even when 0 visible jobs pass filters,
+    # so the user can still see the ✉ link and apply spontaneously.
+    section_cls = "company-section" + (" has-spontaneous" if spontaneous_url else "")
     return (
-        f'  <section class="company-section" data-section="{sid}">\n'
+        f'  <section class="{section_cls}" data-section="{sid}">\n'
         f'  <h1 id="{sid}">{board_link} {query_pills} {counter}</h1>\n'
+        f'{company_info_row}'
         f'{spontaneous_row}'
         f'  <ul data-section="{sid}">\n{ul_content}\n  </ul>\n'
         f'{rejected_block}'
@@ -3100,7 +3305,7 @@ def render_html_filters(seniority_labels, all_locations=None):
         if not items:
             continue
         blocks.append(
-            '    <div class="filter-group">\n'
+            f'    <div class="filter-group filter-group-{slug(group_name)}">\n'
             f'      <span class="filter-label">{html.escape(group_name)}:</span>\n'
             + "\n".join(items) + "\n"
             '    </div>'
@@ -3229,6 +3434,12 @@ HTML_TEMPLATE = """<!doctype html>
       font-weight: normal;
     }
     .spontaneous-row { margin: 0.4rem 0 0.8rem; }
+    .company-info {
+      margin: 0.2rem 0 0.6rem;
+      font-size: 0.82rem;
+      color: var(--fg-muted);
+      font-style: italic;
+    }
     .spontaneous-link {
       display: inline-block;
       font-size: 0.9rem;
@@ -3344,6 +3555,8 @@ HTML_TEMPLATE = """<!doctype html>
     .dump-btn.open-btn-applied:hover { background: #6639ba; }
     .dump-btn.open-btn-app-rejected { background: #000; border-color: #000; }
     .dump-btn.open-btn-app-rejected:hover { background: #2c2c2c; }
+    .dump-btn.total-btn { background: #fb8500; border-color: #000; cursor: default; }
+    .dump-btn.total-btn:hover { background: #d97400; }
     /* Probe button: pushed to the far right of the row, black. */
     .dump-btn.dump-btn-probe { margin-left: auto; background: #000; border-color: #000; }
     .dump-btn.dump-btn-probe:hover { background: #2c2c2c; }
@@ -3398,6 +3611,8 @@ HTML_TEMPLATE = """<!doctype html>
     .filter-group { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
     .filter-group.full-row { flex-basis: 100%; }
     .filter-group.full-row input[type="text"] { flex: 1; }
+    /* Force IC row onto its own line, below Management. */
+    .filter-group.filter-group-ic { flex-basis: 100%; }
     .filter-label { color: var(--fg-muted); font-weight: 700; }
     .filter-check { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
     .filter-check input { accent-color: var(--accent-emphasis); }
@@ -3508,6 +3723,26 @@ HTML_TEMPLATE = """<!doctype html>
       border-color: var(--danger-emphasis);
     }
     .reject:disabled { opacity: 0.4; cursor: wait; }
+
+    /* Review button: orange circle, only rendered when the job has no state.
+       Sends title to TOREVIEW.md + rejects the URL in one click. */
+    button.review {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid var(--attention);
+      color: var(--attention);
+      border-radius: 50%;
+      width: 1.3rem;
+      height: 1.3rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+      align-self: center;
+    }
+    button.review:hover { background: var(--attention); color: #ffffff; border-color: var(--severe); }
+    button.review:disabled { opacity: 0.4; cursor: wait; }
 
     .like {
       flex-shrink: 0;
@@ -3747,7 +3982,7 @@ HTML_TEMPLATE = """<!doctype html>
     .score-summary.score-lo  { border-left-color: var(--border); }
     body.hide-score-summary .score-summary { display: none; }
     body.hide-role-summary  .role-summary  { display: none; }
-    body.hide-empty-sections .company-section.empty { display: none; }
+    body.hide-empty-sections .company-section.empty:not(.has-spontaneous) { display: none; }
 
     .role-more {
       display: block;
@@ -3923,6 +4158,11 @@ document.querySelectorAll('details').forEach(d => {
   });
 });
 
+/* --- Debug mode: enable via ?debug=1 URL param or #debug hash ---------- */
+const DEBUG = /(?:^|[?&])debug=1(?:&|$)/.test(location.search) || location.hash === '#debug';
+if (DEBUG) console.log('%c[jobs.html] debug mode on', 'color: orange; font-weight: bold');
+function dlog(...a) { if (DEBUG) console.log('[dbg]', ...a); }
+
 /* --- Persistence: filter state survives page refreshes ----------------- */
 const STORAGE_KEY = 'jobs:filters:v1';
 
@@ -4006,8 +4246,9 @@ function applyFilters() {
 
   document.querySelectorAll('li[data-seniority]').forEach(li => {
     let hide = false;
-    const sen = ((li.dataset.seniority || '').trim() || 'None').toLowerCase();
-    if (seniorityOff.has(sen)) hide = true;
+    const sen = (li.dataset.seniority || '').trim().toLowerCase();
+    // Jobs without a detected seniority never get hidden by seniority filters.
+    if (sen && seniorityOff.has(sen)) hide = true;
     if (!hide && locQ.length) {
       if (!matchQuery((li.dataset.locations || '').toLowerCase(), locQ)) hide = true;
     }
@@ -4035,7 +4276,10 @@ function applyFilters() {
         btn.classList.toggle('no-fetched', visible === 0 && fetched === 0);
       }
     }
-    const v = document.querySelector('#' + sid + ' .counter .v');
+    // getElementById tolerates leading digits in the sid ("1password" etc.);
+    // document.querySelector('#1password …') would throw SyntaxError and kill
+    // the whole filter pass, silently disabling all downstream event handlers.
+    const v = document.getElementById(sid)?.querySelector('.counter .v');
     if (v) v.textContent = visible;
     // Mark the parent .company-section empty when there's nothing visible.
     const section = ul.closest('.company-section');
@@ -4380,8 +4624,16 @@ const rsToggle = document.getElementById('role-summary-toggle');
 if (rsToggle) {
   rsToggle.addEventListener('change', () => {
     document.body.classList.toggle('hide-role-summary', !rsToggle.checked);
+    dlog('role-summary toggle', {
+      checked: rsToggle.checked,
+      bodyClass: document.body.className,
+      rsCount: document.querySelectorAll('.role-summary').length,
+      firstDisplay: getComputedStyle(document.querySelector('.role-summary') || document.body).display,
+    });
     saveFilters();
   });
+} else {
+  dlog('WARNING: #role-summary-toggle not found in DOM');
 }
 
 const heToggle = document.getElementById('hide-empty-toggle');
@@ -4730,14 +4982,42 @@ document.querySelectorAll('.reject').forEach(btn => {
       rejectUndoStack.push({url, sid, li, next, ul});
       li.remove();
       updateCounters(sid, -1, +1);
-      if (ul.querySelectorAll('li').length === 0) {
-        ul.insertAdjacentHTML('beforeend', '    <li><em>none</em></li>');
-      }
       showUndoToast();
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
       alert('Reject failed: ' + err.message);
+    }
+  });
+});
+
+// Review button: like reject, but also POSTs the title to /to-review which
+// appends it to TOREVIEW.md. Non-undoable — the file append is not reversible.
+document.querySelectorAll('button.review').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = btn.dataset.url;
+    const title = btn.dataset.title || '';
+    const li = btn.closest('li');
+    const ul = li.closest('ul');
+    const sid = ul?.dataset.section;
+    btn.disabled = true;
+    li.style.opacity = '0.3';
+    try {
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const res = await fetch(base + '/to-review', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url, title}),
+      });
+      if (!res.ok) throw new Error('http ' + res.status);
+      li.remove();
+      if (sid) updateCounters(sid, -1, +1);
+    } catch (err) {
+      btn.disabled = false;
+      li.style.opacity = '1';
+      alert('Review failed: ' + err.message);
     }
   });
 });
@@ -4826,6 +5106,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/toapply", "/untoapply",
             "/applied", "/unapplied",
             "/app-rejected", "/un-app-rejected",
+            "/to-review",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -4883,6 +5164,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/unreject":
             s = load_rejected(); s.discard(url); save_rejected(s)
             sys.stdout.write(f"unrejected: {url}\n")
+        elif self.path == "/to-review":
+            # Append title to TOREVIEW.md AND reject the URL so the job
+            # doesn't come back next run. User cleans up TOREVIEW.md later
+            # and reports back which patterns to add to TITLE_BLACKLIST.
+            title = (payload.get("title") or "").strip() or "(no title)"
+            try:
+                with open("TOREVIEW.md", "a", encoding="utf-8") as f:
+                    f.write(f"- {title}\n")
+            except Exception as e:
+                sys.stdout.write(f"toreview: append failed: {e}\n")
+            s = load_rejected(); s.add(url); save_rejected(s)
+            sys.stdout.write(f"toreview: {title!r} · rejected\n")
         elif self.path == "/like":
             s = load_liked(); s.add(url); save_liked(s)
             sys.stdout.write(f"liked:    {url}\n")
@@ -5286,8 +5579,9 @@ def main():
     # dedup while preserving order
     seen = set()
     seniority_labels = [l for l in seniority_labels if not (l in seen or seen.add(l))]
-    if has_none:
-        seniority_labels.append("None")
+    # Jobs without a detected seniority are always visible (no "None"
+    # checkbox in the filter bar). They can still be hidden via the title
+    # or text filters if needed.
 
     server_url = f"http://{SERVE_HOST}:{SERVE_PORT}"
     # Run the global list of unique locations through the flattener one more
@@ -5348,6 +5642,7 @@ def main():
     n_app_rejected = len(app_rej_keys & visible_urls)
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
+        f'    <button type="button" class="dump-btn total-btn" id="total-jobs" title="Total number of jobs currently visible (updates with filters)">Total jobs: <span id="total-count">{total}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Open every +1 (Liked) URL in your browser AND save the same list as debug/open_liked.sh">Open Liked: <span id="liked-count">{n_liked}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Open every To apply URL in your browser AND save the same list as debug/open_toapply.sh">Open To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied: <span id="applied-count">{n_applied}</span></button>\n'
