@@ -1899,8 +1899,9 @@ def fetch_workday(source):
 # =============================================================================
 
 # Primary: matches Sennheiser-style jobCardTitle anchors with direct text.
+# Uses lookaheads so class/href attribute order doesn't matter.
 _SF_JOB_LINK_RE = re.compile(
-    r'<a[^>]*class="[^"]*jobCardTitle[^"]*"[^>]*href="(/job/[^"]+)"[^>]*>\s*([^<]{3,200})\s*<',
+    r'<a\b(?=[^>]*\bclass="[^"]*jobCardTitle)(?=[^>]*\bhref="(/job/[^"]+)")[^>]*>\s*([^<]{3,200})\s*<',
     re.IGNORECASE,
 )
 # Legacy: nested-tag layout (older SF themes).
