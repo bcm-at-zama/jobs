@@ -79,6 +79,7 @@ import html
 import http.server
 import json
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -1595,50 +1596,36 @@ def board_url_for(source):
     return ""
 
 
-SCORING_SYSTEM_BASE = """You score job postings against a candidate profile.
+SCORING_SYSTEM_BASE = """You extract the SALARY RANGE from job postings.
 
-Return ONLY a JSON array with ONE ELEMENT PER JOB you were given. If 5 jobs are
-provided, the array MUST contain 5 elements. Never merge, summarize, or skip.
+Return ONLY a JSON array with ONE ELEMENT PER JOB you were given. If 5 jobs
+are provided, the array MUST contain 5 elements. Never merge, summarize, or
+skip.
 
-Each element:
-  {"i": <index from the numbered list>, "score": <integer 0-10>,
-   "reason": "<why this score — 2-3 sentences, ~100-400 chars, cite rubric>"__EXTRA_FIELDS__}
+Each element must be exactly:
+  {"i": <index from the numbered list>, "salary": "<verbatim salary text or empty>"}
 
-Example (for 2 jobs):
+Rules for the salary field:
+- Copy the salary text VERBATIM as it appears in the description.
+- Keep the ORIGINAL currency symbol / code ($, €, £, ¥, CHF, CAD, USD…).
+- Do NOT convert to any other currency, ever.
+- Keep the ORIGINAL numbers (no rounding).
+- Keep BOTH endpoints of any range (e.g. "$150,000 - $200,000").
+- Include the period suffix if stated ("per year", "annually", "/mo", "K").
+- If the description states NO salary at all, use "" (empty string).
+- Max 100 characters. Trim boilerplate ("Base salary:", "Compensation:", etc.).
+- No prose, no explanation, no notes, no "roughly", no "which is".
+
+Examples (for 3 jobs):
   [
-    {"i": 1, "score": 8,
-     "reason": "Directly matches the AI-powered vulnerability remediation interest (Codex-style role at OpenAI, US-based). No management scope but strong IC track and applied crypto adjacency via secure code analysis."__EXAMPLE_EXTRA__},
-    {"i": 2, "score": 3,
-     "reason": "Sales/GTM role, not technical. Team focuses on account expansion rather than security engineering; location fits but domain doesn't align with the rubric priorities."__EXAMPLE_EXTRA_2__}
-  ]
-
-Scoring rubric: 9-10 top-priority match, 6-8 solid, 3-5 partial, 0-2 weak.
-The reason field explains the SCORE. The role_long field describes the job."""
+    {"i": 1, "salary": "$150,000 - $200,000 USD"},
+    {"i": 2, "salary": "£80k - £120k"},
+    {"i": 3, "salary": ""}
+  ]"""
 
 
 def _scoring_system():
-    if SCORE_LONG_ROLES:
-        return (
-            SCORING_SYSTEM_BASE
-            .replace(
-                "__EXTRA_FIELDS__",
-                ',\n   "role_long": "<STRICT RULE: the reader already knows the company. Do NOT copy or paraphrase any \\"About us\\" / \\"Our mission\\" / \\"We are a company that\\" content. If the description opens with a company blurb, SKIP IT and start from the actual role. Detailed version of the ROLE, using markdown bullet points under section headers **Missions:**, **Key responsibilities:**, **Team:**, **Tech:**, **Seniority:**, **Minimal profile:**, **Preferred profile:**, **Salary:** in that exact order. Be as thorough as the job description supports — aim for 1500-3500 characters when the source material is rich. Cover: (Missions) the high-level mission of the role — what this position exists to achieve, 2-3 bullets; (Key responsibilities) the concrete day-to-day duties as stated in the description (variants: \\"you will…\\", \\"your responsibilities include…\\", \\"what you will do\\", \\"what you will be doing\\", \\"in this role you will\\", \\"about the role\\") — quote verbatim when possible, 4-6 bullets; (Team) size and structure of the team the person will be part of, reporting line, cross-functional partners; (Tech) READ THE WHOLE DESCRIPTION and extract EVERY technical hint — programming languages, frameworks, cloud providers (AWS/GCP/Azure), databases, ML tooling (PyTorch, JAX, HuggingFace, ONNX), cryptography protocols (FHE, MPC, TLS, PKI, ZK), reverse-engineering tools, operating systems, compilers (LLVM, MLIR), CI/CD, container tech. Also infer from the domain: an FHE role implies homomorphic encryption; a browser-security role implies V8/JS/DOM; a Codex role implies LLM inference stack. Only say \\"not stated\\" if the description is truly non-technical (e.g. Sales); (Seniority) explicit level in the title (Staff, Senior, Principal, etc.) AND any internal IC-level band mentioned anywhere in the description — quote verbatim (e.g. \\"IC5\\", \\"IC6\\", \\"L5\\", \\"L6\\", \\"E5\\", \\"M2\\", \\"Level 5\\", \\"Staff (IC5)\\", \\"Principal (IC6)\\") — these usually appear in the compensation table or a levels breakdown; AND years-of-experience requirement quoted verbatim from the description (e.g. \\"7+ years of experience in security engineering\\") AND any manager-vs-IC signal AND required qualifications like PhD or specific certifications; (Minimal profile) EVERYTHING labeled as required / must-have / \\"you have\\" / \\"required qualifications\\" / \\"basic qualifications\\" / \\"good fit if\\" — the hard bar. Quote verbatim; (Preferred profile) EVERYTHING labeled as preferred / nice-to-have / bonus / \\"you might also have\\" / \\"preferred qualifications\\" / \\"strong candidates if\\" / \\"you could be a strong candidate if\\" / \\"about you\\" / \\"you will thrive in this role if you\\" — the soft bar. Quote verbatim; (Salary) FIRST bullet MUST be a compensation range in USD only, using one of these two exact formats: \\"$MIN - $MAX USD\\" (when the description gives both a floor and a ceiling) or \\"> $MIN USD\\" (when the description only gives a floor, or wording like \\"starting at\\", \\"from\\", \\"minimum\\"). Numbers formatted with commas (e.g. \\"$405,000 - $485,000 USD\\"). If the description quotes the salary in another currency (EUR, GBP, CHF, CAD), convert to USD using the approximate rates 1 EUR = 1.08 USD, 1 GBP = 1.27 USD, 1 CHF = 1.13 USD, 1 CAD = 0.73 USD and round to the nearest 1,000. Never emit two currencies, never add prose like \\"which is roughly …\\", \\"equivalent to …\\", \\"exceeds …\\". If the description states NO salary at all, the FIRST bullet MUST be exactly \\"no information on salaries\\". Then, on separate bullets, add any equity / bonus / benefits / location constraints / travel / visa info stated. ABSOLUTELY NO HTML — strip every tag before you quote (never emit <br>, <strong>, </span>, <p>, <li>, <div>, &amp;, &nbsp;, class=…, style=…, or any other tag/attribute/entity). If you copy from the description, decode entities first (&amp; → &, &lt; → <, &nbsp; → space, etc.) and drop every tag. Use only plain text, markdown **bold** and markdown - bullets. No company boilerplate. TOP PRIORITY sections for this reader are **Seniority:** and **Salary:** — invest extra effort there: quote every level indicator (title, IC/L/E/M bands, years of experience, PhD/certifications, manager-vs-IC signal) and every compensation datapoint (range, bonus, equity, location differentials). If any detail is fuzzy, prefer QUOTING the source verbatim over paraphrasing so the reader can judge."'
-            )
-            .replace(
-                "__EXAMPLE_EXTRA__",
-                ',\n     "role_long": "**Missions:**\\n- Scale Codex to production developer workflows.\\n- Own end-to-end the model-to-PR pipeline used by design partners.\\n\\n**Key responsibilities:**\\n- \\"Design and implement prompt strategies for code-generation tasks\\".\\n- \\"Build and maintain the evaluation harness for auto-PR quality\\".\\n- \\"Ship weekly improvements based on design-partner telemetry\\".\\n- \\"Run post-generation static analysis to catch regressions before merge\\".\\n\\n**Team:**\\n- 8 IC engineers, one Staff TL, embedded PM and applied researcher.\\n\\n**Tech:**\\n- Python (backend), TypeScript (developer-facing surfaces).\\n- Runs on internal Kubernetes; model serving on GPU clusters.\\n- Cryptography: TLS-terminating proxies and signed webhook payloads; no low-level crypto work.\\n\\n**Seniority:**\\n- Title: Member of Technical Staff.\\n- Experience: \\"7+ years shipping production ML systems\\" (quoted).\\n- IC role, no direct reports.\\n\\n**Minimal profile:**\\n- \\"BS in CS or equivalent experience\\".\\n- \\"7+ years shipping production ML systems\\".\\n- \\"Fluency in Python and modern JS\\".\\n\\n**Preferred profile:**\\n- \\"Prior experience with LLM inference stacks (vLLM, TGI)\\".\\n- \\"Contributions to open-source developer tools\\".\\n- \\"Prior work on evaluation harnesses\\".\\n\\n**Salary:**\\n- $405,000 - $485,000 USD.\\n- Equity refresh yearly."'
-            )
-            .replace(
-                "__EXAMPLE_EXTRA_2__",
-                ',\n     "role_long": "**Missions:**\\n- Run quarterly quota on financial-services logos across EMEA (60% new logo, 40% expansion).\\n- Lead technical qualification before handoff to solutions engineering.\\n- Own executive relationships at named accounts.\\n\\n**Team:**\\n- Reports to Regional Sales Director; sits alongside 5 other AEs, supported by 2 SEs and 1 SDR.\\n\\n**Tech:**\\n- Not stated in the description (non-engineering role).\\n\\n**Seniority:**\\n- Experience: \\"5+ years selling enterprise SaaS\\" (quoted).\\n- IC quota-carrying role, no direct reports.\\n\\n**Salary:**\\n- $250,000 - $350,000 USD.\\n- Travel required to customer sites."'
-            )
-        )
-    return (
-        SCORING_SYSTEM_BASE
-        .replace("__EXTRA_FIELDS__", "")
-        .replace("__EXAMPLE_EXTRA__", "")
-        .replace("__EXAMPLE_EXTRA_2__", "")
-    )
+    return SCORING_SYSTEM_BASE
 
 
 SCORING_SYSTEM = _scoring_system()
@@ -1772,22 +1759,15 @@ def _parse_score_response(text, batch):
             continue
         url = batch[idx]["url"]
         try:
-            def _clean(s, maxlen=400):
+            def _clean(s, maxlen=100):
                 s = str(s or "")
                 # Normalize exotic Unicode spaces (EM QUAD, EN SPACE, etc.).
                 s = re.sub(r"[\u2000-\u200a\u202f\u205f\u3000]", " ", s)
                 s = re.sub(r"\s+", " ", s).strip()
+                # Strip common HTML remnants in case the model leaks them.
+                s = re.sub(r"<[^>]+>", "", s)
                 return s[:maxlen]
-            raw_score = int(item.get("score", 0))
-            # Small models sometimes return scores outside the 0-10 bounds.
-            score = max(0, min(10, raw_score))
-            role_long_raw = item.get("role_long", "")
-            role_long_md = _role_long_to_markdown(role_long_raw)
-            out[url] = {
-                "score":     score,
-                "reason":    _clean(item.get("reason", "")),
-                "role_long": _clean(role_long_md, maxlen=6000),
-            }
+            out[url] = {"salary": _clean(item.get("salary", ""))}
         except Exception:
             continue
     if not out:
@@ -1829,36 +1809,19 @@ _LONG_ROLE_SECTIONS = [
 
 
 def _ollama_json_schema():
-    """Build a strict JSON schema that forces the model to produce every field
-    we need. Ollama honours this via structured outputs (v0.5+)."""
-    item_props = {
-        "i":      {"type": "integer"},
-        "score":  {"type": "integer", "minimum": 0, "maximum": 10},
-        "reason": {"type": "string",  "minLength": 30},
-    }
-    required = ["i", "score", "reason"]
-    if SCORE_LONG_ROLES:
-        # role_long is an OBJECT with one array-of-bullets per section. That
-        # way the model is forced to fill each section separately — it can't
-        # just dump a blob of prose that ignores the structure we asked for.
-        section_schema = {
-            "type": "array",
-            "minItems": 1,
-            "items": {"type": "string", "minLength": 10},
-        }
-        item_props["role_long"] = {
-            "type": "object",
-            "properties": {name: section_schema for name in _LONG_ROLE_SECTIONS},
-            "required": _LONG_ROLE_SECTIONS,
-        }
-        required.append("role_long")
+    """Strict JSON schema for the salary-only extractor. Ollama honours this
+    via structured outputs (v0.5+) so the model is FORCED to emit both fields
+    on every job even when the answer is an empty string."""
     return {
         "type": "array",
         "minItems": 1,
         "items": {
             "type": "object",
-            "properties": item_props,
-            "required": required,
+            "properties": {
+                "i":      {"type": "integer"},
+                "salary": {"type": "string", "maxLength": 100},
+            },
+            "required": ["i", "salary"],
         },
     }
 
@@ -1917,7 +1880,7 @@ def _score_batch_ollama(batch, profile_text):
             "repeat_penalty": 1.35,
             "repeat_last_n": 512,
             # Cap the number of tokens generated per response.
-            "num_predict": 3000 if SCORE_LONG_ROLES else 800,
+            "num_predict": 500,
         },
     }
     req = urllib.request.Request(
@@ -1925,7 +1888,7 @@ def _score_batch_ollama(batch, profile_text):
         headers={"Content-Type": "application/json"},
     )
     # Long-role prompts generate ~2x more tokens; give the LLM more headroom.
-    ollama_timeout = 600 if SCORE_LONG_ROLES else 300
+    ollama_timeout = 120
     try:
         with urllib.request.urlopen(req, timeout=ollama_timeout) as resp:
             data = json.load(resp)
@@ -1946,23 +1909,31 @@ def score_jobs(jobs):
         sys.stdout.write(f"[score] no {PROFILE_FILE} — skipping\n")
         return
     cache = _load_score_cache()
-    # Rescore jobs that lack fields we now want. When SCORE_LONG_ROLES is on,
-    # any cached entry that predates the long-role feature is missing
-    # `role_long` and gets re-scored automatically.
+    # Rescore jobs that don't yet have the `salary` field. Legacy entries
+    # from the old scorer are missing it — we salvage what we can from the
+    # old role_long "Salary" section when present.
+    def _extract_legacy_salary(entry):
+        rl = entry.get("role_long") or ""
+        if not rl:
+            return ""
+        m = re.search(r"\*\*Salary:\*\*\s*[\r\n]+((?:\s*-.*(?:\r?\n|$))+)", rl)
+        if not m:
+            return ""
+        first = m.group(1).splitlines()[0].lstrip("- \t").strip()
+        return first[:100]
     def _needs_rescore(url):
         entry = cache.get(url)
         if entry is None:
             return True
-        if SCORE_LONG_ROLES and not entry.get("role_long"):
-            return True
-        return False
+        return "salary" not in entry
     todo = [j for j in jobs if j["url"] and _needs_rescore(j["url"])]
     for j in jobs:
         cached = cache.get(j["url"])
         if cached:
-            j["score"] = cached.get("score", 0)
-            j["score_reason"] = cached.get("reason", "")
-            j["role_long"] = cached.get("role_long", "")
+            sal = cached.get("salary")
+            if sal is None:
+                sal = _extract_legacy_salary(cached)
+            j["salary"] = sal
     if not todo:
         return
 
@@ -2019,6 +1990,15 @@ def score_jobs(jobs):
         sys.stdout.write(header + "\n")
     cache_lock = threading.Lock()
     completed = [0]
+    score_start = time.perf_counter()
+
+    def _fmt_eta(seconds):
+        seconds = max(0, int(seconds))
+        h, r = divmod(seconds, 3600)
+        m, s = divmod(r, 60)
+        if h: return f"{h}h{m:02d}m{s:02d}s"
+        if m: return f"{m}m{s:02d}s"
+        return f"{s}s"
 
     def _process(batch, idx):
         results = _score_safely(batch)
@@ -2027,24 +2007,35 @@ def score_jobs(jobs):
             for j in batch:
                 r = results.get(j["url"])
                 if r:
-                    j["score"] = r["score"]
-                    j["score_reason"] = r["reason"]
-                    j["role_long"] = r.get("role_long", "")
+                    j["salary"] = r.get("salary", "")
                     cache[j["url"]] = r
                     new_entries = True
             completed[0] += 1
             got = sum(1 for j in batch if j["url"] in results)
+            # ETA — extrapolate from the elapsed wall clock and how many
+            # batches we've finished so far. Very smooth once we have >= 3
+            # batches in; jittery before that, so we skip printing until then.
+            elapsed = time.perf_counter() - score_start
+            done = completed[0]
+            if done >= 3 and done < n_batches:
+                per_batch = elapsed / done
+                remaining = (n_batches - done) * per_batch
+                eta_str = f" · ETA {_fmt_eta(remaining)} ({_fmt_eta(elapsed)} elapsed)"
+            elif done == n_batches:
+                eta_str = f" · done in {_fmt_eta(elapsed)}"
+            else:
+                eta_str = ""
             sys.stdout.write(
-                f"[score] batch {completed[0]}/{n_batches}: {got}/{len(batch)} scored\n"
+                f"[score] batch {done}/{n_batches}: {got}/{len(batch)} scored{eta_str}\n"
             )
-            # Incremental save every 5 batches (or every batch if serial) so
-            # Ctrl-C doesn't lose everything.
+            sys.stdout.flush()
+            # Incremental save every N batches so Ctrl-C doesn't lose work.
             if new_entries and completed[0] % max(1, SCORE_PARALLEL) == 0:
                 _save_score_cache(cache)
 
     # Long-role responses need ~2x more compute per request; halve the
     # concurrency to avoid Ollama backpressure and per-request timeouts.
-    parallel = max(1, SCORE_PARALLEL // 2) if SCORE_LONG_ROLES else SCORE_PARALLEL
+    parallel = SCORE_PARALLEL
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as ex:
             for i, batch in enumerate(batches):
@@ -2195,6 +2186,7 @@ _CITY_TO_COUNTRY = {
     "emea": "EMEA", "europe": "EMEA",
     "southern europe": "EMEA",
     "us east coast": "USA",
+    "north america": "USA",
     # India cities that were slipping through
     "noida": "India", "hyderabad": "India", "pune": "India",
     "gurgaon": "India", "chennai": "India", "kolkata": "India",
@@ -2930,10 +2922,16 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         seniority_html = (
             f'<span class="badge seniority">{html.escape(seniority)}</span>' if seniority else ""
         )
+        # Salary extracted by the LLM (verbatim, no conversion). Shown as a
+        # green badge to the right of the seniority badge.
+        salary_txt = (j.get("salary") or "").strip()
+        salary_html = (
+            f'<span class="badge salary" title="Salary range extracted from the description (verbatim, no conversion)">💰 {html.escape(salary_txt)}</span>'
+            if salary_txt else ""
+        )
         role_long = j.get("role_long") or ""
-        # IC/L/E/M level from the LLM's role_long output first (which quotes
-        # the compensation table verbatim), then the raw description as backup.
-        ic_level = detect_ic_level(role_long, j.get("description", ""))
+        # IC/L/E/M level from the description raw text.
+        ic_level = detect_ic_level(j.get("description", ""))
         ic_html = (
             f'<span class="badge ic-level" title="Internal level band from the description">{html.escape(ic_level)}</span>'
             if ic_level else ""
@@ -2966,14 +2964,8 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         # is rendered. The scorer still runs (same LLM call produces both) so
         # the cache stays warm and role_long remains available.
         score_html = ""
-        summary_parts = []
-        if role_long:
-            summary_parts.append(
-                f'<div class="role-summary"><strong>Role</strong>'
-                f'<div class="role-long">{_render_role_long(role_long)}</div>'
-                f'</div>'
-            )
-        score_summary_html = "".join(summary_parts)
+        # role_long section removed — the LLM now only extracts salary.
+        score_summary_html = ""
         desc = sanitize_html(j["description"])
         desc_html = desc if desc else '<em>No description available.</em>'
         is_liked = url in liked
@@ -3070,7 +3062,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'      <summary title="{title_attr}{" — " + locs_attr if has_locs else ""}">'
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
-            f'{new_html}{orphan_html}{seniority_html}{ic_html}{highlight_html}'
+            f'{new_html}{orphan_html}{seniority_html}{salary_html}{ic_html}{highlight_html}'
             f'{summary_link}'
             f'{"".join(["<span class=\"locs\"> — ", locs, "</span>"]) if has_locs else ""}'
             f'</summary>\n'
@@ -3115,19 +3107,36 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         f'  <div class="company-info">{" · ".join(info_parts)}</div>\n'
         if info_parts else ""
     )
-    spontaneous = (
-        f'<a class="spontaneous-link" href="{html.escape(spontaneous_url, quote=True)}" '
-        f'target="_blank" rel="noopener" title="Spontaneous application">'
-        f'✉ Spontaneous</a>'
-        if spontaneous_url else ""
-    )
+    if spontaneous_url:
+        # +1 button next to the ✉ Spontaneous link. Same liked.json store as
+        # regular job +1 buttons, so counts and open buttons pick it up.
+        _sp_url_esc = html.escape(spontaneous_url, quote=True)
+        _sp_liked = spontaneous_url in liked
+        _sp_state = "on" if _sp_liked else "off"
+        _sp_like_btn = (
+            f'<button class="like spontaneous-like" data-url="{_sp_url_esc}" '
+            f'data-state="{_sp_state}" title="Like this spontaneous application">+1</button>'
+        )
+        spontaneous = (
+            f'{_sp_like_btn}'
+            f'<a class="spontaneous-link" href="{_sp_url_esc}" '
+            f'target="_blank" rel="noopener" title="Spontaneous application">'
+            f'✉ Spontaneous</a>'
+        )
+    else:
+        spontaneous = ""
     query_pills = ""
     if queries:
         pills = "".join(
             f'<span class="query-pill">{html.escape(q)}</span>' for q in queries
         )
         query_pills = f'<span class="queries" title="Board-side search queries">{pills}</span>'
-    spontaneous_row = f'  <div class="spontaneous-row">{spontaneous}</div>\n' if spontaneous else ""
+    # If the user already +1'd the spontaneous URL, tint the row on initial
+    # render (client keeps it in sync on toggle — see wireStateButton).
+    _spontaneous_cls = "spontaneous-row"
+    if spontaneous_url and spontaneous_url in liked:
+        _spontaneous_cls += " liked"
+    spontaneous_row = f'  <div class="{_spontaneous_cls}">{spontaneous}</div>\n' if spontaneous else ""
 
     # Rejected jobs collapsible block — one line per rejected job in this
     # section, each with a "Restore" button.
@@ -3280,10 +3289,18 @@ def _render_location_picker(locations):
         )
         blocks.append(
             f'      <div class="loc-group">'
-            f'<span class="loc-country">{html.escape(country)}</span>{checks}</div>'
+            f'<button type="button" class="loc-country loc-country-toggle" '
+            f'title="Toggle all cities in this country">{html.escape(country)}</button>'
+            f'<div class="loc-cities">{checks}</div></div>'
         )
+    if not blocks:
+        return ""
     return (
         '      <div class="loc-panel">\n'
+        '        <div class="loc-bulk">'
+        '<button type="button" class="loc-bulk-btn" id="loc-all">All</button>'
+        '<button type="button" class="loc-bulk-btn" id="loc-none">None</button>'
+        '</div>\n'
         + "\n".join(blocks) + "\n"
         '      </div>\n'
     )
@@ -3338,8 +3355,8 @@ def render_html_filters(seniority_labels, all_locations=None):
         '    </div>\n'
         '    <div class="filter-group">\n'
         '      <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>\n'
-        '      <label class="filter-check"><input type="checkbox" id="role-summary-toggle" checked> Show role details</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="hide-spontaneous-toggle"> Hide Spontaneous which are not liked</label>\n'
         '    </div>\n'
         '  </section>'
     )
@@ -3433,7 +3450,19 @@ HTML_TEMPLATE = """<!doctype html>
       background: var(--bg-subtle);
       font-weight: normal;
     }
-    .spontaneous-row { margin: 0.4rem 0 0.8rem; }
+    .spontaneous-row {
+      margin: 0.4rem 0 0.8rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    /* +1 button next to the ✉ Spontaneous link inherits .like styling. */
+    button.spontaneous-like { align-self: center; }
+    /* Same green tint as li.job.liked when the spontaneous URL is +1'd. */
+    .spontaneous-row.liked {
+      background: rgba(63, 185, 80, 0.08);
+      border-left: 3px solid var(--success);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+    }
     .company-info {
       margin: 0.2rem 0 0.6rem;
       font-size: 0.82rem;
@@ -3555,6 +3584,38 @@ HTML_TEMPLATE = """<!doctype html>
     .dump-btn.open-btn-applied:hover { background: #6639ba; }
     .dump-btn.open-btn-app-rejected { background: #000; border-color: #000; }
     .dump-btn.open-btn-app-rejected:hover { background: #2c2c2c; }
+    /* Refresh button — right-aligned yellow circle with rotating icon while busy. */
+    .refresh-btn {
+      margin-left: auto;
+      width: 3rem; height: 3rem;
+      border-radius: 999px;
+      border: 1px solid #000;
+      background: #ffd60a;
+      color: #000;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.9rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .refresh-btn:hover { background: #f5c400; }
+    .refresh-btn:disabled { opacity: 0.55; cursor: wait; }
+    .refresh-btn.busy .refresh-icon {
+      display: inline-block;
+      animation: refresh-spin 1s linear infinite;
+    }
+    @keyframes refresh-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .refresh-btn .refresh-icon {
+      display: inline-block;
+      transform: rotate(0deg);
+    }
     .dump-btn.total-btn { background: #fb8500; border-color: #000; cursor: default; }
     .dump-btn.total-btn:hover { background: #d97400; }
     /* Probe button: pushed to the far right of the row, black. */
@@ -3649,10 +3710,13 @@ HTML_TEMPLATE = """<!doctype html>
       border-radius: 6px;
       margin-top: 0.5rem;
     }
+    /* Two-column grid: fixed-width country label, then a wrapping list of
+       city checkboxes. When the cities wrap onto a 2nd/3rd line they align
+       under the first city instead of tucking under the country name. */
     .loc-group {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
+      display: grid;
+      grid-template-columns: 8rem 1fr;
+      align-items: baseline;
       gap: 0.4rem 0.8rem;
       padding: 0.3rem 0;
       border-bottom: 1px dashed var(--border-muted);
@@ -3661,9 +3725,46 @@ HTML_TEMPLATE = """<!doctype html>
     .loc-country {
       font-weight: 700;
       color: var(--severe);
-      min-width: 8rem;
       font-size: 0.85rem;
     }
+    button.loc-country-toggle {
+      text-align: left;
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 0.05rem 0.3rem;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      /* Country label stays in its own column (see .loc-group grid). */
+      justify-self: start;
+    }
+    button.loc-country-toggle:hover {
+      background: var(--border-muted);
+      border-color: var(--border);
+    }
+    .loc-cities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.6rem;
+    }
+    .loc-bulk {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .loc-bulk-btn {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--fg);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      cursor: pointer;
+    }
+    .loc-bulk-btn:hover { background: var(--bg-inset); border-color: var(--fg-subtle); }
     .loc-check {
       display: inline-flex;
       align-items: center;
@@ -3919,6 +4020,12 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--success);
       background: rgba(63, 185, 80, 0.1);
     }
+    .badge.salary {
+      border-color: rgba(9, 105, 218, 0.5);
+      color: var(--accent-emphasis);
+      background: rgba(9, 105, 218, 0.15);
+      font-weight: 600;
+    }
     .badge.ic-level {
       border-color: rgba(154, 103, 0, 0.4);
       color: var(--attention);
@@ -3983,6 +4090,10 @@ HTML_TEMPLATE = """<!doctype html>
     body.hide-score-summary .score-summary { display: none; }
     body.hide-role-summary  .role-summary  { display: none; }
     body.hide-empty-sections .company-section.empty:not(.has-spontaneous) { display: none; }
+    body.hide-spontaneous .spontaneous-row:not(.liked) { display: none; }
+    /* When Spontaneous is hidden AND the section has no other visible jobs,
+       treat the section as empty for the hide-empty-sections toggle. */
+    body.hide-spontaneous.hide-empty-sections .company-section.empty { display: none; }
 
     .role-more {
       display: block;
@@ -4180,6 +4291,7 @@ function saveFilters() {
     scoreSummary: document.getElementById('score-summary-toggle')?.checked ?? true,
     roleSummary: document.getElementById('role-summary-toggle')?.checked ?? true,
     hideEmpty: document.getElementById('hide-empty-toggle')?.checked ?? false,
+    hideSpontaneous: document.getElementById('hide-spontaneous-toggle')?.checked ?? false,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
@@ -4218,6 +4330,11 @@ function loadFilters() {
   if (he && s.hideEmpty === true) {
     he.checked = true;
     document.body.classList.add('hide-empty-sections');
+  }
+  const hs = document.getElementById('hide-spontaneous-toggle');
+  if (hs && s.hideSpontaneous === true) {
+    hs.checked = true;
+    document.body.classList.add('hide-spontaneous');
   }
 }
 
@@ -4588,6 +4705,61 @@ wireOpenButton('open-toapply', 'li.job.toapply:not(.hidden)', 'open_toapply.sh',
 wireOpenButton('open-applied', 'li.job.applied:not(.hidden)', 'open_applied.sh', 'No Applied jobs visible.',  'Applied');
 wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden)', 'open_app_rejected.sh', 'No Rejected-by-company jobs visible.', 'Rejected');
 
+/* --- Refresh: POST /refresh, poll /refresh-status, then reload ---------- */
+(() => {
+  const btn = document.getElementById('refresh-btn');
+  if (!btn) return;
+  const status = document.getElementById('dump-status');
+  const base = () => location.protocol === 'file:' ? SERVER_URL : '';
+  async function pollUntilDone() {
+    while (true) {
+      await new Promise(r => setTimeout(r, 2000));
+      let s;
+      try {
+        const r = await fetch(base() + '/refresh-status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        s = await r.json();
+      } catch (e) {
+        status.textContent = 'Refresh status check failed: ' + e.message;
+        return false;
+      }
+      if (s.status === 'running') {
+        status.textContent = `Refreshing… ${s.elapsed}s`;
+      } else if (s.status === 'done') {
+        status.textContent = 'Refresh done — reloading…';
+        return true;
+      } else if (s.status === 'failed') {
+        status.textContent = 'Refresh failed: ' + (s.error || 'unknown');
+        alert('Refresh failed:\\n' + (s.error || 'unknown error'));
+        return false;
+      } else {
+        // idle without ever running — retry once
+        return false;
+      }
+    }
+  }
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.classList.add('busy');
+    status.textContent = 'Refreshing…';
+    try {
+      const r = await fetch(base() + '/refresh', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+      if (!r.ok) throw new Error('http ' + r.status);
+      const ok = await pollUntilDone();
+      if (ok) {
+        // Small delay so the user sees the "done" message.
+        setTimeout(() => location.reload(), 400);
+        return;
+      }
+    } catch (e) {
+      status.textContent = 'Refresh failed: ' + e.message;
+      alert('Refresh failed: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.classList.remove('busy');
+  });
+})();
+
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
 ['loc-filter', 'title-filter', 'text-filter'].forEach(id => {
   const el = document.getElementById(id);
@@ -4603,6 +4775,26 @@ function syncLocInputFromChecks() {
   applyFilters();
 }
 document.querySelectorAll('.loc-cb').forEach(cb => cb.addEventListener('change', syncLocInputFromChecks));
+
+// Bulk-select: All / None + per-country toggle.
+document.getElementById('loc-all')?.addEventListener('click', () => {
+  document.querySelectorAll('.loc-cb').forEach(cb => cb.checked = true);
+  syncLocInputFromChecks();
+});
+document.getElementById('loc-none')?.addEventListener('click', () => {
+  document.querySelectorAll('.loc-cb').forEach(cb => cb.checked = false);
+  syncLocInputFromChecks();
+});
+document.querySelectorAll('.loc-country-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const boxes = btn.parentElement.querySelectorAll('.loc-cb');
+    if (!boxes.length) return;
+    // Toggle direction: if any box is unchecked, check them all; otherwise uncheck all.
+    const anyUnchecked = [...boxes].some(cb => !cb.checked);
+    boxes.forEach(cb => cb.checked = anyUnchecked);
+    syncLocInputFromChecks();
+  });
+});
 
 const hlToggle = document.getElementById('highlight-toggle');
 if (hlToggle) {
@@ -4641,6 +4833,14 @@ if (heToggle) {
   heToggle.addEventListener('change', () => {
     document.body.classList.toggle('hide-empty-sections', heToggle.checked);
     applyFilters();  // recompute .empty markers below
+    saveFilters();
+  });
+}
+
+const hsToggle = document.getElementById('hide-spontaneous-toggle');
+if (hsToggle) {
+  hsToggle.addEventListener('change', () => {
+    document.body.classList.toggle('hide-spontaneous', hsToggle.checked);
     saveFilters();
   });
 }
@@ -4734,11 +4934,22 @@ function wireStateButton(btn, cls) {
     e.stopPropagation();
     const url = btn.dataset.url;
     const li = btn.closest('li');
+    // The +1 button next to the ✉ Spontaneous link lives OUTSIDE any <li>,
+    // so `li` will be null. In that case we just persist the state and skip
+    // the DOM machinery that only makes sense for job rows.
+    const isSpontaneous = !li;
     const on = btn.dataset.state === 'on';
     btn.disabled = true;
     try {
       await apiPost(on ? endpoints[1] : endpoints[0], url);
       btn.dataset.state = on ? 'off' : 'on';
+      if (isSpontaneous) {
+        // Highlight the whole spontaneous row when liked, same green tint
+        // as a liked <li.job.liked>.
+        btn.closest('.spontaneous-row')?.classList.toggle('liked', !on);
+        refreshStateCounts();
+        return;
+      }
       // When you turn something ON, expose the next state's button too.
       if (!on && cls === 'like') {
         ensureStateButton(li, 'toapply', 'TA', 'Mark as To apply');
@@ -5052,10 +5263,12 @@ document.querySelectorAll('.restore').forEach(btn => {
       }
       if (remaining === 0 && block) block.remove();
       if (sid) updateCounters(sid, +1, -1);
-      // Note: the restored job won't appear in the visible list until the
-      // page is refreshed / re-fetched, because we don't have the fresh
-      // job data client-side. Show a small note.
-      alert('Restored. Refresh the page (or re-run jobs.py) to see it back in the main list.');
+      // Auto-trigger the yellow ⟳ refresh button so the job comes back into
+      // the main list without a manual step. A plain location.reload() would
+      // just re-serve the STATIC jobs.html — which was rendered BEFORE the
+      // /unreject POST, so the job would still appear as rejected.
+      const rb = document.getElementById('refresh-btn');
+      if (rb && !rb.disabled) rb.click();
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
@@ -5067,6 +5280,37 @@ document.querySelectorAll('.restore').forEach(btn => {
 </body>
 </html>
 """
+
+
+# Global refresh state, used by the in-browser refresh button. The server
+# spawns `jobs.py --clear-cache list --skip-llm --no-serve --no-open` in a
+# background thread and the client polls /refresh-status until "done".
+_refresh_state = {"status": "idle", "started_at": None, "error": None, "log_tail": ""}
+_refresh_lock = threading.Lock()
+
+
+def _run_refresh_subprocess():
+    """Regenerate jobs.html in a subprocess. Updates _refresh_state."""
+    global _refresh_state
+    try:
+        proc = subprocess.run(
+            [sys.executable, __file__,
+             "--clear-cache", "list", "--skip-llm", "--no-serve", "--no-open"],
+            capture_output=True, text=True, timeout=900,
+        )
+        with _refresh_lock:
+            tail = (proc.stdout or "")[-2000:]
+            if proc.returncode == 0:
+                _refresh_state["status"] = "done"
+                _refresh_state["log_tail"] = tail
+            else:
+                _refresh_state["status"] = "failed"
+                _refresh_state["error"] = (proc.stderr[-500:] or "unknown error").strip()
+                _refresh_state["log_tail"] = tail
+    except Exception as e:
+        with _refresh_lock:
+            _refresh_state["status"] = "failed"
+            _refresh_state["error"] = str(e)[:500]
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -5107,6 +5351,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/applied", "/unapplied",
             "/app-rejected", "/un-app-rejected",
             "/to-review",
+            "/refresh", "/refresh-status",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -5152,6 +5397,48 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 sys.stdout.write(f"open-sel: save failed: {e}\n")
                 self.send_response(500); self._cors(); self.end_headers(); return
             self.send_response(204); self._cors(); self.end_headers(); return
+        # Refresh: kicks off jobs.py --clear-cache list --skip-llm in a
+        # subprocess. Client polls /refresh-status until done, then reloads.
+        if self.path == "/refresh":
+            with _refresh_lock:
+                already_running = _refresh_state["status"] == "running"
+                if not already_running:
+                    _refresh_state["status"] = "running"
+                    _refresh_state["started_at"] = time.time()
+                    _refresh_state["error"] = None
+                    _refresh_state["log_tail"] = ""
+                    threading.Thread(target=_run_refresh_subprocess, daemon=True).start()
+                    sys.stdout.write("refresh:  started\n")
+                started = _refresh_state["started_at"]
+            body = json.dumps({
+                "status": "already-running" if already_running else "started",
+                "elapsed": int(time.time() - started) if started else 0,
+            }).encode()
+            self.send_response(200); self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/refresh-status":
+            with _refresh_lock:
+                st = dict(_refresh_state)
+                # After a terminal state is READ once, reset to idle so a
+                # subsequent /refresh call can start fresh.
+                terminal = st["status"] in ("done", "failed")
+                if terminal:
+                    _refresh_state["status"] = "idle"
+                    _refresh_state["started_at"] = None
+                    _refresh_state["error"] = None
+                    _refresh_state["log_tail"] = ""
+            body = json.dumps({
+                "status": st["status"],
+                "elapsed": int(time.time() - st["started_at"]) if st["started_at"] else 0,
+                "error": st["error"],
+                "log_tail": st["log_tail"],
+            }).encode()
+            self.send_response(200); self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
         url = (payload.get("url") or "").strip()
         if not url:
             self.send_response(400)
@@ -5293,6 +5580,10 @@ def _parse_cli():
                     help="Dump raw→normalized locations and exit.")
     ap.add_argument("--no-open", action="store_true",
                     help="Don't auto-open the browser after starting the server.")
+    ap.add_argument("--no-serve", action="store_true",
+                    help="Skip the local HTTP server — exit after writing jobs.html. "
+                         "Used by the in-browser refresh button so a subprocess can "
+                         "regenerate the file without fighting for port 8765.")
     ap.add_argument("--list", action="store_true",
                     help="Print every configured board name (comma-separated) and exit.")
     return ap.parse_args()
@@ -5429,20 +5720,27 @@ def main():
     if not skip_score:
         score_jobs(all_visible_for_score)
     else:
-        # Even with --skip-llm we still want role_long / score / reason
-        # from the persistent cache attached to fresh jobs. Otherwise the HTML
-        # renders with none of that data and the "Show role details" toggle
-        # has nothing to hide/show.
+        # Even with --skip-llm we still want the cached `salary` field
+        # attached to fresh jobs so the salary badge shows up.
         _cached_scores = _load_score_cache()
         _hits = 0
+        def _extract_legacy_salary(entry):
+            rl = entry.get("role_long") or ""
+            if not rl:
+                return ""
+            m = re.search(r"\*\*Salary:\*\*\s*[\r\n]+((?:\s*-.*(?:\r?\n|$))+)", rl)
+            if not m:
+                return ""
+            return m.group(1).splitlines()[0].lstrip("- \t").strip()[:100]
         for j in all_visible_for_score:
             cached = _cached_scores.get(j["url"])
             if cached:
-                j["score"] = cached.get("score", 0)
-                j["score_reason"] = cached.get("reason", "")
-                j["role_long"] = cached.get("role_long", "")
+                sal = cached.get("salary")
+                if sal is None:
+                    sal = _extract_legacy_salary(cached)
+                j["salary"] = sal
                 _hits += 1
-        timing(f"[timing] scoring SKIPPED (attached {_hits} cached scores)")
+        timing(f"[timing] scoring SKIPPED (attached {_hits} cached salaries)")
     t_score = time.perf_counter() - t_score_start
     timing(f"[timing] score ({len(all_visible_for_score)} jobs) → {t_score:.1f}s")
 
@@ -5513,14 +5811,18 @@ def main():
                 "title": meta.get("title", "(unknown)"),
                 "locations": meta.get("locations") or [],
                 "url": u,
-                "description": cached_desc or "<em>Original posting has been removed from this board. Cached score / role data may be shown below.</em>",
-                "score": score_entry.get("score"),
-                "score_reason": score_entry.get("reason", ""),
-                "role_long": score_entry.get("role_long", ""),
+                "description": cached_desc or "<em>Original posting has been removed from this board.</em>",
+                "salary": score_entry.get("salary", ""),
                 "is_new": False,
                 "is_orphan": True,
             })
-        visible = orphans + [j for j in all_jobs if j["url"] not in rejected]
+        # Hide any job whose title marks it as spontaneous — the ✉ Spontaneous
+        # link already surfaces the same URL at the top of the section, so
+        # showing it in the main list is a duplicate.
+        visible = orphans + [
+            j for j in all_jobs
+            if j["url"] not in rejected and not is_spontaneous(j)
+        ]
         rejected_jobs = [j for j in all_jobs if j["url"] in rejected]
         # rejected_here = count of jobs from this run's fetch that were rejected.
         # Orphans don't count as rejected (they're just gone from the board).
@@ -5648,6 +5950,8 @@ def main():
         f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied: <span id="applied-count">{n_applied}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Open every Rejected-by-company URL in your browser AND save the same list as debug/open_app_rejected.sh">Open Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
+        f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
+        f'<span class="refresh-icon" aria-hidden="true">⟳</span></button>\n'
         f'  </div>'
     )
     html_body = (
@@ -5689,6 +5993,9 @@ def main():
     # it doesn't leak memory while the HTTP server runs indefinitely.
     _close_shared_browser()
 
+    if args.no_serve:
+        print("[main] --no-serve: exiting after render", file=sys.stdout)
+        return
     print("=" * 70, file=sys.stdout)
     print("Step 4 — serve: local HTTP server + auto-open browser; handles", file=sys.stdout)
     print("               POST /reject and POST /like for live persistence", file=sys.stdout)

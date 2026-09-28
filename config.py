@@ -79,6 +79,9 @@ TITLE_CASE_OVERRIDES = {
     "ci": "CI", "cd": "CD", "sre": "SRE", "qa": "QA", "saas": "SaaS",
     "vp": "VP", "hr": "HR", "it": "IT", "grc": "GRC",
     "ssd": "SSD", "aiml": "AIML", "ciso": "CISO",
+    "cto": "CTO", "cso": "CSO", "csi": "CSI",
+    "ceo": "CEO", "cfo": "CFO", "coo": "COO", "cmo": "CMO", "cro": "CRO",
+    "cpo": "CPO", "cdo": "CDO", "cio": "CIO",
     # Roman numerals I..X
     "i": "I", "ii": "II", "iii": "III", "iv": "IV", "v": "V",
     "vi": "VI", "vii": "VII", "viii": "VIII", "ix": "IX", "x": "X",
@@ -260,6 +263,36 @@ TITLE_BLACKLIST = [
     "Legal",
     "Travel",
     "Intern",
+    "Creative Director",
+    "Quota & Capacity",
+    "Media Strategy",
+    "Paid Media",
+    "Government Affairs",
+    "Public Policy",
+    "Customer Director",
+    "Developer Relations",
+    "Intellectual Property",
+    "Technical Program Management",
+    "Accounting",
+    "Benefits",
+    "Communications Director",
+    "Investor Relations",
+    "Treasury Director",
+    "Corporate Communications",
+    "PR Director",
+    "HR Director",
+    "Field CTO",
+    "Executive Assistant",
+    "People Success",
+    "Quality Technician",
+    "Lab Technician",
+    "Contractor",
+    "Pricing",
+    "Litigation",
+    "Brand",
+    "Art Director",
+    "Post-Doctoral",
+    "Fixed-Term",
 ]
 
 # If ALL of a job's locations contain one of these substrings, hide.
@@ -339,10 +372,10 @@ SENIORITY_TOGGLES = ["Manager", "Director"]
 #             (generic Playwright link scraper)
 
 SOURCES = [
-    {"name": "OpenAI",    "kind": "ashby",      "slug": "openai",     "queries": ["security", "codex", "cryptography"]},
-    {"name": "Anthropic", "kind": "greenhouse", "slug": "anthropic",  "queries": ["security", "cryptography"]},
-    {"name": "Mistral",   "kind": "ashby",      "slug": "mistral.ai", "queries": ["security", "cryptography"]},
-    {"name": "Cohere",    "kind": "ashby",      "slug": "cohere",     "queries": ["security", "cryptography"]},
+    {"name": "OpenAI",    "kind": "ashby",      "slug": "openai",     "queries": ["security", "codex", "cryptography", "CTO", "VP"]},
+    {"name": "Anthropic", "kind": "greenhouse", "slug": "anthropic",  "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Mistral",   "kind": "ashby",      "slug": "mistral.ai", "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Cohere",    "kind": "ashby",      "slug": "cohere",     "queries": ["security", "cryptography", "CTO", "VP"]},
     {"name": "H",         "kind": "ashby",      "slug": "hcompany",   "queries": []},
     {"name": "AMI",       "kind": "ashby",      "slug": "ami",        "queries": []},
     {"name": "HF",        "kind": "workable",   "slug": "huggingface","queries": [],
@@ -389,7 +422,7 @@ SOURCES = [
      "search_url": "https://www.ycombinator.com/companies/corgea/jobs",
      "link_re": r'href="(/companies/corgea/jobs/[^"#?]+)"',
      "origin": "https://www.ycombinator.com"},
-    {"name": "CrowdStrike","kind": "pw",        "slug": "crowdstrike","queries": ["security", "cryptography"],
+    {"name": "CrowdStrike","kind": "pw",        "slug": "crowdstrike","queries": ["security", "cryptography", "CTO", "VP"],
      "board": "https://crowdstrike.wd5.myworkdayjobs.com/en-US/crowdstrikecareers?q=security",
      "search_url": "https://crowdstrike.wd5.myworkdayjobs.com/en-US/crowdstrikecareers?q=security",
      "link_re": r'href="(/en-US/crowdstrikecareers/job/[^"]+)"',
@@ -410,20 +443,20 @@ SOURCES = [
     {"name": "Checkmarx",  "kind": "checkmarx",  "slug": "checkmarx",  "queries": [],
      "board": "https://checkmarx.com/company/careers/",
      "search_url": "https://checkmarx.com/company/careers/"},
-    {"name": "NVIDIA",    "kind": "phenom",     "slug": "nvidia",     "queries": ["security", "cryptography"],
+    {"name": "NVIDIA",    "kind": "phenom",     "slug": "nvidia",     "queries": ["security", "cryptography", "CTO", "VP"],
      "board": "https://jobs.nvidia.com/careers?query=Security&pid=893394830937&sort_by=relevance",
      "search_url": "https://jobs.nvidia.com/careers?query=Security&sort_by=relevance"},
-    {"name": "GitHub",    "kind": "github",     "slug": "github",    "queries": ["security", "cryptography"],
+    {"name": "GitHub",    "kind": "github",     "slug": "github",    "queries": ["security", "cryptography", "CTO", "VP"],
      "board": "https://www.github.careers/careers-home/jobs?keywords=security",
      "search_url": "https://www.github.careers/careers-home/jobs?keywords=security"},
-    {"name": "Apple",     "kind": "apple",      "slug": "apple",      "queries": ["security", "Logic", "Creative", "cryptography"],
+    {"name": "Apple",     "kind": "apple",      "slug": "apple",      "queries": ["security", "Logic", "Creative", "cryptography", "CTO", "VP"],
      "board": "https://jobs.apple.com/en-us/search?search=security"},
-    {"name": "Microsoft", "kind": "microsoft",  "slug": "microsoft",  "queries": ["security", "cryptography"],
+    {"name": "Microsoft", "kind": "microsoft",  "slug": "microsoft",  "queries": ["security", "cryptography", "CTO", "VP"],
      "board": "https://apply.careers.microsoft.com/careers?query=Security&pid=1970393556942260&sort_by=relevance"},
-    {"name": "Google",    "kind": "google",     "slug": "google",     "queries": ["security", "codemender", "DeepMind", "Big Sleep", "Gemini", "cryptography"],
+    {"name": "Google",    "kind": "google",     "slug": "google",     "queries": ["security", "codemender", "DeepMind", "Big Sleep", "Gemini", "cryptography", "CTO", "VP"],
      "board": "https://www.google.com/about/careers/applications/jobs/results/?q=security&hl=en_US",
      "search_url": "https://www.google.com/about/careers/applications/jobs/results?hl=en_US&target_level=DIRECTOR_PLUS&target_level=ADVANCED&employment_type=FULL_TIME"},
-    {"name": "Meta",      "kind": "meta",       "slug": "meta",       "queries": ["security", "cryptography"],
+    {"name": "Meta",      "kind": "meta",       "slug": "meta",       "queries": ["security", "cryptography", "CTO", "VP"],
      "board": "https://www.metacareers.com/jobsearch/?q=security"},
     {"name": "Ableton",    "kind": "ableton", "slug": "ableton",       "queries": [],
      "board": "https://www.ableton.com/en/jobs/"},
@@ -439,26 +472,26 @@ SOURCES = [
      "search_url": "https://www.steinberg.net/careers/vacancies/",
      "link_re": r'href="(https?://www\.steinberg\.net/careers/[^"#?]+|/careers/[^"#?/]+/[^"#?]+)"',
      "origin": "https://www.steinberg.net"},
-    {"name": "Welcome to the Jungle", "kind": "wttj", "slug": "wttj", "queries": ["security"],
+    {"name": "Welcome to the Jungle", "kind": "wttj", "slug": "wttj", "queries": ["security", "CTO", "VP"],
      "board": "https://www.welcometothejungle.com/fr/jobs?query=security",
      "search_url": "https://www.welcometothejungle.com/fr/jobs?query=security"},
 
     # --- Added via debug/ats_probe.py 2026-09-25 ---------------------------
     # AI Startups — filtered on Security or Manager to keep the list scoped.
-    {"name": "Perplexity",           "kind": "ashby",      "slug": "perplexity",           "queries": ["security", "manager"]},
-    {"name": "Modal",                "kind": "ashby",      "slug": "modal",                "queries": ["security", "manager"]},
-    {"name": "Together AI",          "kind": "greenhouse", "slug": "togetherai",           "queries": ["security", "manager"]},
-    {"name": "Fireworks AI",         "kind": "ashby",      "slug": "fireworks",            "queries": ["security", "manager"]},
-    {"name": "Sakana AI",            "kind": "workable",   "slug": "sakana-ai",            "queries": ["security", "manager"]},
-    {"name": "Prime Intellect",      "kind": "ashby",      "slug": "primeintellect",       "queries": ["security", "manager"]},
-    {"name": "Physical Intelligence","kind": "ashby",      "slug": "physicalintelligence", "queries": ["security", "manager"]},
-    {"name": "Voyage AI",            "kind": "workable",   "slug": "voyage",               "queries": ["security", "manager"]},
-    {"name": "Rewind AI",            "kind": "ashby",      "slug": "rewind",               "queries": ["security", "manager"]},
-    {"name": "Replit",               "kind": "ashby",      "slug": "replit",               "queries": ["security", "manager"]},
-    {"name": "LangChain",            "kind": "ashby",      "slug": "langchain",            "queries": ["security", "manager"]},
-    {"name": "Runway",               "kind": "ashby",      "slug": "runway",               "queries": ["security", "manager"]},
-    {"name": "Pika",                 "kind": "ashby",      "slug": "pika",                 "queries": ["security", "manager"]},
-    {"name": "Character AI",         "kind": "ashby",      "slug": "character",            "queries": ["security", "manager"]},
+    {"name": "Perplexity",           "kind": "ashby",      "slug": "perplexity",           "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Modal",                "kind": "ashby",      "slug": "modal",                "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Together AI",          "kind": "greenhouse", "slug": "togetherai",           "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Fireworks AI",         "kind": "ashby",      "slug": "fireworks",            "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Sakana AI",            "kind": "workable",   "slug": "sakana-ai",            "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Prime Intellect",      "kind": "ashby",      "slug": "primeintellect",       "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Physical Intelligence","kind": "ashby",      "slug": "physicalintelligence", "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Voyage AI",            "kind": "workable",   "slug": "voyage",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Rewind AI",            "kind": "ashby",      "slug": "rewind",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Replit",               "kind": "ashby",      "slug": "replit",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "LangChain",            "kind": "ashby",      "slug": "langchain",            "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Runway",               "kind": "ashby",      "slug": "runway",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Pika",                 "kind": "ashby",      "slug": "pika",                 "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Character AI",         "kind": "ashby",      "slug": "character",            "queries": ["security", "manager", "CTO", "VP"]},
     # Music
     {"name": "Suno",                 "kind": "ashby",      "slug": "suno",                 "queries": []},
     {"name": "Udio",                 "kind": "greenhouse", "slug": "udio",                 "queries": []},
@@ -467,43 +500,43 @@ SOURCES = [
     {"name": "Endor Labs",           "kind": "greenhouse", "slug": "endorlabs",            "queries": []},
     {"name": "Socket",               "kind": "ashby",      "slug": "socket",               "queries": []},
     {"name": "Wiz",                  "kind": "ashby",      "slug": "wiz",                  "queries": []},
-    {"name": "Cloudflare",           "kind": "greenhouse", "slug": "cloudflare",           "queries": ["security", "cryptography"]},
+    {"name": "Cloudflare",           "kind": "greenhouse", "slug": "cloudflare",           "queries": ["security", "cryptography", "CTO", "VP"]},
     {"name": "1Password",            "kind": "ashby",      "slug": "1password",            "queries": []},
-    {"name": "Okta",                 "kind": "greenhouse", "slug": "okta",                 "queries": ["security", "cryptography"]},
+    {"name": "Okta",                 "kind": "greenhouse", "slug": "okta",                 "queries": ["security", "cryptography", "CTO", "VP"]},
     {"name": "Cybereason",           "kind": "greenhouse", "slug": "cybereason",           "queries": []},
-    {"name": "Elastic",              "kind": "greenhouse", "slug": "elastic",              "queries": ["security", "cryptography"]},
+    {"name": "Elastic",              "kind": "greenhouse", "slug": "elastic",              "queries": ["security", "cryptography", "CTO", "VP"]},
     # Other (dev tools / data)
     {"name": "HashiCorp",            "kind": "workable",   "slug": "hashicorp",            "queries": []},
-    {"name": "GitLab",               "kind": "greenhouse", "slug": "gitlab",               "queries": ["security", "manager"]},
-    {"name": "Databricks",           "kind": "greenhouse", "slug": "databricks",           "queries": ["security"]},
-    {"name": "Snowflake",            "kind": "ashby",      "slug": "snowflake",            "queries": ["security"]},
+    {"name": "GitLab",               "kind": "greenhouse", "slug": "gitlab",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Databricks",           "kind": "greenhouse", "slug": "databricks",           "queries": ["security", "CTO", "VP"]},
+    {"name": "Snowflake",            "kind": "ashby",      "slug": "snowflake",            "queries": ["security", "CTO", "VP"]},
 
     # --- Wave 2 via debug/ats_probe.py 2026-09-25 --------------------------
     # FHE / PQC / privacy-preserving crypto (Zama-adjacent, top interest)
     {"name": "SandboxAQ",            "kind": "ashby",      "slug": "sandboxaq",            "queries": []},
     {"name": "Cape Privacy",         "kind": "ashby",      "slug": "cape",                 "queries": []},
     # AI chips
-    {"name": "Cerebras",             "kind": "ashby",      "slug": "cerebras",             "queries": ["security", "manager"]},
-    {"name": "Etched",               "kind": "ashby",      "slug": "etched",               "queries": ["security", "manager"]},
-    {"name": "Tenstorrent",          "kind": "greenhouse", "slug": "tenstorrent",          "queries": ["security", "manager"]},
-    {"name": "MatX",                 "kind": "ashby",      "slug": "matx",                 "queries": ["security", "manager"]},
-    {"name": "Rain",                 "kind": "ashby",      "slug": "rain",                 "queries": ["security", "manager"]},
+    {"name": "Cerebras",             "kind": "ashby",      "slug": "cerebras",             "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Etched",               "kind": "ashby",      "slug": "etched",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Tenstorrent",          "kind": "greenhouse", "slug": "tenstorrent",          "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "MatX",                 "kind": "ashby",      "slug": "matx",                 "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Rain",                 "kind": "ashby",      "slug": "rain",                 "queries": ["security", "manager", "CTO", "VP"]},
     # AI infra / compute / inference
-    {"name": "Anyscale",             "kind": "ashby",      "slug": "anyscale",             "queries": ["security", "manager"]},
-    {"name": "Baseten",              "kind": "ashby",      "slug": "baseten",              "queries": ["security", "manager"]},
-    {"name": "Coreweave",            "kind": "greenhouse", "slug": "coreweave",            "queries": ["security", "manager"]},
-    {"name": "Nebius",               "kind": "greenhouse", "slug": "nebius",               "queries": ["security", "manager"]},
-    {"name": "Crusoe",               "kind": "ashby",      "slug": "crusoe",               "queries": ["security", "manager"]},
-    {"name": "Lambda",               "kind": "ashby",      "slug": "lambda",               "queries": ["security", "manager"]},
+    {"name": "Anyscale",             "kind": "ashby",      "slug": "anyscale",             "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Baseten",              "kind": "ashby",      "slug": "baseten",              "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Coreweave",            "kind": "greenhouse", "slug": "coreweave",            "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Nebius",               "kind": "greenhouse", "slug": "nebius",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Crusoe",               "kind": "ashby",      "slug": "crusoe",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Lambda",               "kind": "ashby",      "slug": "lambda",               "queries": ["security", "manager", "CTO", "VP"]},
     # AI dev tools / evals / embeddings / vector DBs
-    {"name": "Braintrust",           "kind": "ashby",      "slug": "braintrust",           "queries": ["security", "manager"]},
-    {"name": "LlamaIndex",           "kind": "ashby",      "slug": "llamaindex",           "queries": ["security", "manager"]},
-    {"name": "Nomic",                "kind": "ashby",      "slug": "nomic",                "queries": ["security", "manager"]},
-    {"name": "Weaviate",             "kind": "ashby",      "slug": "weaviate",             "queries": ["security", "manager"]},
-    {"name": "Pinecone",             "kind": "ashby",      "slug": "pinecone",             "queries": ["security", "manager"]},
+    {"name": "Braintrust",           "kind": "ashby",      "slug": "braintrust",           "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "LlamaIndex",           "kind": "ashby",      "slug": "llamaindex",           "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Nomic",                "kind": "ashby",      "slug": "nomic",                "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Weaviate",             "kind": "ashby",      "slug": "weaviate",             "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Pinecone",             "kind": "ashby",      "slug": "pinecone",             "queries": ["security", "manager", "CTO", "VP"]},
     # Voice / audio AI
-    {"name": "Deepgram",             "kind": "ashby",      "slug": "deepgram",             "queries": ["security", "manager"]},
-    {"name": "AssemblyAI",           "kind": "greenhouse", "slug": "assemblyai",           "queries": ["security", "manager"]},
+    {"name": "Deepgram",             "kind": "ashby",      "slug": "deepgram",             "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "AssemblyAI",           "kind": "greenhouse", "slug": "assemblyai",           "queries": ["security", "manager", "CTO", "VP"]},
     # Code / dev tools
     {"name": "Zed",                  "kind": "ashby",      "slug": "zed",                  "queries": []},
     {"name": "Cline",                "kind": "greenhouse", "slug": "cline",                "queries": []},
@@ -517,29 +550,29 @@ SOURCES = [
     {"name": "Spitfire Audio",       "kind": "greenhouse", "slug": "spitfire",             "queries": []},
     {"name": "Splice",               "kind": "greenhouse", "slug": "splice",               "queries": []},
     # France / EU
-    {"name": "Doctolib",             "kind": "ashby",      "slug": "doctolib",             "queries": ["security", "manager"]},
-    {"name": "Alan",                 "kind": "ashby",      "slug": "alan",                 "queries": ["security", "manager"]},
-    {"name": "Qonto",                "kind": "ashby",      "slug": "qonto",                "queries": ["security", "manager"]},
-    {"name": "Dataiku",              "kind": "greenhouse", "slug": "dataiku",              "queries": ["security", "manager"]},
+    {"name": "Doctolib",             "kind": "ashby",      "slug": "doctolib",             "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Alan",                 "kind": "ashby",      "slug": "alan",                 "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Qonto",                "kind": "ashby",      "slug": "qonto",                "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Dataiku",              "kind": "greenhouse", "slug": "dataiku",              "queries": ["security", "manager", "CTO", "VP"]},
     {"name": "Owkin",                "kind": "ashby",      "slug": "owkin",                "queries": []},
     # Adjacent
-    {"name": "Fastly",               "kind": "greenhouse", "slug": "fastly",               "queries": ["security", "manager"]},
-    {"name": "Datadog",              "kind": "greenhouse", "slug": "datadog",              "queries": ["security", "manager"]},
+    {"name": "Fastly",               "kind": "greenhouse", "slug": "fastly",               "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Datadog",              "kind": "greenhouse", "slug": "datadog",              "queries": ["security", "manager", "CTO", "VP"]},
 
     # --- Wave 3 via debug/ats_probe.py 2026-09-25 (quasi-GAFAM) ------------
     # Big consumer tech
-    {"name": "Airbnb",               "kind": "greenhouse", "slug": "airbnb",               "queries": ["security", "cryptography"]},
-    {"name": "LinkedIn",             "kind": "greenhouse", "slug": "linkedin",             "queries": ["security", "cryptography"]},
-    {"name": "Pinterest",            "kind": "greenhouse", "slug": "pinterest",            "queries": ["security", "cryptography"]},
-    {"name": "Discord",              "kind": "greenhouse", "slug": "discord",              "queries": ["security", "cryptography"]},
-    {"name": "Roblox",               "kind": "greenhouse", "slug": "roblox",               "queries": ["security", "cryptography"]},
+    {"name": "Airbnb",               "kind": "greenhouse", "slug": "airbnb",               "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "LinkedIn",             "kind": "greenhouse", "slug": "linkedin",             "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Pinterest",            "kind": "greenhouse", "slug": "pinterest",            "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Discord",              "kind": "greenhouse", "slug": "discord",              "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Roblox",               "kind": "greenhouse", "slug": "roblox",               "queries": ["security", "cryptography", "CTO", "VP"]},
     # Enterprise / infra
-    {"name": "Stripe",               "kind": "greenhouse", "slug": "stripe",               "queries": ["security", "cryptography"]},
-    {"name": "Twilio",               "kind": "greenhouse", "slug": "twilio",               "queries": ["security", "cryptography"]},
-    {"name": "Dropbox",              "kind": "greenhouse", "slug": "dropbox",              "queries": ["security", "cryptography"]},
+    {"name": "Stripe",               "kind": "greenhouse", "slug": "stripe",               "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Twilio",               "kind": "greenhouse", "slug": "twilio",               "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Dropbox",              "kind": "greenhouse", "slug": "dropbox",              "queries": ["security", "cryptography", "CTO", "VP"]},
     # Fintech (crypto/trading — relevant to Benoit's crypto background)
-    {"name": "Block",                "kind": "greenhouse", "slug": "block",                "queries": ["security", "cryptography"]},
-    {"name": "Robinhood",            "kind": "greenhouse", "slug": "robinhood",            "queries": ["security", "cryptography"]},
+    {"name": "Block",                "kind": "greenhouse", "slug": "block",                "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Robinhood",            "kind": "greenhouse", "slug": "robinhood",            "queries": ["security", "cryptography", "CTO", "VP"]},
 
     # --- Wave 4 via debug/ats_probe.py 2026-09-25 (music/audio) ------------
     {"name": "Fender",               "kind": "greenhouse", "slug": "fender",               "queries": []},
@@ -689,6 +722,18 @@ COMPANY_INFO = {
     "Spitfire Audio":  {"blurb": "Cinematic sample libraries (London)",                "employees": "~100",    "revenue": "~$40M"},
     "Splice":          {"blurb": "Music sample subscription platform",                 "employees": "~200",    "revenue": "~$80M"},
 }
+
+# Merge in the long-form blurbs kept in config_blurbs.py. Any name present in
+# BLURBS overrides the short blurb above; other entries keep the short version.
+try:
+    from config_blurbs import BLURBS as _LONG_BLURBS
+    for _name, _long in _LONG_BLURBS.items():
+        if _name in COMPANY_INFO:
+            COMPANY_INFO[_name]["blurb"] = _long
+        else:
+            COMPANY_INFO[_name] = {"blurb": _long, "employees": "n/a", "revenue": "n/a"}
+except ImportError:
+    pass
 
 
 # =============================================================================
