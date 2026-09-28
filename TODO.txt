@@ -12,7 +12,7 @@ Effort ranking:
   [??] = need to investigate their ATS
 
 
-### HIGH VALUE (matches Benoit's profile — FHE / crypto / dev tools / French)
+### HIGH VALUE (matches Benoit's profile — crypto / dev tools / French)
 
   GitGuardian          [P]  French secrets-scanning security co — very relevant
   BlaBlaCar            [P]  French travel — SmartRecruiters
@@ -23,12 +23,7 @@ Effort ranking:
   Arnica               [??] Israeli appsec
   Latacora             [??] US security consultancy
   NCC Group            [W]  UK security consultancy — Workday
-  Trail of Bits        [OK] already added
   Groq                 [W]  LPU inference chips — Lever or Workday
-  Duality Technologies [P]  FHE (direct competitor to Zama)
-  Enveil               [P]  FHE
-  Inpher               [P]  FHE (Swiss)
-  Nillion              [P]  SMPC
   Sakana AI            [W]  Tokyo AI lab — flaky Workable, keep an eye on it
 
 ### MEDIUM VALUE (music tech — Benoit's founder space)
