@@ -1,14 +1,15 @@
 Companies to add later
 ======================
 
-Compiled 2026-09-25 from debug/ats_probe.py runs. These companies are NOT on
-Ashby / Greenhouse / Workable (our three fast-path JSON ATSes), so each one
-requires a dedicated Playwright fetcher (or a Workday generic fetcher).
-
 Effort ranking:
   [P]  = ~1h Playwright custom scraper (small board or unique HTML)
-  [W]  = Workday-based — build a generic Workday fetcher, then add slug
-  [SR] = SmartRecruiters
+  [W]  = Workday-based — NOW SUPPORTED (kind: "workday"). See "Workday usage"
+         at the bottom of this file — just add a source entry with the board URL.
+  [SF] = SuccessFactors — NOW SUPPORTED (kind: "successfactors").
+  [BH] = BambooHR — NOW SUPPORTED (kind: "bamboohr").
+  [PP] = Pinpoint HQ — NOW SUPPORTED (kind: "pinpoint").
+  [UM] = Umantis — NOW SUPPORTED (kind: "umantis").
+  [SR] = SmartRecruiters — TODO fetcher.
   [??] = need to investigate their ATS
 
 
@@ -18,65 +19,69 @@ Effort ranking:
   BlaBlaCar            [P]  French travel — SmartRecruiters
   Contentsquare        [P]  French analytics — SmartRecruiters
   Aikido               [P]  Belgian appsec — greenhouse.io/aikido (embed only?)
-  Cyera                [W]  Israeli data security
-  Legit Security       [W]  Israeli appsec
+  Cyera                [W]  Israeli data security — NOW UNLOCKABLE
+  Legit Security       [W]  Israeli appsec — NOW UNLOCKABLE
   Arnica               [??] Israeli appsec
   Latacora             [??] US security consultancy
-  NCC Group            [W]  UK security consultancy — Workday
-  Groq                 [W]  LPU inference chips — Lever or Workday
+  NCC Group            [W]  UK security consultancy — NOW UNLOCKABLE
+  Groq                 [W]  LPU inference chips — NOW UNLOCKABLE
   Sakana AI            [W]  Tokyo AI lab — flaky Workable, keep an eye on it
 
 ### MEDIUM VALUE (music tech — Benoit's founder space)
 
-  Native Instruments   [P]  Berlin (Germany bonus)
-  iZotope              [P]  Cambridge MA — audio plugins
+  Native Instruments proper (post-Soundwide merger) [P]
   Splash               [P]  music AI
   Serato               [P]  DJ software
   Bandcamp             [P]  Epic Games subsidiary
   SoundCloud           [P]
-  Spotify              [W]  huge board — Workday-hosted; scrape careers.spotify.com
+  Spotify              [W]  NOW UNLOCKABLE
   LANDR                [P]  Montreal — mastering / music AI
   Roli                 [P]  London MIDI hardware
-  Sennheiser           [P]  German mic maker — SmartRecruiters?
-  Focusrite            [P]  UK — owns Novation, ADAM, Sequential
   Bitwig               [P]  Berlin — DAW
-  Moog Music           [P]  Asheville NC synth co.
-  Sequential           [P]  Dave Smith Instruments (Focusrite subsidiary)
-  Korg / Roland / Yamaha [P]  Japanese giants — proprietary careers sites
-  Bose                 [W]  workday
-  Sonos                [W]  workday
-  Dolby                [W]  workday
-  Avid                 [W]  workday — Pro Tools
+  Sequential           [P]  Focusrite subsidiary
+  Avid                 [W]  NOW UNLOCKABLE — Pro Tools
   Deezer               [P]  Paris — French streaming
   Tidal                [P]  Block subsidiary but separate ATS
   Beatport             [P]  Denver electronic-music store
 
-### GAFAM-adjacent (huge boards — likely Workday)
+### GAFAM-adjacent (Workday unlocked — see below)
 
-  Amazon / AWS         [W]  Amazon's own ATS. Massive volume.
-  Adobe                [W]  workday
-  Salesforce / Slack   [W]  workday
-  Intel                [W]  workday
-  Qualcomm             [W]  workday
+  Amazon / AWS         [W]  NOW UNLOCKABLE (huge volume — beware token cost)
+  Adobe                [W]  NOW UNLOCKABLE
+  Salesforce / Slack   [W]  NOW UNLOCKABLE
+  Intel                [W]  NOW UNLOCKABLE
+  Qualcomm             [W]  NOW UNLOCKABLE
   Samsung              [P]  proprietary careers site
-  IBM                  [W]  workday
-  Uber                 [W]  smartrecruiters
-  Netflix              [W]  workday
-  Palantir             [W]  workday
-  Tesla                [W]  workday
+  IBM                  [W]  NOW UNLOCKABLE
+  Uber                 [SR] smartrecruiters
+  Netflix              [W]  NOW UNLOCKABLE
+  Palantir             [W]  NOW UNLOCKABLE
+  Tesla                [W]  NOW UNLOCKABLE
   ByteDance / TikTok   [P]  proprietary (jobs.bytedance.com)
-  Booking.com          [W]  workday
-  Shopify              [W]  smartrecruiters (careers.shopify.com)
-  PayPal               [W]  workday
-  Square (= Block)     already added under Block
-  SAP                  [W]  SAP-hosted careers
-  Oracle               [W]  Oracle Recruiting
-  ServiceNow           [W]  smartrecruiters
-  Atlassian            [W]  smartrecruiters
-  Zoom                 [W]  workday
-  Unity                [W]  workday
-  Cisco                [W]  workday
-  VMware / Broadcom    [W]  workday (post-acquisition)
+  Booking.com          [W]  NOW UNLOCKABLE
+  Shopify              [SR] smartrecruiters (careers.shopify.com)
+  PayPal               [W]  NOW UNLOCKABLE
+  SAP                  [SF] NOW UNLOCKABLE (successfactors)
+  Oracle               [W]  Oracle has its own recruiter tool — variant of Workday
+  ServiceNow           [SR] smartrecruiters
+  Atlassian            [SR] smartrecruiters
+  Zoom                 [W]  NOW UNLOCKABLE
+  Unity                [W]  NOW UNLOCKABLE
+  Cisco                [W]  NOW UNLOCKABLE
+  VMware / Broadcom    [W]  NOW UNLOCKABLE (post-acquisition)
+
+### Music wave 5 skipped / hard-to-scrape
+
+  Ernie Ball          Indeed-only — bloqué
+  Music Tribe / Behringer  Indeed-only — bloqué
+  DiMarzio            Indeed-only — bloqué
+  Lâg                  URL not found
+  Nord Keyboards       URL not found (Clavia)
+  Peavey               URL not found
+  Taylor Guitars       user declined
+  Kemper               user declined
+  Solid State Logic    user declined
+  Positive Grid        user declined
 
 ### Flaky results (worked once, then didn't — retry probe)
 
@@ -84,11 +89,29 @@ Effort ranking:
   HashiCorp            [Workable] — was 200 with jobs=0, then 404
   Sakana AI            [Workable] — same
 
-### Next step suggestion
 
-Build a generic Workday fetcher (`kind: "workday"`). Most Workday sites share
-the same JSON API pattern:
-  POST https://<tenant>.wd<N>.myworkdayjobs.com/wday/cxs/<tenant>/<board>/jobs
-with a search payload. If we crack that, we unlock ~20 companies at once
-(Amazon, Adobe, Salesforce, Intel, Qualcomm, IBM, Uber, Netflix, Palantir,
-Tesla, Booking, PayPal, Cisco, Unity, VMware, Zoom, Oracle, Spotify).
+================================================================
+Workday usage — adding a new Workday-hosted company (3 minutes)
+================================================================
+
+1. Find the company's Workday URL. It looks like:
+      https://<tenant>.wd1.myworkdayjobs.com/<BoardName>
+   Some are wd3, wd5, etc. (the number is the Workday data-center).
+   Look at what the "Careers" link redirects to.
+
+2. Add to config.py SOURCES:
+      {"name": "Adobe", "kind": "workday", "slug": "adobe",
+       "queries": ["security", "cryptography", "CTO", "VP"],
+       "board": "https://adobe.wd5.myworkdayjobs.com/external_experienced"},
+
+3. Add to COMPANY_INFO with a short blurb + headcount + revenue.
+4. Add to GROUP_OF ("Big Tech" or "Security Companies" etc.).
+5. Run `python3 jobs.py --clear-cache list --skip-llm --only Adobe` to verify.
+
+================================================================
+BambooHR / Pinpoint HQ / Umantis / SuccessFactors — same pattern
+================================================================
+
+Same 5-step recipe. `slug` is the subdomain / tenant name found in the
+board URL. Look at any of the Wave 5 sources in config.py for concrete
+examples (Softube / inMusic Brands / Yamaha / Sonos / Sennheiser).

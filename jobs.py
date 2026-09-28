@@ -1558,6 +1558,520 @@ def fetch_wttj(source):
     return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
 
 
+# =============================================================================
+# BambooHR — public careers page embeds jobs in a JSON script tag.
+# =============================================================================
+
+_BAMBOOHR_JOB_JSON_RE = re.compile(
+    r'<script[^>]*id="jobs-listing-data"[^>]*type="application/json"[^>]*>(.*?)</script>',
+    re.IGNORECASE | re.DOTALL,
+)
+# Fallback: some BambooHR sites embed via window.__PRELOADED_STATE__
+_BAMBOOHR_PRELOAD_RE = re.compile(
+    r'window\.__INITIAL_STATE__\s*=\s*(\{.*?\});',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def fetch_bamboohr(source):
+    """Fetches jobs from a BambooHR careers page. The visible /careers URL
+    embeds a JSON payload of all open jobs. We just parse that.
+
+    Uses Playwright since BambooHR sits behind Cloudflare which blocks
+    plain HTTP clients."""
+    slug = source["slug"]
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright required")
+        return {"jobs": [], "spontaneous_url": None}
+    urls_to_try = [
+        f"https://{slug}.bamboohr.com/careers",
+        f"https://{slug}.bamboohr.com/careers/list",
+    ]
+    text = ""
+    p, browser, page = _open_browser()
+    try:
+        for u in urls_to_try:
+            try:
+                text = _render(page, u, wait_selector='a[href*="/careers/"]',
+                               debug_path=f"debug/debug-{slug}-bamboo-1.html")
+                if text and len(text) > 5000:
+                    break
+            except Exception:
+                continue
+    finally:
+        browser.close()
+        p.stop()
+    if not text:
+        err(f"[{source['name']}] BambooHR fetch failed: no response")
+        return {"jobs": [], "spontaneous_url": None}
+    # Try to parse the embedded JSON.
+    data = None
+    m = _BAMBOOHR_JOB_JSON_RE.search(text)
+    if m:
+        try:
+            data = json.loads(m.group(1))
+        except Exception:
+            data = None
+    if data is None:
+        m = _BAMBOOHR_PRELOAD_RE.search(text)
+        if m:
+            try:
+                data = json.loads(m.group(1))
+            except Exception:
+                data = None
+    if data is None:
+        # Last resort: BambooHR renders a straightforward HTML table when
+        # JS is disabled. Extract anchors like <a href="/careers/123">
+        anchors = re.findall(
+            r'<a[^>]+href="(/careers/\d+)"[^>]*>([^<]+)</a>',
+            text, re.IGNORECASE,
+        )
+        out = []
+        seen = set()
+        for path, title in anchors:
+            jid = path.rsplit("/", 1)[-1]
+            if jid in seen:
+                continue
+            seen.add(jid)
+            out.append({
+                "title": html.unescape(title).strip(),
+                "locations": [],
+                "url": f"https://{slug}.bamboohr.com{path}",
+                "description": "",
+                "blob": html.unescape(title).strip(),
+            })
+        matched = [j for j in out if matches(j, source["queries"])]
+        return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+                "total_board": len(out)}
+    # JSON path: BambooHR's payload is either a list of jobs at the root
+    # (list.json) or nested under something like {jobs: [...]} for careers.
+    raw_list = data
+    if isinstance(data, dict):
+        for k in ("openings", "jobs", "results", "data"):
+            if k in data and isinstance(data[k], list):
+                raw_list = data[k]
+                break
+    if not isinstance(raw_list, list):
+        err(f"[{source['name']}] BambooHR JSON unexpected shape")
+        return {"jobs": [], "spontaneous_url": None}
+    out = []
+    for j in raw_list:
+        if not isinstance(j, dict):
+            continue
+        jid = j.get("id") or j.get("jobOpeningId") or ""
+        title = j.get("jobOpeningName") or j.get("title") or j.get("name") or ""
+        dept = j.get("departmentLabel") or j.get("department") or ""
+        loc_field = j.get("location") or j.get("jobLocation") or {}
+        if isinstance(loc_field, dict):
+            city = loc_field.get("city") or ""
+            state = loc_field.get("state") or ""
+            country = loc_field.get("country") or ""
+            loc_str = ", ".join(x for x in [city, state, country] if x)
+        else:
+            loc_str = str(loc_field or "")
+        locs = [loc_str] if loc_str else []
+        job_url = j.get("jobOpeningShareUrl") or (
+            f"https://{slug}.bamboohr.com/careers/{jid}" if jid else ""
+        )
+        out.append({
+            "title": title,
+            "locations": locs,
+            "url": job_url,
+            "description": j.get("description", "") or "",
+            "blob": " ".join([title, dept, loc_str]),
+        })
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
+# =============================================================================
+# Pinpoint HQ — <company>.pinpointhq.com. Careers page has jobs in a JSON
+# blob (window.pinpointJobsData) and/or renders anchor <a> tags to each job.
+# =============================================================================
+
+def fetch_pinpoint(source):
+    """Pinpoint HQ scraper. Pattern: <slug>.pinpointhq.com/. Job rows are
+    <div class="rt-tr" data-location="..." data-department="...">, and
+    each row contains anchors <a href="/en/postings/<uuid>">Title</a>.
+    Uses Playwright (Cloudflare blocks direct HTTP)."""
+    slug = source["slug"]
+    root = f"https://{slug}.pinpointhq.com"
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright required")
+        return {"jobs": [], "spontaneous_url": None}
+    p, browser, page = _open_browser()
+    try:
+        text = _render(page, root + "/", wait_selector='a[href*="/postings/"]',
+                       debug_path=f"debug/debug-{slug}-pinpoint-1.html")
+    except Exception as e:
+        err(f"[{source['name']}] Pinpoint fetch failed: {e}")
+        return {"jobs": [], "spontaneous_url": None}
+    finally:
+        browser.close()
+        p.stop()
+    # Match each row div with its data-* attributes plus the anchor inside.
+    row_re = re.compile(
+        r'<div[^>]+class="rt-tr[^"]*"[^>]*?'
+        r'(?:data-department="([^"]*)")?[^>]*?'
+        r'(?:data-division="([^"]*)")?[^>]*?'
+        r'(?:data-location="([^"]*)")?[^>]*>'
+        r'(.*?)</div></div></div>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    anchor_re = re.compile(
+        r'<a[^>]+href="(/(?:en/)?postings/([0-9a-f-]{20,}))"[^>]*>([^<]{3,200})</a>',
+        re.IGNORECASE,
+    )
+    out = []
+    seen = set()
+    for dept, division, location, body in row_re.findall(text):
+        m = anchor_re.search(body)
+        if not m:
+            continue
+        path, uuid, title = m.group(1), m.group(2), html.unescape(m.group(3)).strip()
+        if uuid in seen:
+            continue
+        seen.add(uuid)
+        locs = [html.unescape(location).strip()] if location else []
+        out.append({
+            "title": title,
+            "locations": locs,
+            "url": root + path,
+            "description": "",
+            "blob": " ".join(filter(None, [title, dept, division, location])),
+        })
+    # Fallback: if row parsing found nothing, take all anchors directly.
+    if not out:
+        for m in anchor_re.finditer(text):
+            path, uuid, title = m.group(1), m.group(2), html.unescape(m.group(3)).strip()
+            if uuid in seen:
+                continue
+            seen.add(uuid)
+            out.append({
+                "title": title,
+                "locations": [],
+                "url": root + path,
+                "description": "",
+                "blob": title,
+            })
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
+# =============================================================================
+# Umantis — recruitingapp-<id>.<region>.umantis.com. HTML page with a table
+# of jobs. Simple regex scrape.
+# =============================================================================
+
+def fetch_umantis(source):
+    """Umantis scraper. Pattern: recruitingapp-<id>.<region>.umantis.com/Jobs/All.
+    The response is an HTML table where each <a> is a job link."""
+    board = source.get("board") or source.get("search_url", "")
+    if not board:
+        err(f"[{source['name']}] Umantis needs a `board` URL")
+        return {"jobs": [], "spontaneous_url": None}
+    try:
+        text = http_get_text(board)
+    except Exception as e:
+        err(f"[{source['name']}] Umantis fetch failed: {e}")
+        return {"jobs": [], "spontaneous_url": None}
+    # Umantis anchors: <a href="/Vacancies/<id>/Description/1">Title</a>
+    # with optional location column in the sibling <td>.
+    origin = re.match(r"(https?://[^/]+)", board).group(1)
+    # Job rows: <tr>...<a href=...>TITLE</a>...LOCATION...</tr>
+    row_re = re.compile(
+        r'<tr[^>]*>.*?<a[^>]+href="(/Vacancies/[^"]+)"[^>]*>([^<]+)</a>(.*?)</tr>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    out = []
+    seen = set()
+    for path, title, tail in row_re.findall(text):
+        if path in seen:
+            continue
+        seen.add(path)
+        title = html.unescape(title).strip()
+        # Location often in a later <td>
+        loc = ""
+        loc_m = re.search(r'<td[^>]*>([^<]{2,80})</td>', tail)
+        if loc_m:
+            loc = html.unescape(loc_m.group(1)).strip()
+        out.append({
+            "title": title,
+            "locations": [loc] if loc else [],
+            "url": origin + path,
+            "description": "",
+            "blob": title,
+        })
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
+# =============================================================================
+# Workday — POST /wday/cxs/<tenant>/<board>/jobs with body {limit,offset,search}.
+# Huge unlock: covers Sonos, Dolby, Amazon, Adobe, Intel, Uber, Netflix,
+# Palantir, Tesla, Cisco, VMware, Oracle, Zoom, Booking.com, PayPal…
+# =============================================================================
+
+def fetch_workday(source):
+    """Workday generic fetcher. Config keys:
+      - `board`     : full public URL e.g. https://sonos.wd1.myworkdayjobs.com/Sonos
+      - `slug`      : Workday tenant (extracted from URL: "sonos" here)
+      - `board_id`  : the second segment ("Sonos" in the URL above)
+    We derive slug + board_id from `board` if not explicit."""
+    board = source.get("board") or ""
+    # Extract tenant + board_id from board URL:
+    #   https://<tenant>.wd<N>.myworkdayjobs.com/<board_id>
+    m = re.match(
+        r'https?://([^.]+)\.wd(\d+)\.myworkdayjobs\.com/(?:en-US/)?([^/?#]+)',
+        board, re.IGNORECASE,
+    )
+    if not m:
+        err(f"[{source['name']}] Workday: cannot parse tenant from board URL: {board}")
+        return {"jobs": [], "spontaneous_url": None}
+    tenant, wd_num, board_id = m.group(1), m.group(2), m.group(3)
+    api_url = f"https://{tenant}.wd{wd_num}.myworkdayjobs.com/wday/cxs/{tenant}/{board_id}/jobs"
+    all_jobs = []
+    total_board = None
+    limit = 20
+    offset = 0
+    for _ in range(200):
+        payload = json.dumps({
+            "limit": limit, "offset": offset,
+            "searchText": "", "appliedFacets": {},
+        }).encode()
+        try:
+            req = urllib.request.Request(
+                api_url, data=payload, method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "User-Agent": "Mozilla/5.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                page = json.load(resp)
+        except Exception as e:
+            err(f"[{source['name']}] Workday page {offset} failed: {e}")
+            break
+        postings = page.get("jobPostings") or []
+        if total_board is None:
+            total_board = page.get("total", 0)
+        if not postings:
+            break
+        for p in postings:
+            all_jobs.append(p)
+        offset += limit
+        if len(all_jobs) >= (total_board or 0):
+            break
+    out = []
+    origin = f"https://{tenant}.wd{wd_num}.myworkdayjobs.com"
+    for p in all_jobs:
+        title = p.get("title", "")
+        loc = p.get("locationsText") or p.get("bulletFields", [""])[0] or ""
+        external_path = p.get("externalPath") or ""
+        # Workday job URLs need the board_id prefix: /en-US/<board>/job/...
+        # externalPath is /job/<location>/<slug>. Include a locale for full
+        # canonicalization — /en-US/ works reliably.
+        if external_path:
+            job_url = f"{origin}/en-US/{board_id}{external_path}"
+        else:
+            job_url = ""
+        out.append({
+            "title": title,
+            "locations": [loc] if loc else [],
+            "url": job_url,
+            "description": "",
+            "blob": title,
+        })
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board or len(out)}
+
+
+# =============================================================================
+# SuccessFactors (SAP) — used by Sennheiser and many large industrials.
+# The public search endpoint is <company>.sfrs.myworkday.com or, more often,
+# careers.<company>.com/... which reverse-proxies to careers.sap.com.
+# Sennheiser: jobs.sennheiser.com/search/ — returns HTML with job cards.
+# =============================================================================
+
+# Primary: matches Sennheiser-style jobCardTitle anchors with direct text.
+_SF_JOB_LINK_RE = re.compile(
+    r'<a[^>]*class="[^"]*jobCardTitle[^"]*"[^>]*href="(/job/[^"]+)"[^>]*>\s*([^<]{3,200})\s*<',
+    re.IGNORECASE,
+)
+# Legacy: nested-tag layout (older SF themes).
+_SF_JOB_LINK_LEGACY_RE = re.compile(
+    r'<a[^>]+href="(/job/[^"]+)"[^>]*>\s*<[^>]+>\s*([^<]{5,200})\s*<',
+    re.IGNORECASE | re.DOTALL,
+)
+# Strips ", job posting N of NN" suffix that SF adds inside aria-label.
+_SF_ARIA_SUFFIX_RE = re.compile(r',\s*job posting\s+\d+\s+of\s+\d+\s*$', re.IGNORECASE)
+
+
+def fetch_successfactors(source):
+    """SuccessFactors scraper (Sennheiser + others). Pulls the HTML page
+    and extracts job cards. Uses Playwright — SF pages are React apps."""
+    board = source.get("board") or source.get("search_url", "")
+    if not board:
+        err(f"[{source['name']}] SuccessFactors needs a `board` URL")
+        return {"jobs": [], "spontaneous_url": None}
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright required")
+        return {"jobs": [], "spontaneous_url": None}
+    origin = re.match(r"(https?://[^/]+)", board).group(1)
+    p, browser, page = _open_browser()
+    try:
+        text = _render(page, board, wait_selector='a[href*="/job/"]',
+                       debug_path=f"debug/debug-{source['slug']}-sf-1.html")
+    except Exception as e:
+        err(f"[{source['name']}] SuccessFactors fetch failed: {e}")
+        return {"jobs": [], "spontaneous_url": None}
+    finally:
+        browser.close()
+        p.stop()
+    out = []
+    seen = set()
+
+    def _emit(path, title):
+        title = _SF_ARIA_SUFFIX_RE.sub('', html.unescape(title).strip()).strip()
+        jid_m = re.search(r'/job/([^/?#]+)', path)
+        jid = jid_m.group(1) if jid_m else path
+        if jid in seen or not title:
+            return
+        seen.add(jid)
+        out.append({
+            "title": title,
+            "locations": [],
+            "url": origin + path,
+            "description": "",
+            "blob": title,
+        })
+
+    for path, title in _SF_JOB_LINK_RE.findall(text):
+        _emit(path, title)
+    if not out:
+        for path, title in _SF_JOB_LINK_LEGACY_RE.findall(text):
+            _emit(path, title)
+    # Final fallback: anchors with aria-label (strip the "job posting N of NN" suffix).
+    if not out:
+        alt_re = re.compile(
+            r'<a[^>]+href="(/job/[^"]+)"[^>]+aria-label="([^"]+)"',
+            re.IGNORECASE,
+        )
+        for path, title in alt_re.findall(text):
+            _emit(path, title)
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
+# =============================================================================
+# Teamtailor — hosted careers pages (Roland, Marshall, Elektron). Pattern:
+#   href="https://careers.<company>.com/jobs/<jobid>-<slug>"
+# JS-rendered page but the anchors are present in the initial HTML.
+# =============================================================================
+
+def fetch_boss(source):
+    """Boss.info employment page: all listings inline on one page, no
+    individual URLs. Extract each <h3> as a job with the shared URL."""
+    board = source.get("board") or ""
+    if not board or not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Boss needs board + Playwright")
+        return {"jobs": [], "spontaneous_url": None}
+    p, browser, page = _open_browser()
+    try:
+        text = _render(page, board, wait_selector='h3',
+                       debug_path="debug/debug-boss-1.html")
+    except Exception as e:
+        err(f"[{source['name']}] Boss fetch failed: {e}")
+        return {"jobs": [], "spontaneous_url": None}
+    finally:
+        browser.close()
+        p.stop()
+    # Extract every <h3> that looks like a job title (contains a role keyword).
+    # Skip generic content headings.
+    role_re = re.compile(
+        r'<h3[^>]*>([^<]{5,200}(?:engineer|manager|developer|specialist|lead|analyst|coordinator|designer|technician|internship|intern|director|architect|consultant|representative|associate|assistant|clerk|administrator)[^<]*)</h3>',
+        re.IGNORECASE,
+    )
+    out = []
+    seen = set()
+    for m in role_re.finditer(text):
+        title = html.unescape(m.group(1)).strip()
+        title = re.sub(r'\s+', ' ', title)
+        if title.lower() in seen:
+            continue
+        seen.add(title.lower())
+        out.append({
+            "title": title,
+            "locations": [],
+            "url": board,   # shared URL
+            "description": "",
+            "blob": title,
+        })
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": None,
+            "total_board": len(out)}
+
+
+def fetch_teamtailor(source):
+    """Teamtailor generic. Uses Playwright, extracts <a href="/jobs/<id>-<slug>">
+    entries with their text content as the title."""
+    board = source.get("board") or source.get("search_url", "")
+    if not board:
+        err(f"[{source['name']}] Teamtailor needs a `board` URL")
+        return {"jobs": [], "spontaneous_url": None}
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright required")
+        return {"jobs": [], "spontaneous_url": None}
+    origin = re.match(r"(https?://[^/]+)", board).group(1)
+    p, browser, page = _open_browser()
+    try:
+        text = _render(page, board, wait_selector='a[href*="/jobs/"]',
+                       debug_path=f"debug/debug-{source['slug']}-teamtailor-1.html")
+    except Exception as e:
+        err(f"[{source['name']}] Teamtailor fetch failed: {e}")
+        return {"jobs": [], "spontaneous_url": None}
+    finally:
+        browser.close()
+        p.stop()
+    # Extract job anchors: href="<absolute or /jobs/id-slug>". Title is
+    # everything between the tags (may span nested elements).
+    anchor_re = re.compile(
+        r'<a[^>]+href="((?:https?://[^"]*)?/jobs/(\d+)-[a-z0-9-]+)"[^>]*>(.*?)</a>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    out = []
+    seen = set()
+    for path, jid, body in anchor_re.findall(text):
+        if jid in seen:
+            continue
+        seen.add(jid)
+        # Extract inner text.
+        clean = re.sub(r"<[^>]+>", " ", body)
+        clean = re.sub(r"\s+", " ", clean).strip()
+        # Skip if the text is empty (nav / hidden anchor).
+        if not clean or len(clean) < 3:
+            continue
+        # Title is the first line-worth of text.
+        title = clean[:150]
+        job_url = path if path.startswith("http") else origin + path
+        out.append({
+            "title": title,
+            "locations": [],
+            "url": job_url,
+            "description": "",
+            "blob": title,
+        })
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
 FETCHERS = {
     "ashby": fetch_ashby,
     "greenhouse": fetch_greenhouse,
@@ -1575,6 +2089,13 @@ FETCHERS = {
     "lucca": fetch_lucca,
     "pw": fetch_pw_generic,
     "wttj": fetch_wttj,
+    "bamboohr": fetch_bamboohr,
+    "pinpoint": fetch_pinpoint,
+    "umantis": fetch_umantis,
+    "workday": fetch_workday,
+    "successfactors": fetch_successfactors,
+    "teamtailor": fetch_teamtailor,
+    "boss": fetch_boss,
 }
 
 

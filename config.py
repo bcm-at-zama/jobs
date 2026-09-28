@@ -293,6 +293,9 @@ TITLE_BLACKLIST = [
     "Art Director",
     "Post-Doctoral",
     "Fixed-Term",
+    "Teilzeit",
+    "Part-Time", "Part Time",
+    "temps partiel",
 ]
 
 # If ALL of a job's locations contain one of these substrings, hide.
@@ -580,6 +583,70 @@ SOURCES = [
     {"name": "Slate Digital",        "kind": "ashby",      "slug": "slate",                "queries": []},
     {"name": "Output",               "kind": "ashby",      "slug": "output",               "queries": []},
     {"name": "Pioneer DJ",           "kind": "ashby",      "slug": "pioneer",              "queries": []},
+
+    # --- Wave 5 via debug/music_url_probe.sh 2026-09-28 (music hardware) ---
+    # ATS-supported (JSON APIs, fast fetchers)
+    {"name": "Softube",              "kind": "bamboohr",   "slug": "softube",              "queries": [],
+     "board": "https://softube.bamboohr.com/careers"},
+    {"name": "inMusic Brands",       "kind": "pinpoint",   "slug": "inmusicbrands",        "queries": [],
+     "board": "https://inmusicbrands.pinpointhq.com/"},
+    {"name": "Yamaha",               "kind": "umantis",    "slug": "yamaha",               "queries": [],
+     "board": "https://recruitingapp-5230.de.umantis.com/Jobs/All",
+     "search_url": "https://recruitingapp-5230.de.umantis.com/Jobs/All"},
+    {"name": "Sonos",                "kind": "workday",    "slug": "sonos",                "queries": ["security", "manager", "CTO", "VP"],
+     "board": "https://sonos.wd1.myworkdayjobs.com/Sonos"},
+    {"name": "Sennheiser",           "kind": "successfactors", "slug": "sennheiser",       "queries": [],
+     "board": "https://jobs.sennheiser.com/search/?q=&locationsearch=&locale=en_US&searchResultView=LIST"},
+    {"name": "Bose",                 "kind": "phenom",     "slug": "bose",                 "queries": ["security", "manager", "CTO", "VP"],
+     "board": "https://careers.bose.com/us/en",
+     "search_url": "https://careers.bose.com/us/en?query=&sort_by=relevance"},
+
+    # --- Wave 5 Playwright custom scrapers (verified 2026-09-28) ---
+    # Teamtailor: standard hosted careers with anchor pattern /jobs/<id>-<slug>
+    {"name": "Roland",               "kind": "teamtailor", "slug": "roland",               "queries": [],
+     "board": "https://www.rolandcareers.com/jobs"},
+    {"name": "Marshall",             "kind": "teamtailor", "slug": "marshall",             "queries": [],
+     "board": "https://careers.marshall.com/jobs"},
+    {"name": "Elektron",             "kind": "teamtailor", "slug": "elektron",             "queries": [],
+     "board": "https://careers.elektron.se/jobs"},
+    # Phenom: same fetcher as Microsoft/NVIDIA
+    {"name": "Dolby",                "kind": "phenom",     "slug": "dolby",                "queries": ["security", "manager", "CTO", "VP"],
+     "board": "https://jobs.dolby.com/careers",
+     "search_url": "https://jobs.dolby.com/careers?query=&sort_by=relevance"},
+    # BorisFX (parent of iZotope group post-2024 restructure — same careers portal)
+    {"name": "Boris FX / iZotope",   "kind": "pw",         "slug": "borisfx",              "queries": [],
+     "board": "https://borisfx.com/company/careers/",
+     "search_url": "https://borisfx.com/company/careers/",
+     "link_re": r'href="(/company/careers/#[a-z0-9-]+)"',
+     "origin": "https://borisfx.com"},
+    # HiringThing (Seymour Duncan)
+    {"name": "Seymour Duncan",       "kind": "pw",         "slug": "seymour",              "queries": [],
+     "board": "https://www.seymourduncan.com/company/join-our-team",
+     "search_url": "https://www.seymourduncan.com/company/join-our-team",
+     "link_re": r'href="(https?://yoursmartsource\.hiringthing\.com/job/\d+/[a-z0-9-]+|/[a-z0-9-]+-job-posting)"',
+     "origin": "https://www.seymourduncan.com"},
+    # Direct HTML scrapers with proper regexes
+    {"name": "MOTU",                 "kind": "pw",         "slug": "motu",                 "queries": [],
+     "board": "https://motu.com/en-us/company/careers/",
+     "search_url": "https://motu.com/en-us/company/careers/",
+     "link_re": r'href="(/en-us/company/careers/(?!$)[a-z0-9-]+/?)"',
+     "origin": "https://motu.com"},
+    # Boss: single page with all listings inline as <h3> — custom fetcher.
+    {"name": "Boss",                 "kind": "boss",       "slug": "boss",                 "queries": [],
+     "board": "https://www.boss.info/uk/company/employment_opportunities/employment_opportunities/"},
+    # NOTE: These sites had static career pages with no scrapable listings.
+    # Removed from SOURCES rather than shipping broken/empty entries.
+    # Focusrite   — WordPress marketing page, no listings visible
+    # Fractal     — WordPress marketing page, mailto only
+    # Antares     — Static single-page, no listings
+    # Korg        — 16KB page, no listings visible
+    # Ibanez      — Marketing page with images, no listings
+    # PRS Guitars — Marketing page, no listings visible
+    # PreSonus    — Marketing page with only link to Fender
+    # Gibson      — ADP behind heavy JS bundle (needs deeper investigation)
+    # Yamaha Guitar Group — AppOne iframe (would need iframe navigation)
+    # Boss        — Marketing page (only self-links in tests)
+    # See TODO.txt for follow-up options.
 ]
 
 # =============================================================================
@@ -721,6 +788,22 @@ COMPANY_INFO = {
     "Pioneer DJ":      {"blurb": "DJ hardware / software (AlphaTheta)",                "employees": "~500",    "revenue": "~$300M"},
     "Spitfire Audio":  {"blurb": "Cinematic sample libraries (London)",                "employees": "~100",    "revenue": "~$40M"},
     "Splice":          {"blurb": "Music sample subscription platform",                 "employees": "~200",    "revenue": "~$80M"},
+
+    # --- Wave 5 (music hardware, 2026-09-28) ---
+    "Softube":              {"blurb": "Swedish audio plugin developer — physical modelling of vintage analog gear + Console 1 controller.", "employees": "~80",  "revenue": "~$30M"},
+    "inMusic Brands":       {"blurb": "Music-tech conglomerate (Numark, Denon DJ, Rane, Alesis, M-Audio, Marantz Pro, Moog Music). US HQ, aggressive M&A strategy in DJ/production hardware.", "employees": "~1,000", "revenue": "~$400M"},
+    "Yamaha":               {"blurb": "Japanese conglomerate — pianos, synths, guitars, PA, motorcycles, semiconductors. Umantis-hosted German recruiting portal covers the corporate music side.", "employees": "~20,000", "revenue": "$16B (FY24)"},
+    "Sonos":                {"blurb": "Wireless multi-room speakers and home audio ecosystem. Santa Barbara CA HQ. Strong DSP + firmware + iOS/Android team. Public (Nasdaq).", "employees": "~1,500", "revenue": "$1.5B (FY24)"},
+    "Sennheiser":           {"blurb": "German premium audio — microphones, headphones, wireless mics. Consumer division sold to Sonova 2021; pro audio + business stayed independent. Wedemark HQ.", "employees": "~2,500", "revenue": "~$900M"},
+    "Bose":                 {"blurb": "US audio manufacturer — noise-cancelling headphones, home audio, automotive. Framingham MA HQ. Private, owned by MIT (founder's donation).", "employees": "~7,000", "revenue": "~$3.5B"},
+    "Roland":               {"blurb": "Japanese electronic music instruments — synths, DAWs, drum machines, e-drums. TR-808, TB-303, Juno legacy. Public (TSE).", "employees": "~2,900", "revenue": "~$700M"},
+    "Marshall":             {"blurb": "British guitar amp icon (Marshall stacks). Plus Marshall Headphones spin-off. Bletchley HQ.", "employees": "~800", "revenue": "~$200M"},
+    "Elektron":             {"blurb": "Swedish groovebox / synth maker (Digitakt, Digitone, Analog series). Gothenburg HQ. ~90 people. Cult following among electronic producers.", "employees": "~90", "revenue": "~$30M"},
+    "Seymour Duncan":       {"blurb": "US pickup + pedal maker (JB, '59, humbuckers). Santa Barbara CA HQ. Family-run since 1978.", "employees": "~150", "revenue": "~$40M"},
+    "Dolby":                {"blurb": "US audio/video technology powerhouse — Dolby Atmos, Dolby Vision, Dolby Digital codecs. San Francisco HQ. Public (Nyse). Heavy DSP + video codec research.", "employees": "~2,500", "revenue": "$1.3B (FY24)"},
+    "MOTU":                 {"blurb": "Mark of the Unicorn — Digital Performer DAW + audio interfaces (Ultralite, 828). Cambridge MA HQ. Small, deep DAW/DSP culture.", "employees": "~50", "revenue": "n/a"},
+    "Boris FX / iZotope":   {"blurb": "Boris FX group — video/audio VFX tools including Continuum, Sapphire, Mocha (VFX) + iZotope RX/Ozone/Neutron (audio ML). Boston HQ. Iconic post-prod names.", "employees": "~200", "revenue": "n/a"},
+    "Boss":                 {"blurb": "Roland's guitar pedal / effects brand — DS-1, Metal Zone, RC-series loopers. Job listings on the shared employment_opportunities page.", "employees": "part of Roland", "revenue": "part of Roland"},
 }
 
 # Merge in the long-form blurbs kept in config_blurbs.py. Any name present in
@@ -863,6 +946,21 @@ GROUP_OF = {
     # Music
     "Spitfire Audio":        "Music Companies",
     "Splice":                "Music Companies",
+    # Wave 5 (verified 2026-09-28)
+    "Softube":               "Music Companies",
+    "inMusic Brands":        "Music Companies",
+    "Yamaha":                "Music Companies",
+    "Sonos":                 "Music Companies",
+    "Sennheiser":            "Music Companies",
+    "Bose":                  "Music Companies",
+    "Roland":                "Music Companies",
+    "Marshall":              "Music Companies",
+    "Elektron":              "Music Companies",
+    "Dolby":                 "Music Companies",
+    "MOTU":                  "Music Companies",
+    "Boris FX / iZotope":    "Music Companies",
+    "Seymour Duncan":        "Music Companies",
+    "Boss":                  "Music Companies",
     # Other (French / EU / infra)
     "Doctolib":              "Other",
     "Alan":                  "Other",
@@ -909,4 +1007,6 @@ SPONTANEOUS_PATTERNS = [
     "wildcard",
     "prospective application",
     "candidature spontan",
+    "open application",
+    "unsolicited application",
 ]
