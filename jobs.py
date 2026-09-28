@@ -3565,6 +3565,15 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'title="Open original ↗" onclick="event.stopPropagation()">↗</a>'
             if url else ""
         )
+        # "$" button (right of the arrow) — opens a prompt to set a manual
+        # salary range. Persisted client-side in localStorage; overrides the
+        # LLM-extracted value in the badge.
+        salary_edit_btn = (
+            f'<button class="salary-edit" data-url="{url_esc}" '
+            f'title="Set salary range manually" '
+            f'onclick="event.stopPropagation()">$</button>'
+            if url else ""
+        )
         # Highest state wins for the <li> visual class (used to move to top).
         # app-rejected takes precedence over applied — the row goes grey.
         state_class = ""
@@ -3585,7 +3594,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
             f'{new_html}{orphan_html}{seniority_html}{salary_html}{ic_html}{highlight_html}'
-            f'{summary_link}'
+            f'{summary_link}{salary_edit_btn}'
             f'{"".join(["<span class=\"locs\"> — ", locs, "</span>"]) if has_locs else ""}'
             f'</summary>\n'
             f'      <div class="description">\n'
@@ -3879,6 +3888,11 @@ def render_html_filters(seniority_labels, all_locations=None):
         '      <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-spontaneous-toggle"> Hide Spontaneous which are not liked</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="show-liked-toggle" checked> Show Liked</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="show-toapply-toggle" checked> Show To Apply</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="show-applied-toggle" checked> Show Applied</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="show-app-rejected-toggle" checked> Show Rejected</label>\n'
+        '      <label class="filter-check"><input type="checkbox" id="show-others-toggle" checked> Show Others</label>\n'
         '    </div>\n'
         '  </section>'
     )
@@ -4582,6 +4596,30 @@ HTML_TEMPLATE = """<!doctype html>
       font-size: 0.95rem;
     }
     .summary-link:hover { text-decoration: underline; }
+    /* Small "$" pill next to the ↗ link — opens a prompt to set a manual
+       salary range (persisted client-side in localStorage). */
+    button.salary-edit {
+      display: inline-block;
+      margin: 0 0.35rem 0 0;
+      padding: 0 0.35rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--accent-emphasis);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button.salary-edit:hover {
+      background: rgba(9, 105, 218, 0.15);
+      border-color: rgba(9, 105, 218, 0.5);
+    }
+    /* Manual salary badge — same look as the LLM-extracted one, just a
+       thicker border so it's visually distinguishable at a glance. */
+    .badge.salary.manual {
+      border-style: dashed;
+    }
     .badge.score {
       font-weight: 700;
       min-width: 1.3rem;
@@ -4814,6 +4852,11 @@ function saveFilters() {
     roleSummary: document.getElementById('role-summary-toggle')?.checked ?? true,
     hideEmpty: document.getElementById('hide-empty-toggle')?.checked ?? false,
     hideSpontaneous: document.getElementById('hide-spontaneous-toggle')?.checked ?? false,
+    showLiked:       document.getElementById('show-liked-toggle')?.checked ?? true,
+    showToapply:     document.getElementById('show-toapply-toggle')?.checked ?? true,
+    showApplied:     document.getElementById('show-applied-toggle')?.checked ?? true,
+    showAppRejected: document.getElementById('show-app-rejected-toggle')?.checked ?? true,
+    showOthers:      document.getElementById('show-others-toggle')?.checked ?? true,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
@@ -4858,6 +4901,18 @@ function loadFilters() {
     hs.checked = true;
     document.body.classList.add('hide-spontaneous');
   }
+  // Per-state show toggles. Missing key (older saved state) → default true.
+  const stateToggles = [
+    ['show-liked-toggle',        'showLiked'],
+    ['show-toapply-toggle',      'showToapply'],
+    ['show-applied-toggle',      'showApplied'],
+    ['show-app-rejected-toggle', 'showAppRejected'],
+    ['show-others-toggle',       'showOthers'],
+  ];
+  for (const [id, key] of stateToggles) {
+    const cb = document.getElementById(id);
+    if (cb && s[key] === false) cb.checked = false;
+  }
 }
 
 /* --- Filters: seniority toggle + location/title/text search ------------- */
@@ -4882,6 +4937,16 @@ function applyFilters() {
   const locQ   = parseQuery('loc-filter');
   const titleQ = parseQuery('title-filter');
   const textQ  = parseQuery('text-filter');
+  // Per-state show toggles. Each `li.job` carries at most one of these
+  // classes (see refreshLiState — mutually exclusive). Rows with none of
+  // them are "others" (no state set yet).
+  const stateShow = {
+    'liked':        document.getElementById('show-liked-toggle')?.checked        ?? true,
+    'toapply':      document.getElementById('show-toapply-toggle')?.checked      ?? true,
+    'applied':      document.getElementById('show-applied-toggle')?.checked      ?? true,
+    'app-rejected': document.getElementById('show-app-rejected-toggle')?.checked ?? true,
+    'other':        document.getElementById('show-others-toggle')?.checked       ?? true,
+  };
 
   document.querySelectorAll('li[data-seniority]').forEach(li => {
     let hide = false;
@@ -4896,6 +4961,14 @@ function applyFilters() {
     }
     if (!hide && textQ.length) {
       if (!matchQuery((li.querySelector('.desc-body')?.textContent || '').toLowerCase(), textQ)) hide = true;
+    }
+    if (!hide) {
+      const state = li.classList.contains('app-rejected') ? 'app-rejected'
+                  : li.classList.contains('applied')      ? 'applied'
+                  : li.classList.contains('toapply')      ? 'toapply'
+                  : li.classList.contains('liked')        ? 'liked'
+                  : 'other';
+      if (!stateShow[state]) hide = true;
     }
     li.classList.toggle('hidden', hide);
   });
@@ -5510,6 +5583,85 @@ function wireStateButton(btn, cls) {
 document.querySelectorAll('button.like').forEach(btn => wireStateButton(btn, 'like'));
 document.querySelectorAll('button.toapply').forEach(btn => wireStateButton(btn, 'toapply'));
 document.querySelectorAll('button.applied').forEach(btn => wireStateButton(btn, 'applied'));
+
+/* --- Manual salary overrides (client-side, localStorage-only) ---------- */
+// Small "$" button next to the ↗ link opens window.prompt(). Empty input
+// clears the override (restores the LLM-extracted badge if any).
+const MANUAL_SALARY_KEY = 'jobs:manual-salary:v1';
+function loadManualSalaries() {
+  try { return JSON.parse(localStorage.getItem(MANUAL_SALARY_KEY) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function saveManualSalaries(m) {
+  try { localStorage.setItem(MANUAL_SALARY_KEY, JSON.stringify(m)); } catch (e) {}
+}
+function renderSalaryOnLi(li, txt, isManual) {
+  const summary = li.querySelector('summary');
+  if (!summary) return;
+  let badge = summary.querySelector('.badge.salary');
+  if (txt) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge salary';
+      // Insert after seniority badge if present, otherwise after the title.
+      const anchor = summary.querySelector('.badge.seniority')
+                  || summary.querySelector('.title');
+      if (anchor) anchor.after(badge);
+      else summary.appendChild(badge);
+    }
+    badge.classList.toggle('manual', !!isManual);
+    badge.title = isManual
+      ? 'Salary range you entered manually (click $ to edit)'
+      : 'Salary range extracted from the description (verbatim, no conversion)';
+    badge.textContent = '\U0001F4B0 ' + txt;
+  } else if (badge) {
+    const orig = badge.dataset.originalText;
+    if (orig) {
+      badge.textContent = orig;
+      badge.classList.remove('manual');
+      badge.title = 'Salary range extracted from the description (verbatim, no conversion)';
+    } else {
+      badge.remove();
+    }
+  }
+}
+(function hydrateManualSalaries() {
+  const map = loadManualSalaries();
+  document.querySelectorAll('li.job').forEach(li => {
+    const url = li.querySelector('button.salary-edit')?.dataset.url;
+    if (!url) return;
+    // Preserve any existing LLM-extracted badge text so we can restore it
+    // later if the manual override is cleared.
+    const badge = li.querySelector('.badge.salary');
+    if (badge && !badge.dataset.originalText) {
+      badge.dataset.originalText = badge.textContent;
+    }
+    const manual = map[url];
+    if (manual) renderSalaryOnLi(li, manual, true);
+  });
+})();
+document.querySelectorAll('button.salary-edit').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = btn.dataset.url;
+    const li = btn.closest('li');
+    if (!li || !url) return;
+    const map = loadManualSalaries();
+    const current = map[url] || '';
+    const val = window.prompt('Salary range for this job (leave empty to clear):', current);
+    if (val === null) return;   // cancelled
+    const trimmed = val.trim();
+    if (trimmed) {
+      map[url] = trimmed;
+      renderSalaryOnLi(li, trimmed, true);
+    } else {
+      delete map[url];
+      renderSalaryOnLi(li, '', true);
+    }
+    saveManualSalaries(map);
+  });
+});
 
 /* --- Application rejected by company: modal + toggle ------------------ */
 function openAppRejectModal(prefill) {
