@@ -3786,35 +3786,53 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
 def render_html_nav(entries):
     """Groups nav buttons per GROUP_ORDER, with a labelled row per group.
 
-    Each entry is (name, visible_count, fetched_count). We emit one of three
-    classes so the CSS colour tells you WHY a company shows (0):
+    Each entry is (name, visible_count, fetched_count, error?). We emit one
+    of four classes so the CSS colour tells you WHY a company shows (0):
       - has-jobs   : at least one job passes the current filters (green)
       - no-match   : the source returned jobs but none pass the filters or
                      all were rejected (orange — worth revisiting)
-      - no-fetched : the source itself returned zero (grey — scraper broken
-                     or the source really has no matching listings)
+      - broken     : the scraper crashed with an exception (red — needs fix)
+      - no-fetched : the source itself returned zero and did not crash
+                     (grey — likely blocked / URL changed / empty board)
     """
-    def _btn_class(visible, fetched):
+    def _btn_class(visible, fetched, error):
+        if error:            return "broken"
         if visible > 0:      return "has-jobs"
         if fetched > 0:      return "no-match"
         return "no-fetched"
     by_group = {g: [] for g in GROUP_ORDER}
     for entry in entries:
-        # Back-compat: old callers may still pass 2-tuples.
-        name, visible_count, fetched_count = (entry + (0,))[:3] if len(entry) == 2 else entry
+        # Back-compat: entries may be 2-, 3-, or 4-tuples. Pad to 4 with defaults.
+        padded = entry + ("",) * (4 - len(entry)) if len(entry) < 4 else entry
+        name, visible_count, fetched_count, error = padded[:4]
         group = GROUP_OF.get(name, "Other")
-        by_group.setdefault(group, []).append((name, visible_count, fetched_count))
+        by_group.setdefault(group, []).append((name, visible_count, fetched_count, error))
     rows = []
     for group in GROUP_ORDER + [g for g in by_group if g not in GROUP_ORDER]:
         items = by_group.get(group) or []
         if not items:
             continue
         items.sort(key=lambda kv: kv[0].lower())
+        def _btn_html(name, visible_count, fetched_count, error):
+            cls = _btn_class(visible_count, fetched_count, error)
+            # Tooltip: what's wrong for grey/orange/red pills so hover
+            # explains what happened without reading the docs.
+            tooltip = {
+                "broken":     f"Scraper crashed: {error}" if error else "Scraper crashed",
+                "no-fetched": "Source returned 0 jobs this run — probably blocked, URL changed, or the board is empty.",
+                "no-match":   f"Source returned {fetched_count} jobs but all were filtered out (blacklist / rejected / queries).",
+                "has-jobs":   f"{visible_count} job(s) match your filters.",
+            }.get(cls, "")
+            title_attr = f' title="{html.escape(tooltip, quote=True)}"' if tooltip else ""
+            return (
+                f'<a class="nav-btn {cls}" '
+                f'href="#{slug(name)}" data-fetched="{fetched_count}"{title_attr}>'
+                f'{html.escape(name)} '
+                f'(<span class="nav-count">{visible_count}</span>)</a>'
+            )
         buttons = "".join(
-            f'<a class="nav-btn {_btn_class(visible_count, fetched_count)}" '
-            f'href="#{slug(name)}" data-fetched="{fetched_count}">{html.escape(name)} '
-            f'(<span class="nav-count">{visible_count}</span>)</a>'
-            for name, visible_count, fetched_count in items
+            _btn_html(name, visible_count, fetched_count, error)
+            for name, visible_count, fetched_count, error in items
         )
         rows.append(
             '    <div class="nav-row">'
@@ -4146,10 +4164,57 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--fg-muted);
       opacity: 0.7;
     }
+    /* Broken: the scraper actually raised — different problem class from
+       no-fetched (where scrape ran fine but returned nothing). Red so you
+       can spot which sources need code fixes vs. which just returned nothing. */
+    .nav-btn.broken {
+      color: #ffffff;
+      background: var(--danger);
+      border-color: var(--danger-emphasis);
+      font-weight: 700;
+    }
+    .nav-btn.broken:hover {
+      background: var(--danger-emphasis);
+    }
+    .nav-btn.broken::before {
+      content: "⚠ ";
+    }
     .nav-count { font-weight: 600; }
     .nav-btn.has-jobs   .nav-count { color: var(--success); }
     .nav-btn.no-match   .nav-count { color: var(--attention); }
     .nav-btn.no-fetched .nav-count { color: var(--fg-muted); }
+    .nav-btn.broken     .nav-count { color: #ffffff; }
+    /* Top-of-page banner listing sources with issues this run. */
+    .problems-banner {
+      margin: 0.5rem 0 1rem;
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-subtle);
+      font-size: 0.85rem;
+    }
+    .problems-banner > summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--fg);
+      list-style: none;
+    }
+    .problems-banner > summary::-webkit-details-marker { display: none; }
+    .problems-banner > summary::before {
+      content: "▶ ";
+      display: inline-block;
+      transition: transform 0.15s;
+    }
+    .problems-banner[open] > summary::before {
+      content: "▼ ";
+    }
+    .problems-line { margin-top: 0.4rem; line-height: 1.5; }
+    .problems-line a { margin-right: 0.35rem; text-decoration: none; }
+    .problems-line a:hover { text-decoration: underline; }
+    .problems-broken strong { color: var(--danger); }
+    .problems-broken a       { color: var(--danger); }
+    .problems-empty  strong { color: var(--fg-muted); }
+    .problems-empty  a       { color: var(--fg-muted); }
     .top-bar {
       display: flex;
       align-items: center;
@@ -5442,7 +5507,7 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     const copyMode = ev.metaKey || ev.ctrlKey || ev.altKey;
     if (copyMode) {
       ev.preventDefault();
-      copyToClipboard(urls.join('\n') + '\n', status,
+      copyToClipboard(urls.join('\\n') + '\\n', status,
         urls.length + ' links copied to clipboard');
       return;
     }
@@ -5475,10 +5540,10 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     })();
   });
 }
-wireOpenButton('open-liked',   'li.job.liked:not(.hidden), .spontaneous-row.liked',   'open_liked.sh',   'No Liked jobs visible.',    'Liked');
-wireOpenButton('open-toapply', 'li.job.toapply:not(.hidden)', 'open_toapply.sh', 'No To apply jobs visible.', 'To apply');
-wireOpenButton('open-applied', 'li.job.applied:not(.hidden)', 'open_applied.sh', 'No Applied jobs visible.',  'Applied');
-wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden)', 'open_app_rejected.sh', 'No Rejected-by-company jobs visible.', 'Rejected');
+wireOpenButton('open-liked',        'li.job.liked:not(.hidden), .spontaneous-row.liked',                'open_liked.sh',        'No Liked jobs visible.',              'Liked');
+wireOpenButton('open-toapply',      'li.job.toapply:not(.hidden), .spontaneous-row.toapply',            'open_toapply.sh',      'No To apply jobs visible.',           'To apply');
+wireOpenButton('open-applied',      'li.job.applied:not(.hidden), .spontaneous-row.applied',            'open_applied.sh',      'No Applied jobs visible.',            'Applied');
+wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden), .spontaneous-row.app-rejected',  'open_app_rejected.sh', 'No Rejected-by-company jobs visible.', 'Rejected');
 
 /* --- Refresh: POST /refresh, poll /refresh-status, then reload ---------- */
 (() => {
@@ -6611,7 +6676,12 @@ def main():
                 results[src["name"]] = fut.result()
             except Exception as e:
                 err(f"[{src['name']}] collect crashed: {e}")
-                results[src["name"]] = {"jobs": [], "spontaneous_url": None}
+                # Record the exception so the UI can flag this source as
+                # "scraper broken" (distinct from "returned 0 jobs").
+                results[src["name"]] = {
+                    "jobs": [], "spontaneous_url": None,
+                    "error": f"{type(e).__name__}: {e}"[:200],
+                }
     t_fetch = time.perf_counter() - t_fetch_start
     timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s")
 
@@ -6749,8 +6819,14 @@ def main():
             # showing that number would be misleading, so we hide it entirely.
             fetched_count=result.get("total_board"),
         ))
-        # (name, visible-after-rejects-and-orphans, fetched-from-source-this-run)
-        nav_entries.append((src["name"], len(visible), len(all_jobs)))
+        # (name, visible-after-rejects-and-orphans, fetched-from-source-this-run, error)
+        # For the fetched count that drives the pill color (grey vs orange),
+        # prefer total_board (raw board size from the fetcher) when available.
+        # This way sources that returned N jobs but had all N filtered out by
+        # TITLE/LOCATION_BLACKLIST get "no-match" (orange = check your
+        # filters), not "no-fetched" (grey = scraper broken).
+        _fetched_for_pill = result.get("total_board") or len(all_jobs)
+        nav_entries.append((src["name"], len(visible), _fetched_for_pill, result.get("error") or ""))
         all_visible.extend(visible)
         # Optional: dump this source's visible jobs' descriptions for audit.
         if dump_dir:
@@ -6873,8 +6949,50 @@ def main():
         f'<span class="refresh-icon" aria-hidden="true">⟳</span></button>\n'
         f'  </div>'
     )
+    # Build a "sources with problems" banner so you can see at a glance
+    # which scrapers crashed or returned nothing this run. Broken (red) →
+    # code needs a fix. Empty (grey) → source likely blocked or URL moved.
+    _broken = [
+        (name, results[name].get("error") or "")
+        for name in (s["name"] for s in active_sources)
+        if results[name].get("error")
+    ]
+    _empty = [
+        name for name in (s["name"] for s in active_sources)
+        if not results[name].get("error")
+        and not results[name].get("jobs")
+        and not results[name].get("total_board")
+    ]
+    problems_banner = ""
+    if _broken or _empty:
+        parts = []
+        if _broken:
+            broken_html = ", ".join(
+                f'<a href="#{slug(n)}" title="{html.escape(err, quote=True)}">{html.escape(n)}</a>'
+                for n, err in sorted(_broken, key=lambda x: x[0].lower())
+            )
+            parts.append(
+                f'<div class="problems-line problems-broken">'
+                f'<strong>⚠ Broken scrapers ({len(_broken)}):</strong> {broken_html}</div>'
+            )
+        if _empty:
+            empty_html = ", ".join(
+                f'<a href="#{slug(n)}">{html.escape(n)}</a>'
+                for n in sorted(_empty, key=lambda x: x.lower())
+            )
+            parts.append(
+                f'<div class="problems-line problems-empty">'
+                f'<strong>⚪ Sources with 0 jobs ({len(_empty)}):</strong> {empty_html}</div>'
+            )
+        problems_banner = (
+            '  <details class="problems-banner" open>\n'
+            f'    <summary>Sources with issues this run — click to collapse</summary>\n'
+            f'    {"".join(parts)}\n'
+            '  </details>\n'
+        )
     html_body = (
         total_bar + "\n"
+        + problems_banner
         + render_html_nav(nav_entries) + "\n"
         + render_html_filters(seniority_labels, all_locations) + "\n"
         + "\n".join(html_sections)
