@@ -4296,8 +4296,21 @@ HTML_TEMPLATE = """<!doctype html>
       display: inline-block;
       transform: rotate(0deg);
     }
+    /* Rescore button: sibling of refresh, no auto-margin so it sits right
+       next to it. Same size/shape, different color to distinguish "compute
+       (LLM)" from "fetch (network)". */
+    .rescore-btn { margin-left: 0.4rem; background: #a5d8ff; font-size: 1.4rem; }
+    .rescore-btn:hover { background: #74c0fc; }
+    .rescore-btn.busy .rescore-icon {
+      animation: refresh-spin 1s linear infinite;
+      display: inline-block;
+    }
+    .rescore-btn .rescore-icon { display: inline-block; }
     .dump-btn.total-btn { background: #fb8500; border-color: #000; cursor: default; }
     .dump-btn.total-btn:hover { background: #d97400; }
+    /* "Total New" — red like the NEW badge, so the visual link is obvious. */
+    .dump-btn.total-new-btn { background: var(--danger); border-color: #000; cursor: default; color: #fff; }
+    .dump-btn.total-new-btn:hover { background: var(--danger-emphasis); }
     /* Probe button: pushed to the far right of the row, black. */
     .dump-btn.dump-btn-probe { margin-left: auto; background: #000; border-color: #000; }
     .dump-btn.dump-btn-probe:hover { background: #2c2c2c; }
@@ -5196,6 +5209,13 @@ function applyFilters() {
   });
   const totalEl = document.getElementById('total-count');
   if (totalEl) totalEl.textContent = total;
+  // Total NEW: visible <li.job> that carry a .badge.new-badge. Doesn't
+  // include spontaneous rows (they're not new-badged server-side).
+  const totalNewEl = document.getElementById('total-new-count');
+  if (totalNewEl) {
+    const n = document.querySelectorAll('li.job:not(.hidden) .badge.new-badge').length;
+    totalNewEl.textContent = n;
+  }
   refreshStateCounts();
   // Hide a nav-row (category label + all its company buttons) when every
   // button inside it has zero visible jobs. Runs after per-btn counts are
@@ -5545,13 +5565,14 @@ wireOpenButton('open-toapply',      'li.job.toapply:not(.hidden), .spontaneous-r
 wireOpenButton('open-applied',      'li.job.applied:not(.hidden), .spontaneous-row.applied',            'open_applied.sh',      'No Applied jobs visible.',            'Applied');
 wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden), .spontaneous-row.app-rejected',  'open_app_rejected.sh', 'No Rejected-by-company jobs visible.', 'Rejected');
 
-/* --- Refresh: POST /refresh, poll /refresh-status, then reload ---------- */
+/* --- Refresh / Rescore: POST /refresh|/rescore, poll /refresh-status ------
+   Both use the same server-side state machine (only one can run at a time),
+   so the client polls the same endpoint. The two buttons just differ in the
+   endpoint they POST to and their status label. */
 (() => {
-  const btn = document.getElementById('refresh-btn');
-  if (!btn) return;
   const status = document.getElementById('dump-status');
   const base = () => location.protocol === 'file:' ? SERVER_URL : '';
-  async function pollUntilDone() {
+  async function pollUntilDone(label) {
     while (true) {
       await new Promise(r => setTimeout(r, 2000));
       let s;
@@ -5559,17 +5580,17 @@ wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden), .spontane
         const r = await fetch(base() + '/refresh-status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
         s = await r.json();
       } catch (e) {
-        status.textContent = 'Refresh status check failed: ' + e.message;
+        status.textContent = label + ' status check failed: ' + e.message;
         return false;
       }
       if (s.status === 'running') {
-        status.textContent = `Refreshing… ${s.elapsed}s`;
+        status.textContent = label + '… ' + s.elapsed + 's';
       } else if (s.status === 'done') {
-        status.textContent = 'Refresh done — reloading…';
+        status.textContent = label + ' done — reloading…';
         return true;
       } else if (s.status === 'failed') {
-        status.textContent = 'Refresh failed: ' + (s.error || 'unknown');
-        alert('Refresh failed:\\n' + (s.error || 'unknown error'));
+        status.textContent = label + ' failed: ' + (s.error || 'unknown');
+        alert(label + ' failed:\\n' + (s.error || 'unknown error'));
         return false;
       } else {
         // idle without ever running — retry once
@@ -5577,27 +5598,32 @@ wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden), .spontane
       }
     }
   }
-  btn.addEventListener('click', async () => {
-    if (btn.disabled) return;
-    btn.disabled = true;
-    btn.classList.add('busy');
-    status.textContent = 'Refreshing…';
-    try {
-      const r = await fetch(base() + '/refresh', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
-      if (!r.ok) throw new Error('http ' + r.status);
-      const ok = await pollUntilDone();
-      if (ok) {
-        // Small delay so the user sees the "done" message.
-        setTimeout(() => location.reload(), 400);
-        return;
+  function wireActionButton(btnId, endpoint, label) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.classList.add('busy');
+      status.textContent = label + '…';
+      try {
+        const r = await fetch(base() + endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        if (!r.ok) throw new Error('http ' + r.status);
+        const ok = await pollUntilDone(label);
+        if (ok) {
+          setTimeout(() => location.reload(), 400);
+          return;
+        }
+      } catch (e) {
+        status.textContent = label + ' failed: ' + e.message;
+        alert(label + ' failed: ' + e.message);
       }
-    } catch (e) {
-      status.textContent = 'Refresh failed: ' + e.message;
-      alert('Refresh failed: ' + e.message);
-    }
-    btn.disabled = false;
-    btn.classList.remove('busy');
-  });
+      btn.disabled = false;
+      btn.classList.remove('busy');
+    });
+  }
+  wireActionButton('refresh-btn', '/refresh', 'Refreshing');
+  wireActionButton('rescore-btn', '/rescore', 'Rescoring');
 })();
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
@@ -6263,13 +6289,22 @@ _refresh_state = {"status": "idle", "started_at": None, "error": None, "log_tail
 _refresh_lock = threading.Lock()
 
 
-def _run_refresh_subprocess():
-    """Regenerate jobs.html in a subprocess. Updates _refresh_state."""
+def _run_refresh_subprocess(mode="refresh"):
+    """Regenerate jobs.html in a subprocess. Updates _refresh_state.
+
+    Modes:
+      "refresh": --clear-cache list --skip-llm — re-fetch every board, no LLM
+      "rescore": no --clear-cache, no --skip-llm — use cached list, run LLM
+                 only on jobs missing from score_cache (i.e. NEW ones).
+    """
     global _refresh_state
+    if mode == "rescore":
+        extra = []                                    # keep list-cache, allow LLM
+    else:
+        extra = ["--clear-cache", "list", "--skip-llm"]
     try:
         proc = subprocess.run(
-            [sys.executable, __file__,
-             "--clear-cache", "list", "--skip-llm", "--no-serve", "--no-open"],
+            [sys.executable, __file__, *extra, "--no-serve", "--no-open"],
             capture_output=True, text=True, timeout=900,
         )
         with _refresh_lock:
@@ -6325,7 +6360,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/applied", "/unapplied",
             "/app-rejected", "/un-app-rejected",
             "/to-review",
-            "/refresh", "/refresh-status",
+            "/refresh", "/refresh-status", "/rescore",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -6373,7 +6408,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(204); self._cors(); self.end_headers(); return
         # Refresh: kicks off jobs.py --clear-cache list --skip-llm in a
         # subprocess. Client polls /refresh-status until done, then reloads.
-        if self.path == "/refresh":
+        if self.path in ("/refresh", "/rescore"):
+            mode = "rescore" if self.path == "/rescore" else "refresh"
             with _refresh_lock:
                 already_running = _refresh_state["status"] == "running"
                 if not already_running:
@@ -6381,8 +6417,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     _refresh_state["started_at"] = time.time()
                     _refresh_state["error"] = None
                     _refresh_state["log_tail"] = ""
-                    threading.Thread(target=_run_refresh_subprocess, daemon=True).start()
-                    sys.stdout.write("refresh:  started\n")
+                    threading.Thread(
+                        target=_run_refresh_subprocess,
+                        args=(mode,),
+                        daemon=True,
+                    ).start()
+                    sys.stdout.write(f"{mode}:  started\n")
                 started = _refresh_state["started_at"]
             body = json.dumps({
                 "status": "already-running" if already_running else "started",
@@ -6912,6 +6952,7 @@ def main():
     except Exception as e:
         err(f"[locations] failed to write {RAW_LOCATIONS_FILE}: {e}")
     total = len(all_visible)
+    total_new = sum(1 for j in all_visible if j.get("is_new"))
     # Counters derived from the visible-across-all-sources list. The client
     # keeps them in sync when the user toggles a button — see updateCounters
     # below. The state check matches li.applied → applied > toapply > liked
@@ -6940,6 +6981,7 @@ def main():
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <button type="button" class="dump-btn total-btn" id="total-jobs" title="Total number of jobs currently visible (updates with filters)">Total jobs: <span id="total-count">{total}</span></button>\n'
+        f'    <button type="button" class="dump-btn total-new-btn" id="total-new" title="Number of NEW jobs currently visible (first-seen this run — updates with filters)">Total New: <span id="total-new-count">{total_new}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Open every +1 (Liked) URL in your browser AND save the same list as debug/open_liked.sh">Open Liked: <span id="liked-count">{n_liked}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Open every To apply URL in your browser AND save the same list as debug/open_toapply.sh">Open To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
         f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied: <span id="applied-count">{n_applied}</span></button>\n'
@@ -6947,6 +6989,8 @@ def main():
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
         f'<span class="refresh-icon" aria-hidden="true">⟳</span></button>\n'
+        f'    <button type="button" class="refresh-btn rescore-btn" id="rescore-btn" title="Run the LLM scorer for jobs missing from score_cache (typically the NEW ones), then reload. Does not re-fetch." aria-label="Rescore">'
+        f'<span class="rescore-icon" aria-hidden="true">🧠</span></button>\n'
         f'  </div>'
     )
     # Build a "sources with problems" banner so you can see at a glance
