@@ -3666,17 +3666,56 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         if info_parts else ""
     )
     if spontaneous_url:
-        # +1 button next to the ✉ Spontaneous link. Same liked.json store as
-        # regular job +1 buttons, so counts and open buttons pick it up.
+        # +1 → TA → ✓ → R chain, same as regular job rows. All four state
+        # stores are keyed by URL so the spontaneous URL just piggybacks on
+        # the same liked.json / to_apply.json / applied.json / app_rejected.json.
         _sp_url_esc = html.escape(spontaneous_url, quote=True)
-        _sp_liked = spontaneous_url in liked
-        _sp_state = "on" if _sp_liked else "off"
+        _sp_liked   = spontaneous_url in liked
+        _sp_toapply = spontaneous_url in to_apply
+        _sp_applied = spontaneous_url in applied
+        _sp_app_rej = spontaneous_url in app_rejected
         _sp_like_btn = (
             f'<button class="like spontaneous-like" data-url="{_sp_url_esc}" '
-            f'data-state="{_sp_state}" title="Like this spontaneous application">+1</button>'
+            f'data-state="{"on" if _sp_liked else "off"}" '
+            f'title="Like this spontaneous application">+1</button>'
+        )
+        # Later-stage buttons appear only once the previous state was reached,
+        # matching the regular-job progressive-reveal behavior.
+        _sp_toapply_btn = (
+            f'<button class="toapply" data-url="{_sp_url_esc}" '
+            f'data-state="{"on" if _sp_toapply else "off"}" '
+            f'title="Mark as To apply">TA</button>'
+            if (_sp_liked or _sp_toapply or _sp_applied) else ""
+        )
+        _sp_applied_meta = applied.get(spontaneous_url, {}) if isinstance(applied, dict) and _sp_applied else {}
+        _sp_applied_tooltip = (
+            f"Applied on {_sp_applied_meta['ts']}" if _sp_applied_meta.get("ts")
+            else "Mark as Applied"
+        )
+        _sp_applied_btn = (
+            f'<button class="applied" data-url="{_sp_url_esc}" '
+            f'data-state="{"on" if _sp_applied else "off"}" '
+            f'title="{html.escape(_sp_applied_tooltip, quote=True)}">\u2713</button>'
+            if (_sp_toapply or _sp_applied) else ""
+        )
+        _sp_app_rej_meta = app_rejected.get(spontaneous_url, {}) if _sp_app_rej else {}
+        if _sp_app_rej:
+            _lines = [f"Rejected on {_sp_app_rej_meta.get('ts','')}"]
+            if _sp_app_rej_meta.get("reason"):
+                _lines.append(f"Reason: {_sp_app_rej_meta['reason']}")
+            if _sp_app_rej_meta.get("feedback"):
+                _lines.append(f"Feedback: {_sp_app_rej_meta['feedback']}")
+            _sp_ar_tooltip = html.escape("\n".join(_lines), quote=True)
+        else:
+            _sp_ar_tooltip = "Mark this application as rejected by the company"
+        _sp_app_rej_btn = (
+            f'<button class="app-rejected-btn" data-url="{_sp_url_esc}" '
+            f'data-state="{"on" if _sp_app_rej else "off"}" '
+            f'title="{_sp_ar_tooltip}">R</button>'
+            if (_sp_applied or _sp_app_rej) else ""
         )
         spontaneous = (
-            f'{_sp_like_btn}'
+            f'{_sp_like_btn}{_sp_toapply_btn}{_sp_applied_btn}{_sp_app_rej_btn}'
             f'<a class="spontaneous-link" href="{_sp_url_esc}" '
             f'target="_blank" rel="noopener" title="Spontaneous application">'
             f'✉ Spontaneous</a>'
@@ -3689,11 +3728,19 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'<span class="query-pill">{html.escape(q)}</span>' for q in queries
         )
         query_pills = f'<span class="queries" title="Board-side search queries">{pills}</span>'
-    # If the user already +1'd the spontaneous URL, tint the row on initial
-    # render (client keeps it in sync on toggle — see wireStateButton).
+    # Tint the row with the highest-priority state, matching li.job classes
+    # (app-rejected > applied > toapply > liked). Client keeps it in sync on
+    # every state-button toggle — see wireStateButton.
     _spontaneous_cls = "spontaneous-row"
-    if spontaneous_url and spontaneous_url in liked:
-        _spontaneous_cls += " liked"
+    if spontaneous_url:
+        if spontaneous_url in app_rejected:
+            _spontaneous_cls += " app-rejected"
+        elif spontaneous_url in applied:
+            _spontaneous_cls += " applied"
+        elif spontaneous_url in to_apply:
+            _spontaneous_cls += " toapply"
+        elif spontaneous_url in liked:
+            _spontaneous_cls += " liked"
     spontaneous_row = f'  <div class="{_spontaneous_cls}">{spontaneous}</div>\n' if spontaneous else ""
 
     # Rejected jobs collapsible block — one line per rejected job in this
@@ -4005,12 +4052,31 @@ HTML_TEMPLATE = """<!doctype html>
     }
     /* +1 button next to the ✉ Spontaneous link inherits .like styling. */
     button.spontaneous-like { align-self: center; }
-    /* Same green tint as li.job.liked when the spontaneous URL is +1'd. */
+    /* Tint the spontaneous row with the same palette as li.job for each
+       state, so it visually behaves like a regular job row. */
+    .spontaneous-row.liked,
+    .spontaneous-row.toapply,
+    .spontaneous-row.applied,
+    .spontaneous-row.app-rejected {
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+    }
     .spontaneous-row.liked {
       background: rgba(63, 185, 80, 0.08);
       border-left: 3px solid var(--success);
-      padding: 0.2rem 0.4rem;
-      border-radius: 4px;
+    }
+    .spontaneous-row.toapply {
+      background: rgba(207, 34, 46, 0.08);
+      border-left: 3px solid var(--danger);
+    }
+    .spontaneous-row.applied {
+      background: rgba(130, 80, 223, 0.08);
+      border-left: 3px solid #8250df;
+    }
+    .spontaneous-row.app-rejected {
+      background: rgba(87, 96, 106, 0.15);
+      border-left: 3px solid #57606a;
+      opacity: 0.6;
     }
     .company-info {
       margin: 0.2rem 0 0.6rem;
@@ -4683,13 +4749,15 @@ HTML_TEMPLATE = """<!doctype html>
     body.hide-score-summary .score-summary { display: none; }
     body.hide-role-summary  .role-summary  { display: none; }
     body.hide-empty-sections .company-section.empty:not(.has-spontaneous) { display: none; }
-    body.hide-spontaneous .spontaneous-row:not(.liked) { display: none; }
+    /* Hide the spontaneous row when the toggle is on, EXCEPT if the user has
+       flagged it in any state — hiding a spontaneous you're actively tracking
+       would surprise the user. */
+    body.hide-spontaneous .spontaneous-row:not(.liked):not(.toapply):not(.applied):not(.app-rejected) { display: none; }
     /* When Spontaneous is hidden AND the section has no other visible jobs,
        treat the section as empty for the hide-empty-sections toggle — UNLESS
-       the spontaneous row is liked, in which case the user has explicitly
-       asked to keep this company (the +1'd spontaneous button remains).
-       :has() picks up the .liked class on the child .spontaneous-row. */
-    body.hide-spontaneous.hide-empty-sections .company-section.empty:not(:has(.spontaneous-row.liked)) {
+       the spontaneous row carries any state (liked / toapply / applied /
+       app-rejected), which means the user has explicitly flagged it. */
+    body.hide-spontaneous.hide-empty-sections .company-section.empty:not(:has(.spontaneous-row.liked, .spontaneous-row.toapply, .spontaneous-row.applied, .spontaneous-row.app-rejected)) {
       display: none;
     }
     /* Same combo: also hide top-nav buttons for companies that currently
@@ -5032,13 +5100,15 @@ function applyFilters() {
   document.querySelectorAll('ul[data-section]').forEach(ul => {
     const sid = ul.dataset.section;
     const jobsVisible = ul.querySelectorAll('li.job:not(.hidden)').length;
-    // A liked spontaneous ✉ is user-flagged content just like a liked job —
-    // count it as +1 for this section so the nav pill turns green (has-jobs),
-    // the counter increments, and hide-empty-sections keeps the section on
-    // screen. There's at most one spontaneous row per section.
+    // A spontaneous ✉ in any state (liked / toapply / applied / app-rejected)
+    // is user-flagged content just like a job with the same state — count it
+    // as +1 for this section so the nav pill turns green, the counter
+    // increments, and hide-empty-sections keeps the section on screen.
     const section = ul.closest('.company-section');
-    const spontLiked = section?.querySelector('.spontaneous-row.liked') ? 1 : 0;
-    const visible = jobsVisible + spontLiked;
+    const spontStateful = section?.querySelector(
+      '.spontaneous-row.liked, .spontaneous-row.toapply, .spontaneous-row.applied, .spontaneous-row.app-rejected'
+    ) ? 1 : 0;
+    const visible = jobsVisible + spontStateful;
     total += visible;
     const navCount = document.querySelector('.nav-btn[href="#' + sid + '"] .nav-count');
     if (navCount) {
@@ -5099,17 +5169,23 @@ function refreshGroupHeadings() {
 // toapply excludes liked). Kept as a function so we can call it after every
 // state-button toggle without re-running the full filter pass.
 function refreshStateCounts() {
-  const applied = document.querySelectorAll('li.job.applied:not(.hidden)').length;
-  const toapply = document.querySelectorAll('li.job.toapply:not(.hidden)').length;
-  let   liked   = document.querySelectorAll('li.job.liked:not(.hidden)').length;
-  const appRej  = document.querySelectorAll('li.job.app-rejected:not(.hidden)').length;
-  // A ✉ Spontaneous row can also be +1'd (its .liked class is toggled by
-  // wireStateButton). Count each liked spontaneous whose parent section is
-  // still visible — visually, they behave like a Liked "job" for the user.
-  document.querySelectorAll('.spontaneous-row.liked').forEach(row => {
-    const section = row.closest('.company-section');
-    if (section && getComputedStyle(section).display !== 'none') liked += 1;
-  });
+  let applied = document.querySelectorAll('li.job.applied:not(.hidden)').length;
+  let toapply = document.querySelectorAll('li.job.toapply:not(.hidden)').length;
+  let liked   = document.querySelectorAll('li.job.liked:not(.hidden)').length;
+  let appRej  = document.querySelectorAll('li.job.app-rejected:not(.hidden)').length;
+  // A ✉ Spontaneous row can carry any of the four state classes now. Count
+  // each state on rows whose parent section is still visible so the top-bar
+  // buckets stay accurate.
+  const bumpFromSpontaneous = (stateClass, incr) => {
+    document.querySelectorAll('.spontaneous-row.' + stateClass).forEach(row => {
+      const section = row.closest('.company-section');
+      if (section && getComputedStyle(section).display !== 'none') incr();
+    });
+  };
+  bumpFromSpontaneous('liked',        () => { liked += 1; });
+  bumpFromSpontaneous('toapply',      () => { toapply += 1; });
+  bumpFromSpontaneous('applied',      () => { applied += 1; });
+  bumpFromSpontaneous('app-rejected', () => { appRej += 1; });
   const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
   set('liked-count', liked);
   set('toapply-count', toapply);
@@ -5349,12 +5425,25 @@ function buildOpenSelectedScript(urls) {
 function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
-  btn.addEventListener('click', () => {
+  // Cmd-click (macOS) / Ctrl-click / Alt-click / middle-click: copy URLs to
+  // the clipboard, one per line, instead of opening them. The button's title
+  // gets a hint appended so the shortcut is discoverable.
+  if (btn.title && !/Cmd-click/.test(btn.title)) {
+    btn.title += ' — Cmd/Ctrl/Alt-click to copy URLs to clipboard instead.';
+  }
+  btn.addEventListener('click', (ev) => {
     const urls = collectUrls(selector);
     const status = document.getElementById('dump-status');
     if (!urls.length) {
       status.textContent = emptyMsg;
       setTimeout(() => status.textContent = '', 3000);
+      return;
+    }
+    const copyMode = ev.metaKey || ev.ctrlKey || ev.altKey;
+    if (copyMode) {
+      ev.preventDefault();
+      copyToClipboard(urls.join('\n') + '\n', status,
+        urls.length + ' links copied to clipboard');
       return;
     }
     // Open every URL synchronously — this must happen in the click handler.
@@ -5585,16 +5674,23 @@ function refreshLiState(li) {
   else if (taOn) li.classList.add('toapply');
   else if (likeOn) li.classList.add('liked');
 }
+// Spontaneous rows use the same state class names but sit in a <div>, so
+// refreshLiState is reused verbatim — this alias makes intent clearer at
+// the call site.
+const refreshSpontaneousState = refreshLiState;
 
 // Insert a button into the action bar in the CORRECT left-to-right order:
 //   × (reject)  +1 (like)  TA (toapply)  ✓ (applied)
 // The anchor is the button representing the immediately-previous state so
 // that newly-created buttons land in the right slot regardless of which
 // buttons were server-rendered.
-function ensureStateButton(li, cls, glyph, title) {
-  if (li.querySelector('.' + cls)) return li.querySelector('.' + cls);
-  const url = li.querySelector('button.like')?.dataset.url
-    || li.querySelector('button.reject')?.dataset.url;
+function ensureStateButton(container, cls, glyph, title) {
+  // `container` is a <li.job> for regular jobs, or a <.spontaneous-row>
+  // for the ✉ Spontaneous line. Both use the same button classes and
+  // wireStateButton machinery.
+  if (container.querySelector('.' + cls)) return container.querySelector('.' + cls);
+  const url = container.querySelector('button.like')?.dataset.url
+    || container.querySelector('button.reject')?.dataset.url;
   if (!url) return null;
   const btn = document.createElement('button');
   btn.className = cls;
@@ -5603,16 +5699,32 @@ function ensureStateButton(li, cls, glyph, title) {
   btn.title = title;
   btn.textContent = glyph;
   wireStateButton(btn, cls);
+  // Extra wiring for app-rejected-btn: unlike like/toapply/applied it
+  // needs the modal-opening handler on top of wireStateButton (which is
+  // never actually called for it — see toggleAppRejected). But the way
+  // wireStateButton is written, calling it on an app-rejected-btn only
+  // attaches a no-op-ish click handler because there's no endpoints[cls].
+  // Add the modal handler explicitly here.
+  if (cls === 'app-rejected-btn' && !btn.__wired) {
+    btn.__wired = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      toggleAppRejected(btn);
+    });
+  }
   const priorClass = cls === 'toapply' ? 'like'
                   : cls === 'applied' ? 'toapply'
                   : cls === 'app-rejected-btn' ? 'applied'
                   : null;
-  const anchor = (priorClass && li.querySelector('.' + priorClass))
-    || li.querySelector('button.like')
-    || li.querySelector('button.reject');
-  const details = li.querySelector('details');
+  const anchor = (priorClass && container.querySelector('.' + priorClass))
+    || container.querySelector('button.like')
+    || container.querySelector('button.reject');
+  // For regular jobs we insert before <details>; for spontaneous rows the
+  // ✉ link plays the same role of "everything after the buttons".
+  const tail = container.querySelector('details')
+            || container.querySelector('.spontaneous-link');
   if (anchor) anchor.after(btn);
-  else if (details) li.insertBefore(btn, details);
+  else if (tail) container.insertBefore(btn, tail);
   return btn;
 }
 
@@ -5643,42 +5755,34 @@ function wireStateButton(btn, cls) {
     e.stopPropagation();
     const url = btn.dataset.url;
     const li = btn.closest('li');
-    // The +1 button next to the ✉ Spontaneous link lives OUTSIDE any <li>,
-    // so `li` will be null. In that case we just persist the state and skip
-    // the DOM machinery that only makes sense for job rows.
-    const isSpontaneous = !li;
+    const spontRow = btn.closest('.spontaneous-row');
+    // The +1/TA/✓/R buttons on the ✉ Spontaneous line live in a <div>,
+    // not an <li>. Treat that row as an alternate container.
+    const container = li || spontRow;
+    const isSpontaneous = !li && !!spontRow;
     const on = btn.dataset.state === 'on';
     btn.disabled = true;
     try {
       await apiPost(on ? endpoints[1] : endpoints[0], url);
       btn.dataset.state = on ? 'off' : 'on';
-      if (isSpontaneous) {
-        // Highlight the whole spontaneous row when liked, same green tint
-        // as a liked <li.job.liked>.
-        btn.closest('.spontaneous-row')?.classList.toggle('liked', !on);
-        // Re-run the full filter pass so the nav pill for this section
-        // turns green (+1 count) and the section stops being marked .empty.
-        applyFilters();
-        return;
-      }
-      // When you turn something ON, expose the next state's button too.
+      // When you turn something ON, expose the next state's button too —
+      // identical progressive-reveal for regular jobs and spontaneous rows.
       if (!on && cls === 'like') {
-        ensureStateButton(li, 'toapply', 'TA', 'Mark as To apply');
+        ensureStateButton(container, 'toapply', 'TA', 'Mark as To apply');
       }
       if (!on && cls === 'toapply') {
-        ensureStateButton(li, 'applied', '\u2713', 'Mark as Applied');
+        ensureStateButton(container, 'applied', '\u2713', 'Mark as Applied');
       }
       if (!on && cls === 'applied') {
-        // Expose the "Rejected by company" pill.
-        const arBtn = ensureStateButton(li, 'app-rejected-btn', 'R',
+        ensureStateButton(container, 'app-rejected-btn', 'R',
           'Mark this application as rejected by the company');
-        if (arBtn && !arBtn.__wired) {
-          arBtn.__wired = true;
-          arBtn.addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            toggleAppRejected(arBtn);
-          });
-        }
+      }
+      if (isSpontaneous) {
+        refreshSpontaneousState(spontRow);
+        // Nav pill count + section-empty marker depend on the spontaneous
+        // row's state, so re-run the whole filter pass.
+        applyFilters();
+        return;
       }
       refreshLiState(li);
       moveLiToTop(li);
@@ -5826,6 +5930,7 @@ function openAppRejectModal(prefill) {
 async function toggleAppRejected(btn) {
   const url = btn.dataset.url;
   const li = btn.closest('li');
+  const spontRow = btn.closest('.spontaneous-row');
   const on = btn.dataset.state === 'on';
   btn.disabled = true;
   try {
@@ -5850,9 +5955,14 @@ async function toggleAppRejected(btn) {
       if (!res.ok) throw new Error('http ' + res.status);
       btn.dataset.state = 'on';
     }
-    refreshLiState(li);
-    moveLiToTop(li);
-    refreshStateCounts();
+    if (li) {
+      refreshLiState(li);
+      moveLiToTop(li);
+      refreshStateCounts();
+    } else if (spontRow) {
+      refreshSpontaneousState(spontRow);
+      applyFilters();
+    }
   } catch (e) {
     alert('Application-rejected toggle failed: ' + e.message);
   } finally {
@@ -6013,8 +6123,17 @@ document.querySelectorAll('button.review').forEach(btn => {
         body: JSON.stringify({url, title}),
       });
       if (!res.ok) throw new Error('http ' + res.status);
+      // Track this like a reject so the undo toast + Cmd-Z bring it back.
+      // /to-review both rejects the URL and appends the title to
+      // TOREVIEW.md; the TOREVIEW.md line is not auto-removed on undo
+      // (user cleans up manually), but the /unreject call on undo pulls
+      // the URL back out of rejected.json so the job re-appears next
+      // render — which is what "undo" mostly needs to mean here.
+      const next = li.nextElementSibling;
+      rejectUndoStack.push({url, sid, li, next, ul});
       li.remove();
       if (sid) updateCounters(sid, -1, +1);
+      showUndoToast();
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
