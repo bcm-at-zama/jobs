@@ -296,6 +296,27 @@ TITLE_BLACKLIST = [
     "Teilzeit",
     "Part-Time", "Part Time",
     "temps partiel",
+    # Batch-added from TOREVIEW.md
+    "Technical Support",
+    "Workplace",
+    "Merchandising",
+    "HR generalist",
+    "QA Manager",
+    "Localization Manager",
+    "eLearning",
+    "Partner Ecosystems",
+    "Strategic Initiatives",
+    "Post-Silicon",
+    "Event Support",
+    "Technician",
+    "IP Engineer",
+    "Strategy & Operations",
+    "Field Chief Information Security Officer",
+    "Incident Response",
+    "Delivery Operations",
+    "Market Adoption",
+    "Social Media",
+    "Controller",
 ]
 
 # If ALL of a job's locations contain one of these substrings, hide.

@@ -6,13 +6,12 @@ list_cache/
 llm_cache.json
 desc_cache.json
 score_cache.json
-TOREVIEW.md
 __pycache__/
 *.pyc
 
 # NOTE — state files are intentionally NOT ignored (private repo, we want a backup):
 #   liked.json, to_apply.json, applied.json, app_rejected.json, rejected.json,
-#   seen.json, job_index.json
+#   seen.json, job_index.json, TOREVIEW.md
 # app_rejected.json contains interview notes/feedback — keep this repo PRIVATE.
 
 # Misc

@@ -4299,7 +4299,7 @@ HTML_TEMPLATE = """<!doctype html>
     /* Rescore button: sibling of refresh, no auto-margin so it sits right
        next to it. Same size/shape, different color to distinguish "compute
        (LLM)" from "fetch (network)". */
-    .rescore-btn { margin-left: 0.4rem; background: #a5d8ff; font-size: 1.4rem; }
+    .rescore-btn { margin-left: 0.4rem; background: #a5d8ff; font-size: 1.05rem; letter-spacing: 0.03em; }
     .rescore-btn:hover { background: #74c0fc; }
     .rescore-btn.busy .rescore-icon {
       animation: refresh-spin 1s linear infinite;
@@ -6990,7 +6990,7 @@ def main():
         f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
         f'<span class="refresh-icon" aria-hidden="true">⟳</span></button>\n'
         f'    <button type="button" class="refresh-btn rescore-btn" id="rescore-btn" title="Run the LLM scorer for jobs missing from score_cache (typically the NEW ones), then reload. Does not re-fetch." aria-label="Rescore">'
-        f'<span class="rescore-icon" aria-hidden="true">🧠</span></button>\n'
+        f'<span class="rescore-icon" aria-hidden="true">AI</span></button>\n'
         f'  </div>'
     )
     # Build a "sources with problems" banner so you can see at a glance
