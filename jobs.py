@@ -1447,7 +1447,13 @@ def fetch_phenom(source):
         return {"jobs": [], "spontaneous_url": None}
     out, seen = [], set()
     p, browser, page = _open_browser()
-    origin = source.get("search_url", "").split("/careers")[0] or "https://jobs.example.com"
+    # Compute origin (scheme://netloc) from `search_url` via urlparse — the
+    # previous `.split("/careers")` heuristic broke on hostnames containing
+    # "careers" (e.g. Bose → "https://careers.bose.com/..." split at the
+    # first "/careers" match yields origin="https:/" and a bogus URL).
+    _su = source.get("search_url", "")
+    _pu = urllib.parse.urlparse(_su) if _su else None
+    origin = f"{_pu.scheme}://{_pu.netloc}" if _pu and _pu.scheme and _pu.netloc else "https://jobs.example.com"
     total_board = None
     try:
         total_board = _phenom_board_total(
@@ -2897,6 +2903,11 @@ def _looks_like_location(s):
     # Timezone-only strings like "Remote (UTC-5) to UTC+2" are not locations.
     if re.search(r"\butc\s*[+-−–—]?\s*\d", s, re.IGNORECASE):
         return False
+    # Phenom-style UI labels: "2 Locations", "5 locations". These come from
+    # multi-office job cards where the ATS shows a count instead of a list;
+    # the string is a UI element, not a place name.
+    if re.match(r"^\s*\d+\s+locations?\s*$", s, re.IGNORECASE):
+        return False
     return True
 
 
@@ -2945,8 +2956,15 @@ def _clean_loc(part):
         s = tmp
     # Trailing office/HQ/Hybrid word.
     tmp = _TRAILING_OFFICE_RE.sub("", s).strip()
-    if tmp and _looks_like_location(tmp):
-        s = tmp
+    if tmp != s:
+        # Something got stripped. If what remains is a real location, use it.
+        # If what remains is a department word (e.g. "Pebl Office" → "Pebl",
+        # which is in _DEPARTMENT_WORDS), the whole string was an internal
+        # office code — drop it by returning empty so _parse_loc bails out.
+        if tmp and _looks_like_location(tmp):
+            s = tmp
+        else:
+            return ""
     # Trailing dash: "Remote -", "France -", "Australia -".
     s = _TRAILING_DASH_RE.sub("", s).strip()
     # Mid-segment trailing dash before a comma: "Tel Aviv -, USA" → "Tel Aviv, USA".
@@ -3246,6 +3264,15 @@ def collect(source):
         dt = time.perf_counter() - t_start
         timing(f"[{source['name']:22}] fresh fetch → {dt:.1f}s")
     raw_jobs = result["jobs"]
+    # Per-source URL rewrites — applied on every run (cache-hit or fresh) so
+    # stale cached URLs also get fixed. BeyondTrust's Greenhouse page hides
+    # the description on both `job-boards.` and `boards.` layouts; their own
+    # careers site at /company/careers/<greenhouse-id> shows it.
+    if source.get("slug") == "beyondtrust" and source.get("kind") == "greenhouse":
+        for j in raw_jobs:
+            m = re.search(r"/jobs/(\d+)", j.get("url") or "")
+            if m:
+                j["url"] = f"https://www.beyondtrust.com/company/careers/{m.group(1)}"
     for j in raw_jobs:
         j["locations"] = _flatten_locations(j.get("locations"))
     jobs = [
@@ -3744,7 +3771,7 @@ def render_html_nav(entries):
         )
         rows.append(
             '    <div class="nav-row">'
-            f'<span class="nav-group-label">{html.escape(group)}</span>'
+            f'<a class="nav-group-label" href="#group-{slug(group)}">{html.escape(group)}</a>'
             f'<span class="nav-btns">{buttons}</span>'
             '</div>'
         )
@@ -3846,31 +3873,13 @@ def _seniority_check(label):
 
 
 def render_html_filters(seniority_labels, all_locations=None):
-    found = set(seniority_labels)
+    # Seniority filter checkboxes (Management / IC / Other groups) were
+    # removed on user request. The JS still queries `.seniority-toggle`
+    # elements but harmlessly finds none, so applyFilters keeps working.
     blocks = []
-    for group_name, group_labels in SENIORITY_GROUPS:
-        items = [_seniority_check(l) for l in group_labels if l in found]
-        if not items:
-            continue
-        blocks.append(
-            f'    <div class="filter-group filter-group-{slug(group_name)}">\n'
-            f'      <span class="filter-label">{html.escape(group_name)}:</span>\n'
-            + "\n".join(items) + "\n"
-            '    </div>'
-        )
-    known = {l for _, g in SENIORITY_GROUPS for l in g}
-    other = [l for l in seniority_labels if l not in known]
-    if other:
-        items = [_seniority_check(l) for l in other]
-        blocks.append(
-            '    <div class="filter-group">\n'
-            '      <span class="filter-label">Other:</span>\n'
-            + "\n".join(items) + "\n"
-            '    </div>'
-        )
     return (
         '  <section class="filters">\n'
-        + "\n".join(blocks) + "\n"
+        + ("\n".join(blocks) + "\n" if blocks else "") +
         '    <div class="filter-group">\n'
         '      <span class="filter-label">Location:</span>\n'
         '      <input type="text" id="loc-filter" placeholder="Paris or SF, USA (use + for AND)">\n'
@@ -3888,6 +3897,10 @@ def render_html_filters(seniority_labels, all_locations=None):
         '      <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-spontaneous-toggle"> Hide Spontaneous which are not liked</label>\n'
+        '    </div>\n'
+        '    <div class="filter-group">\n'
+        '      <button type="button" class="show-all-btn" id="show-all-states">Show All</button>\n'
+        '      <button type="button" class="show-all-btn" id="unshow-all-states">Unshow All</button>\n'
         '      <label class="filter-check"><input type="checkbox" id="show-liked-toggle" checked> Show Liked</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="show-toapply-toggle" checked> Show To Apply</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="show-applied-toggle" checked> Show Applied</label>\n'
@@ -4175,6 +4188,12 @@ HTML_TEMPLATE = """<!doctype html>
       letter-spacing: 0.03em;
       padding-top: 0.4rem;
       text-align: right;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .nav-group-label:hover {
+      color: var(--accent);
+      text-decoration: underline;
     }
     .nav-btns {
       display: flex;
@@ -4213,6 +4232,20 @@ HTML_TEMPLATE = """<!doctype html>
     .filter-label { color: var(--fg-muted); font-weight: 700; }
     .filter-check { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
     .filter-check input { accent-color: var(--accent-emphasis); }
+    /* Small pill buttons that flip all Show-state checkboxes at once. */
+    button.show-all-btn {
+      padding: 0.15rem 0.55rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--fg);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button.show-all-btn:hover {
+      background: var(--border);
+    }
     #loc-filter {
       background: var(--bg-inset);
       color: var(--fg);
@@ -4652,8 +4685,31 @@ HTML_TEMPLATE = """<!doctype html>
     body.hide-empty-sections .company-section.empty:not(.has-spontaneous) { display: none; }
     body.hide-spontaneous .spontaneous-row:not(.liked) { display: none; }
     /* When Spontaneous is hidden AND the section has no other visible jobs,
-       treat the section as empty for the hide-empty-sections toggle. */
-    body.hide-spontaneous.hide-empty-sections .company-section.empty { display: none; }
+       treat the section as empty for the hide-empty-sections toggle — UNLESS
+       the spontaneous row is liked, in which case the user has explicitly
+       asked to keep this company (the +1'd spontaneous button remains).
+       :has() picks up the .liked class on the child .spontaneous-row. */
+    body.hide-spontaneous.hide-empty-sections .company-section.empty:not(:has(.spontaneous-row.liked)) {
+      display: none;
+    }
+    /* Same combo: also hide top-nav buttons for companies that currently
+       have no matching jobs. Keeps the nav in sync with the sections.
+       Green (.has-jobs) buttons stay visible. */
+    body.hide-spontaneous.hide-empty-sections .nav-btn.no-match,
+    body.hide-spontaneous.hide-empty-sections .nav-btn.no-fetched { display: none; }
+    /* And hide the category label + row when zero buttons in it are green.
+       :has() selector so it works even if applyFilters hasn't run yet
+       (defensive; the JS also toggles .nav-row.empty for the same case). */
+    body.hide-spontaneous.hide-empty-sections .nav-row:not(:has(.nav-btn.has-jobs)) {
+      display: none;
+    }
+    /* Same combo: hide the body-side group heading ("AI Startups",
+       "Security Companies", …) when every company-section under it is
+       empty. The .empty class on the h2 is toggled by JS in
+       refreshGroupHeadings() after every applyFilters pass. */
+    body.hide-spontaneous.hide-empty-sections h2.group-heading.empty {
+      display: none;
+    }
 
     .role-more {
       display: block;
@@ -4975,7 +5031,14 @@ function applyFilters() {
   let total = 0;
   document.querySelectorAll('ul[data-section]').forEach(ul => {
     const sid = ul.dataset.section;
-    const visible = ul.querySelectorAll('li.job:not(.hidden)').length;
+    const jobsVisible = ul.querySelectorAll('li.job:not(.hidden)').length;
+    // A liked spontaneous ✉ is user-flagged content just like a liked job —
+    // count it as +1 for this section so the nav pill turns green (has-jobs),
+    // the counter increments, and hide-empty-sections keeps the section on
+    // screen. There's at most one spontaneous row per section.
+    const section = ul.closest('.company-section');
+    const spontLiked = section?.querySelector('.spontaneous-row.liked') ? 1 : 0;
+    const visible = jobsVisible + spontLiked;
     total += visible;
     const navCount = document.querySelector('.nav-btn[href="#' + sid + '"] .nav-count');
     if (navCount) {
@@ -4994,7 +5057,6 @@ function applyFilters() {
     const v = document.getElementById(sid)?.querySelector('.counter .v');
     if (v) v.textContent = visible;
     // Mark the parent .company-section empty when there's nothing visible.
-    const section = ul.closest('.company-section');
     if (section) section.classList.toggle('empty', visible === 0);
   });
   const totalEl = document.getElementById('total-count');
@@ -5008,7 +5070,29 @@ function applyFilters() {
     const anyHit = [...btns].some(b => b.classList.contains('has-jobs'));
     row.classList.toggle('empty', btns.length > 0 && !anyHit);
   });
+  refreshGroupHeadings();
   saveFilters();
+}
+
+// Body-side group headings (<h2 class="group-heading">"AI Startups"</h2>)
+// don't live inside a wrapper — they're siblings of the .company-section
+// blocks that follow. Walk each heading's following siblings up to the next
+// heading and mark it .empty when every .company-section in that range is
+// itself .empty. The CSS rule that hides .empty headings only fires when
+// both hide toggles are on, matching the sections' own hide condition.
+function refreshGroupHeadings() {
+  document.querySelectorAll('h2.group-heading').forEach(h => {
+    let anyVisible = false;
+    let el = h.nextElementSibling;
+    while (el && !el.matches('h2.group-heading')) {
+      if (el.matches('.company-section') && !el.classList.contains('empty')) {
+        anyVisible = true;
+        break;
+      }
+      el = el.nextElementSibling;
+    }
+    h.classList.toggle('empty', !anyVisible);
+  });
 }
 
 // Count visible <li> in each terminal state (applied excludes toapply/liked,
@@ -5017,8 +5101,15 @@ function applyFilters() {
 function refreshStateCounts() {
   const applied = document.querySelectorAll('li.job.applied:not(.hidden)').length;
   const toapply = document.querySelectorAll('li.job.toapply:not(.hidden)').length;
-  const liked   = document.querySelectorAll('li.job.liked:not(.hidden)').length;
+  let   liked   = document.querySelectorAll('li.job.liked:not(.hidden)').length;
   const appRej  = document.querySelectorAll('li.job.app-rejected:not(.hidden)').length;
+  // A ✉ Spontaneous row can also be +1'd (its .liked class is toggled by
+  // wireStateButton). Count each liked spontaneous whose parent section is
+  // still visible — visually, they behave like a Liked "job" for the user.
+  document.querySelectorAll('.spontaneous-row.liked').forEach(row => {
+    const section = row.closest('.company-section');
+    if (section && getComputedStyle(section).display !== 'none') liked += 1;
+  });
   const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
   set('liked-count', liked);
   set('toapply-count', toapply);
@@ -5295,7 +5386,7 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     })();
   });
 }
-wireOpenButton('open-liked',   'li.job.liked:not(.hidden)',   'open_liked.sh',   'No Liked jobs visible.',    'Liked');
+wireOpenButton('open-liked',   'li.job.liked:not(.hidden), .spontaneous-row.liked',   'open_liked.sh',   'No Liked jobs visible.',    'Liked');
 wireOpenButton('open-toapply', 'li.job.toapply:not(.hidden)', 'open_toapply.sh', 'No To apply jobs visible.', 'To apply');
 wireOpenButton('open-applied', 'li.job.applied:not(.hidden)', 'open_applied.sh', 'No Applied jobs visible.',  'Applied');
 wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden)', 'open_app_rejected.sh', 'No Rejected-by-company jobs visible.', 'Rejected');
@@ -5440,6 +5531,29 @@ if (hsToggle) {
   });
 }
 
+// Per-state show/hide toggles. Each one is a pure client-side filter that
+// re-runs applyFilters (which also refreshes counts + saves state).
+const SHOW_STATE_TOGGLE_IDS = [
+  'show-liked-toggle', 'show-toapply-toggle', 'show-applied-toggle',
+  'show-app-rejected-toggle', 'show-others-toggle',
+];
+SHOW_STATE_TOGGLE_IDS.forEach(id => {
+  const cb = document.getElementById(id);
+  if (cb) cb.addEventListener('change', () => { applyFilters(); });
+});
+// Show All / Unshow All: bulk-flip every Show-state checkbox at once.
+function _setAllShowStates(value) {
+  SHOW_STATE_TOGGLE_IDS.forEach(id => {
+    const cb = document.getElementById(id);
+    if (cb) cb.checked = value;
+  });
+  applyFilters();
+}
+document.getElementById('show-all-states')?.addEventListener('click',
+  () => _setAllShowStates(true));
+document.getElementById('unshow-all-states')?.addEventListener('click',
+  () => _setAllShowStates(false));
+
 /* --- Like -------------------------------------------------------------- */
 async function apiPost(path, url) {
   const base = location.protocol === 'file:' ? SERVER_URL : '';
@@ -5542,7 +5656,9 @@ function wireStateButton(btn, cls) {
         // Highlight the whole spontaneous row when liked, same green tint
         // as a liked <li.job.liked>.
         btn.closest('.spontaneous-row')?.classList.toggle('liked', !on);
-        refreshStateCounts();
+        // Re-run the full filter pass so the nav pill for this section
+        // turns green (+1 count) and the section stops being marked .empty.
+        applyFilters();
         return;
       }
       // When you turn something ON, expose the next state's button too.
@@ -6606,6 +6722,16 @@ def main():
     # below. The state check matches li.applied → applied > toapply > liked
     # so a job in "applied" doesn't get double-counted in liked.
     visible_urls = {j["url"] for j in all_visible}
+    # Spontaneous URLs (one per source with a ✉ link) are ALSO likeable via
+    # the +1 button next to the envelope. When liked, they should count as
+    # +1 in the top-of-page "Open Liked" tally alongside job likes. Union
+    # them into visible_urls so the intersect-with-liked math below picks
+    # them up.
+    spontaneous_urls = {
+        r.get("spontaneous_url") for r in results.values()
+        if r.get("spontaneous_url")
+    }
+    visible_urls = visible_urls | spontaneous_urls
     # `applied` is now a dict {url: {ts}} — treat keys as the set for math.
     applied_keys = set(applied.keys()) if isinstance(applied, dict) else set(applied)
     # app_rejected is dict too; count visible ones that stayed in Applied at
