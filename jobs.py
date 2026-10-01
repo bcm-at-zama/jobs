@@ -4136,7 +4136,7 @@ HTML_TEMPLATE = """<!doctype html>
     /* Shrink the root font-size 3px below the browser default (16 → 13).
        Every rem-based size in this stylesheet scales down proportionally so
        we get ~19% more content per screenful with no per-rule tweaking. */
-    html { scroll-behavior: smooth; font-size: 13px; }
+    html { scroll-behavior: smooth; font-size: 12px; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
       max-width: 960px;
@@ -4372,7 +4372,7 @@ HTML_TEMPLATE = """<!doctype html>
     #total-count { color: #ffffff; }
     .top-bar-row2 { margin-top: -0.5rem; }
     .shortcuts-legend {
-      margin: 0 0 0.5rem;
+      margin: 0.1rem 0 0.6rem;
       font-size: 0.8rem;
       color: var(--fg-muted);
     }
@@ -4455,6 +4455,9 @@ HTML_TEMPLATE = """<!doctype html>
        next to it. Same size/shape, different color to distinguish "compute
        (LLM)" from "fetch (network)". */
     .rescore-btn { margin-left: 0.4rem; background: #a5d8ff; font-size: 1.05rem; letter-spacing: 0.03em; }
+    /* Purple "C" button — ask Claude to rate ALL visible jobs. */
+    .claude-c-btn { margin-left: 0.4rem; background: #d0bfff; color: #6639ba; font-size: 1.1rem; }
+    .claude-c-btn:hover { background: #b197fc; }
     .rescore-btn:hover { background: #74c0fc; }
     .rescore-btn.busy .rescore-icon {
       animation: refresh-spin 1s linear infinite;
@@ -4889,6 +4892,19 @@ HTML_TEMPLATE = """<!doctype html>
       background: var(--accent); color: #ffffff; border-color: var(--accent-emphasis);
     }
     .modal-actions button.primary:hover { background: var(--accent-emphasis); }
+    /* Shared modal buttons / status for the Claude-score dialog. */
+    .modal .modal-step { margin: 0.3rem 0; font-size: 0.88rem; color: var(--fg-muted); }
+    .modal .modal-buttons { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+    .modal button.modal-primary {
+      padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; font-weight: 600;
+      background: var(--accent); color: #fff; border: 1px solid var(--accent-emphasis);
+    }
+    .modal button.modal-primary:hover { background: var(--accent-emphasis); }
+    .modal button.modal-secondary {
+      padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; font-weight: 600;
+      background: var(--bg-subtle); color: var(--fg); border: 1px solid var(--border);
+    }
+    .modal .modal-status { margin-top: 0.5rem; font-size: 0.85rem; color: var(--fg-muted); min-height: 1.1rem; }
 
     .badge {
       display: inline-block;
@@ -4923,6 +4939,16 @@ HTML_TEMPLATE = """<!doctype html>
       font-weight: 600;
       cursor: help;
     }
+    /* Claude /10 fit badge — green for ≥8, orange for 5-7, grey otherwise. */
+    .badge.claude-fit {
+      font-weight: 700;
+      cursor: help;
+      min-width: 2rem;
+      text-align: center;
+    }
+    .badge.claude-fit.fit-hi  { color: #ffffff;      background: var(--success); border-color: var(--success); }
+    .badge.claude-fit.fit-mid { color: var(--attention); background: #fff8c5;    border-color: rgba(154,103,0,0.4); }
+    .badge.claude-fit.fit-lo  { color: var(--fg-muted); background: var(--bg-subtle); border-color: var(--border); }
     .badge.ic-level {
       border-color: rgba(154, 103, 0, 0.4);
       color: var(--attention);
@@ -5765,7 +5791,7 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     // modifier keys are the only way to trigger an action.
     if (!openMode && !copyMode && !askMode) {
       ev.preventDefault();
-      status.textContent = 'Use ⌘/Ctrl-click to open · Alt-click to copy · ⇧-click to ask Claude.';
+      status.textContent = 'Use ⌘/Ctrl-click to open · ⌥/Alt-click to copy · ⇧-click to ask Claude.';
       setTimeout(() => { if (status.textContent.startsWith('Use ')) status.textContent = ''; }, 4000);
       return;
     }
@@ -5877,6 +5903,158 @@ wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden), .spontane
   wireActionButton('refresh-btn', '/refresh', 'Refreshing');
   wireActionButton('rescore-btn', '/rescore', 'Rescoring');
 })();
+
+/* --- "C" button: ask Claude to rate every visible job, paste result back - */
+const CLAUDE_FIT_KEY = 'jobs:claude-fit:v1';
+function _loadClaudeFits() {
+  try { return JSON.parse(localStorage.getItem(CLAUDE_FIT_KEY) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function _saveClaudeFits(m) {
+  try { localStorage.setItem(CLAUDE_FIT_KEY, JSON.stringify(m)); } catch (e) {}
+}
+// Insert / update the fit badge on a single <li.job>. If score is nullish,
+// removes any existing badge.
+function _renderClaudeFitOnLi(li, score, reason) {
+  const summary = li?.querySelector('summary');
+  if (!summary) return;
+  let badge = summary.querySelector('.badge.claude-fit');
+  if (!score) {
+    if (badge) badge.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'badge claude-fit';
+    // Place after seniority badge if present, otherwise after the title.
+    const anchor = summary.querySelector('.badge.xp')
+                || summary.querySelector('.badge.seniority')
+                || summary.querySelector('.title');
+    if (anchor) anchor.after(badge); else summary.appendChild(badge);
+  }
+  const n = parseInt(score, 10);
+  badge.classList.remove('fit-hi','fit-mid','fit-lo');
+  if (n >= 8)      badge.classList.add('fit-hi');
+  else if (n >= 5) badge.classList.add('fit-mid');
+  else             badge.classList.add('fit-lo');
+  badge.title = 'Claude fit score — ' + (reason || 'click C to re-score');
+  badge.textContent = 'C ' + n + '/10';
+}
+function _applyClaudeFitsToDOM() {
+  const map = _loadClaudeFits();
+  document.querySelectorAll('li.job').forEach(li => {
+    const url = li.querySelector('button.like, button.reject')?.dataset.url;
+    if (!url) return;
+    const entry = map[url];
+    if (entry) _renderClaudeFitOnLi(li, entry.score, entry.reason);
+  });
+}
+// Hydrate badges on first render.
+_applyClaudeFitsToDOM();
+
+function _collectVisibleJobUrls() {
+  const urls = [];
+  const seen = new Set();
+  document.querySelectorAll('li.job:not(.hidden)').forEach(li => {
+    const url = li.querySelector('button.like, button.reject')?.dataset.url;
+    if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
+  });
+  return urls;
+}
+
+function _buildClaudeScoringPrompt(urls) {
+  const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
+  return (
+    "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
+    "Pour chaque job, donne un score de fit sur 10 et une justification courte.\\n\\n" +
+    "FORMAT STRICT de la réponse — une ligne par job, EXACTEMENT :\\n" +
+    "N. X/10 — <justification en une phrase>\\n\\n" +
+    "Jobs :\\n" +
+    numbered
+  );
+}
+
+// Parse Claude's reply. Accepts common variations:
+//   "1. 8/10 — fit raison" / "1) 8/10 - fit raison" / "**1.** 8/10 ..."
+const _CLAUDE_FIT_LINE_RE = /^[*\\s>-]*(\\d+)[.)]\\s*(\\d+)\\s*\\/\\s*10\\s*[—\\-–:]+\\s*(.*)$/gm;
+function _parseClaudeFits(text, urls) {
+  const out = {};
+  if (!text || !urls || !urls.length) return out;
+  _CLAUDE_FIT_LINE_RE.lastIndex = 0;
+  let m;
+  while ((m = _CLAUDE_FIT_LINE_RE.exec(text)) !== null) {
+    const idx = parseInt(m[1], 10);
+    const score = parseInt(m[2], 10);
+    const reason = (m[3] || '').trim();
+    if (idx >= 1 && idx <= urls.length && score >= 0 && score <= 10) {
+      out[urls[idx - 1]] = { score, reason, ts: new Date().toISOString() };
+    }
+  }
+  return out;
+}
+
+function _openClaudeScoreModal(urls) {
+  let modal = document.getElementById('claude-score-modal');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'claude-score-modal';
+  modal.className = 'modal-backdrop';
+  modal.innerHTML =
+    '<div class="modal">' +
+    '  <h3>Rate ' + urls.length + ' jobs with Claude</h3>' +
+    '  <p class="modal-step">1. Click <strong>Open Claude</strong> → send the prompt in the new tab (and attach your profile when asked).</p>' +
+    '  <p class="modal-step">2. Copy Claude\\'s reply back here and paste below.</p>' +
+    '  <p class="modal-step">3. Click <strong>Save scores</strong> — badges appear on each job.</p>' +
+    '  <textarea id="claude-score-paste" rows="10" placeholder="Paste Claude\\'s reply here (lines like &quot;1. 8/10 — reason&quot;)"></textarea>' +
+    '  <div class="modal-buttons">' +
+    '    <button type="button" id="claude-score-open" class="modal-primary">Open Claude</button>' +
+    '    <button type="button" id="claude-score-save" class="modal-primary">Save scores</button>' +
+    '    <button type="button" id="claude-score-cancel" class="modal-secondary">Close</button>' +
+    '  </div>' +
+    '  <div class="modal-status" id="claude-score-status"></div>' +
+    '</div>';
+  document.body.appendChild(modal);
+  modal.classList.add('visible');
+  const status = modal.querySelector('#claude-score-status');
+  modal.querySelector('#claude-score-cancel').onclick = () => modal.remove();
+  modal.querySelector('#claude-score-open').onclick = () => {
+    openClaudeWithPrompt(_buildClaudeScoringPrompt(urls), status);
+    status.textContent = 'Opened Claude in a new tab.';
+  };
+  modal.querySelector('#claude-score-save').onclick = () => {
+    const text = modal.querySelector('#claude-score-paste').value;
+    const parsed = _parseClaudeFits(text, urls);
+    const n = Object.keys(parsed).length;
+    if (n === 0) {
+      status.textContent = 'No scores found — check the format (lines like "1. 8/10 — reason").';
+      return;
+    }
+    const map = _loadClaudeFits();
+    Object.assign(map, parsed);
+    _saveClaudeFits(map);
+    // Render badges immediately.
+    for (const [url, entry] of Object.entries(parsed)) {
+      const li = [...document.querySelectorAll('li.job')].find(l =>
+        l.querySelector('button.like, button.reject')?.dataset.url === url);
+      if (li) _renderClaudeFitOnLi(li, entry.score, entry.reason);
+    }
+    status.textContent = 'Saved ' + n + ' score' + (n > 1 ? 's' : '') + '.';
+    setTimeout(() => modal.remove(), 1200);
+  };
+  // Esc closes.
+  const onKey = (e) => { if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+}
+
+document.getElementById('claude-score-all')?.addEventListener('click', () => {
+  const urls = _collectVisibleJobUrls();
+  if (!urls.length) {
+    const s = document.getElementById('dump-status');
+    if (s) { s.textContent = 'No visible jobs to rate.'; setTimeout(() => s.textContent = '', 3000); }
+    return;
+  }
+  _openClaudeScoreModal(urls);
+});
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
 ['loc-filter', 'title-filter', 'text-filter'].forEach(id => {
@@ -6228,25 +6406,59 @@ document.querySelectorAll('button.salary-edit').forEach(btn => {
 
 /* --- "Ask Claude" helpers (single job + batch) --------------------------- */
 // Build a French prompt that only ships the URL(s). Claude is expected to
-// fetch the page itself — we deliberately don't dump title/company/salary
-// so the user sees a short readable prompt in the Claude tab.
+// fetch the pages itself. Multiple URLs are numbered so Claude can refer
+// back to them by index in its reply.
 function buildClaudePromptForUrls(urls) {
   if (!urls || !urls.length) return '';
   if (urls.length === 1) {
-    return "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n\\n" + urls[0];
+    return (
+      "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
+      "Donne-moi un score de fit sur 10 et une brève justification.\\n\\n" +
+      urls[0]
+    );
   }
-  return "Est-ce que ces " + urls.length + " jobs sont bons pour mon profil ? Je te partagerai mon profil sur demande.\\n\\n" + urls.join('\\n');
+  const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
+  return (
+    "Est-ce que ces " + urls.length + " jobs sont bons pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
+    "Pour chaque job, donne-moi un score de fit sur 10 et une brève justification.\\n" +
+    "Réponds en reprenant les numéros ci-dessous (1 à " + urls.length + ") pour que je puisse faire le lien.\\n\\n" +
+    numbered
+  );
 }
-// Open claude.ai/new with the prompt pre-filled via ?q=. If the URL would
-// be too long, copy the prompt to clipboard and open a bare claude.ai tab.
+// Open claude.ai/new in a new TAB — never a popup window. `window.open` is
+// unreliable here because Chrome/Safari respect the modifier keys still
+// held during the click handler (⇧ → new window, ⌥ → background tab, etc).
+// Programmatic <a target="_blank">.click() produces a synthetic event with
+// no modifiers, so the browser falls back to its "open in new adjacent tab"
+// default regardless of what the user was holding.
+function _openInTab(href) {
+  // Chrome keeps tracking the user's held modifiers for the duration of
+  // the triggering click event — so even a programmatic a.click() inside
+  // a Shift-click handler can be interpreted as Shift+click → new window.
+  // setTimeout(0) defers past the current event so modifier tracking has
+  // moved on; the dispatched MouseEvent explicitly carries zero modifiers.
+  setTimeout(() => {
+    const a = document.createElement('a');
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, view: window,
+      shiftKey: false, ctrlKey: false, metaKey: false, altKey: false,
+      button: 0,
+    }));
+    a.remove();
+  }, 0);
+}
 function openClaudeWithPrompt(prompt, statusEl) {
   if (!prompt) return;
   const target = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
   if (target.length < 7500) {
-    window.open(target, '_blank', 'noopener,noreferrer');
+    _openInTab(target);
     return;
   }
-  const openBare = () => window.open('https://claude.ai/new', '_blank', 'noopener,noreferrer');
+  const openBare = () => _openInTab('https://claude.ai/new');
   const after = () => {
     if (statusEl) {
       statusEl.textContent = 'Prompt copied — paste in the Claude tab.';
@@ -7405,7 +7617,7 @@ def main():
         '  <div class="shortcuts-legend">\n'
         '    <strong>Shortcuts on Liked / To Apply / Applied / Rejected buttons:</strong> '
         '<kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click open URLs · '
-        '<kbd>Alt</kbd>-click copy URLs · '
+        '<kbd>⌥</kbd>/<kbd>Alt</kbd>-click copy URLs · '
         '<kbd>⇧</kbd>-click ask Claude about them.\n'
         '  </div>\n'
     )
@@ -7413,16 +7625,18 @@ def main():
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <button type="button" class="dump-btn total-btn" id="total-jobs" title="Total number of jobs currently visible (updates with filters)">Total jobs: <span id="total-count">{total}</span></button>\n'
         f'    <button type="button" class="dump-btn total-new-btn" id="total-new" title="Number of NEW jobs currently visible (first-seen this run — updates with filters)">Total New: <span id="total-new-count">{total_new}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">Liked: <span id="liked-count">{n_liked}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">Applied: <span id="applied-count">{n_applied}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">Liked: <span id="liked-count">{n_liked}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">Applied: <span id="applied-count">{n_applied}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
         f'<span class="refresh-icon" aria-hidden="true">⟳</span></button>\n'
         f'    <button type="button" class="refresh-btn rescore-btn" id="rescore-btn" title="Run the LLM scorer for jobs missing from score_cache (typically the NEW ones), then reload. Does not re-fetch." aria-label="Rescore">'
         f'<span class="rescore-icon" aria-hidden="true">AI</span></button>\n'
-        f'  </div>'
+        f'    <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" title="Ask Claude to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="Claude fit scores">'
+        f'<span aria-hidden="true">C</span></button>\n'
+        f'  </div>\n' + shortcuts_legend
     )
     # Build a "sources with problems" banner so you can see at a glance
     # which scrapers crashed or returned nothing this run. Broken (red) →
