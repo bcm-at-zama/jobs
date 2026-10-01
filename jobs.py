@@ -59,7 +59,7 @@ Step 6 — Serve
 # The engine below imports it wholesale. If you want to fork this for a
 # different profile, keep this file untouched and duplicate `config.py`.
 from config import (  # noqa: E402,F401 — public config surface
-    OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, APP_REJECTED_DB, SEEN_DB, JOB_INDEX_DB, PROFILE_FILE,
+    OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, APP_REJECTED_DB, HISTORY_DB, SEEN_DB, JOB_INDEX_DB, PROFILE_FILE,
     SCORE_CACHE, DESC_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
@@ -67,7 +67,7 @@ from config import (  # noqa: E402,F401 — public config surface
     SCORE_BATCH_SIZE, SCORE_DESC_CHARS, SCORE_PARALLEL, SCORE_LONG_ROLES,
     HIGHLIGHTS, TITLE_CASE_OVERRIDES,
     TITLE_BLACKLIST, LOCATION_BLACKLIST,
-    SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES,
+    SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES, SENIORITY_XP,
     SOURCES, SPONTANEOUS_PATTERNS,
     GROUP_ORDER, GROUP_OF, COMPANY_INFO,
 )
@@ -184,6 +184,10 @@ def save_seen(seen):
 
 def load_to_apply():   return _load_set(TO_APPLY_DB)
 def save_to_apply(s):  _save_set(TO_APPLY_DB, s)
+
+
+def load_history():    return _load_set(HISTORY_DB)
+def save_history(s):   _save_set(HISTORY_DB, s)
 
 
 def load_applied():
@@ -2079,6 +2083,17 @@ def fetch_teamtailor(source):
             "total_board": len(out)}
 
 
+# Fetcher kinds we trust to say "job is no longer on the board". These call
+# APIs that return the full board (we filter client-side via matches()). For
+# other kinds (per-query Playwright/Phenom/Google/etc.), a missing URL just
+# means "not in this run's query subset" — could still be on the board — so
+# we don't render the REMOVED badge for them.
+_TRUSTED_REMOVAL_KINDS = frozenset({
+    "ashby", "greenhouse", "workable",
+    "bamboohr", "pinpoint", "umantis", "successfactors", "workday",
+})
+
+
 FETCHERS = {
     "ashby": fetch_ashby,
     "greenhouse": fetch_greenhouse,
@@ -2814,7 +2829,7 @@ def _normalize_country(country):
 
 
 _KNOWN_COUNTRIES = {
-    "united states", "usa", "us", "u.s.", "u.s.a.",
+    "united states", "united states of america", "usa", "us", "u.s.", "u.s.a.",
     "united kingdom", "uk", "u.k.",
     "france", "germany", "spain", "italy", "canada", "mexico", "japan",
     "china", "india", "brazil", "australia", "netherlands", "sweden",
@@ -2843,7 +2858,7 @@ _WORK_MODE_PREFIX_RE = re.compile(
 # grouped by country (Remote - New York → New York, USA), not lumped into
 # the generic "Remote" bucket. Common typo "Unites States" also caught.
 _LEADING_REMOTE_RE = re.compile(
-    r"^\s*remote\s*[-–—:,]?\s*",
+    r"^\s*remote\s*[-–—:,/]?\s*",
     re.IGNORECASE,
 )
 # Common typos in Remote+country strings.
@@ -2908,6 +2923,12 @@ def _looks_like_location(s):
     # the string is a UI element, not a place name.
     if re.match(r"^\s*\d+\s+locations?\s*$", s, re.IGNORECASE):
         return False
+    # Truncated department names ending in a dangling "&" ("People &",
+    # "Trust &", "Sales &") — Meta's board emits these when a location
+    # field runs into a "People & Culture"-style team suffix that got
+    # sliced. Not real locations.
+    if re.match(r"^\s*[A-Za-z]+\s*&\s*$", s):
+        return False
     return True
 
 
@@ -2944,6 +2965,9 @@ def _clean_loc(part):
     (Hybrid, Remote, Onsite …)."""
     s = _PLUS_MORE_RE.sub("", part).strip()
     s = _WORK_MODE_PREFIX_RE.sub("", s).strip()
+    # Leading "/" or "- " leftover from a splitter that already consumed the
+    # first token: "Remote / Friendly" → post-split "/ Friendly". Strip.
+    s = re.sub(r"^\s*[/\-–—]\s*", "", s).strip()
     # "(Baltimore, MD)" → "Baltimore, MD"
     if s.startswith("(") and s.endswith(")"):
         s = s[1:-1].strip()
@@ -3061,8 +3085,15 @@ def _parse_loc(part):
         # US state standalone ("Delaware", "New Jersey", "Texas") → state, USA
         if s.lower() in _US_STATES:
             return s.title(), "USA", f"{s.title()}, USA"
-        # Known city → pin to its country and canonicalize the display name.
+        # Remote-like tokens ("Remote", "Friendly", "Remote-Friendly (Travel
+        # Required)", "US Remote", etc.) all map to "remote friendly" via
+        # _CITY_ALIASES. Canonicalize so partial matches (Anthropic's
+        # standalone "Friendly") don't survive as a city name.
         s_key = _city_key(s)
+        if "remote" in s_key or "friendly" in s_key:
+            title = " ".join(w.capitalize() for w in s_key.split())
+            return title, "", title
+        # Known city → pin to its country and canonicalize the display name.
         if s_key in _CITY_TO_COUNTRY:
             country = _CITY_TO_COUNTRY[s_key]
             city = " ".join(w.capitalize() for w in s_key.split())
@@ -3098,6 +3129,13 @@ def _parse_loc(part):
     # Known city always wins over the country segment (e.g. "Geneva, France"
     # is really Geneva, Switzerland — the "France" was a scraper artifact).
     city_ckey = _city_key(city)
+    # Remote-like tokens ("Friendly, USA" from Anthropic) collapse to the
+    # canonical "Remote Friendly" with no country before country/alias
+    # matching runs, so multi-segment inputs like "Friendly, USA" don't
+    # emit "Friendly" as a fake city.
+    if "remote" in city_ckey or "friendly" in city_ckey:
+        title = " ".join(w.capitalize() for w in city_ckey.split())
+        return title, "", title
     if city_ckey in _CITY_TO_COUNTRY:
         country_raw = _CITY_TO_COUNTRY[city_ckey]
         # Also canonicalize the display name (SF/Bay Area → San Francisco).
@@ -3121,6 +3159,10 @@ def _flatten_locations(locs):
     for loc in locs or []:
         if not loc:
             continue
+        # Decode HTML entities up front — Meta's board leaks "People &amp"
+        # (truncated "People & Culture"), and any &nbsp;/&#8212; etc. that
+        # slips through the scrapers can propagate a garbage token forever.
+        loc = html.unescape(loc)
         for part in _LOC_SPLIT_RE.split(loc):
             part = part.strip()
             if not part:
@@ -3285,6 +3327,10 @@ def collect(source):
         "jobs": jobs,
         "spontaneous_url": result.get("spontaneous_url"),
         "total_board": result.get("total_board"),
+        # Pre-blacklist count from the fetcher — lets the UI distinguish
+        # "scraper worked, everything blacklisted" (raw_fetched close to
+        # total_board) from "scraper likely broken" (raw_fetched << total_board).
+        "raw_fetched": len(raw_jobs),
     }
     if source_kind == "fresh":
         _save_list_cache(source, {
@@ -3433,10 +3479,12 @@ def _render_role_long(text):
     return "".join(out)
 
 
-def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None, app_rejected=None, fetched_count=None):
+def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None, app_rejected=None, history=None, history_jobs=None, fetched_count=None):
     to_apply = to_apply or set()
     applied = applied or set()
     app_rejected = app_rejected or {}
+    history = history or set()
+    history_jobs = history_jobs or []
     sid = slug(name)
     def _state_rank(u):
         # Lower rank = higher on the page.
@@ -3471,6 +3519,14 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         seniority_html = (
             f'<span class="badge seniority">{html.escape(seniority)}</span>' if seniority else ""
         )
+        # Typical years-of-experience for this (company, seniority) — purple
+        # pill shown just left of the salary. Only rendered when we have a
+        # published grid for the company in config.SENIORITY_XP.
+        xp_txt = SENIORITY_XP.get(name, {}).get(seniority, "") if seniority else ""
+        xp_html = (
+            f'<span class="badge xp" title="Typical years-of-experience at {html.escape(name, quote=True)} for {html.escape(seniority, quote=True)} — indicative, from public leveling guides.">🎓 {html.escape(xp_txt)}</span>'
+            if xp_txt else ""
+        )
         # Salary extracted by the LLM (verbatim, no conversion). Shown as a
         # green badge to the right of the seniority badge.
         salary_txt = (j.get("salary") or "").strip()
@@ -3495,11 +3551,14 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         )
         # Highlight badges: one per HIGHLIGHTS word actually present in the
         # title / description / role_long. Longest-first so "Codex Security"
-        # takes precedence over "Codex" alone when both would match.
+        # takes precedence over "Codex" alone when both would match. Decode
+        # HTML entities first — otherwise "&mdash;" in a raw description
+        # matches the literal word "MDASH" from HIGHLIGHTS and produces a
+        # bogus badge (Anthropic's Greenhouse pay-range HTML does this).
         highlight_hits = []
-        _search_blob = " ".join([
+        _search_blob = html.unescape(" ".join([
             j.get("title") or "", j.get("description") or "", role_long,
-        ])
+        ]))
         for kw in sorted(HIGHLIGHTS, key=lambda s: -len(s)):
             if re.search(rf"\b{re.escape(kw)}\b", _search_blob, re.I):
                 highlight_hits.append(kw)
@@ -3537,6 +3596,16 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'<button class="review" data-url="{url_esc}" data-title="{title_attr}" '
             f'title="Queue title for review (writes to TOREVIEW.md) and remove">R</button>'
             if url and not (is_liked or is_toapply or is_applied or is_app_rejected) else ""
+        )
+        # "Keep in history" button: light-touch archive. Only shown once the
+        # user has already engaged with the job (+1/TA/✓). Moves the row into
+        # the per-section History block (below Rejected). Doesn't mark the
+        # URL as rejected — you're just remembering the job. Sits at the far
+        # right of the state-button chain.
+        keep_btn = (
+            f'<button class="keep" data-url="{url_esc}" '
+            f'title="Keep in history (archive without rejecting)">K</button>'
+            if url and (is_liked or is_toapply or is_applied) else ""
         )
         # "To apply" button: only shown when the job is +1 or already in a
         # later state. Click toggles the to-apply flag. Applied jobs still
@@ -3616,11 +3685,11 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         items.append(
             f'    <li class="{li_class}" data-seniority="{seniority_attr}" '
             f'data-locations="{locs_attr}">'
-            f'{review_btn}{reject_btn}{like_btn}{toapply_btn}{applied_btn}{app_rej_btn}<details>\n'
+            f'{review_btn}{reject_btn}{like_btn}{toapply_btn}{applied_btn}{app_rej_btn}{keep_btn}<details>\n'
             f'      <summary title="{title_attr}{" — " + locs_attr if has_locs else ""}">'
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
-            f'{new_html}{orphan_html}{seniority_html}{salary_html}{ic_html}{highlight_html}'
+            f'{new_html}{orphan_html}{seniority_html}{xp_html}{ic_html}{salary_html}{highlight_html}'
             f'{summary_link}{salary_edit_btn}'
             f'{"".join(["<span class=\"locs\"> — ", locs, "</span>"]) if has_locs else ""}'
             f'</summary>\n'
@@ -3754,16 +3823,56 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             title_esc = html.escape(j["title"])
             locs_txt = ", ".join(j["locations"]) if j["locations"] else "N/A"
             locs_esc = html.escape(locs_txt)
+            # Salary badge for rejected jobs too — useful to spot mispriced
+            # matches you'd revisit. Same green badge as the visible list.
+            sal_txt = (j.get("salary") or "").strip()
+            sal_html = (
+                f'<span class="badge salary" title="Salary from the LLM extractor">'
+                f'💰 {html.escape(sal_txt)}</span>'
+                if sal_txt else ""
+            )
             rej_items.append(
                 f'      <li class="rejected-job">'
                 f'<button class="restore" data-url="{url_esc}" title="Restore">↩</button>'
                 f'<a href="{url_esc}" target="_blank" rel="noopener">{title_esc}</a>'
+                f'{sal_html}'
                 f'<span class="locs"> — {locs_esc}</span></li>'
             )
         rejected_block = (
             f'  <details class="rejected-block" data-section="{sid}">\n'
             f'    <summary>{len(rejected_jobs)} rejected in this section — click to expand</summary>\n'
             f'    <ul class="rejected-list">\n' + "\n".join(rej_items) + '\n'
+            f'    </ul>\n'
+            f'  </details>\n'
+        )
+
+    # History block — same shape as rejected, different label and store.
+    history_block = ""
+    if history_jobs:
+        hist_items = []
+        for j in sorted(history_jobs, key=lambda j: j["title"].lower()):
+            url = j["url"]
+            url_esc = html.escape(url, quote=True)
+            title_esc = html.escape(j["title"])
+            locs_txt = ", ".join(j["locations"]) if j["locations"] else "N/A"
+            locs_esc = html.escape(locs_txt)
+            sal_txt = (j.get("salary") or "").strip()
+            sal_html = (
+                f'<span class="badge salary" title="Salary from the LLM extractor">'
+                f'💰 {html.escape(sal_txt)}</span>'
+                if sal_txt else ""
+            )
+            hist_items.append(
+                f'      <li class="history-job">'
+                f'<button class="unkeep" data-url="{url_esc}" title="Remove from history (bring back to the main list)">↩</button>'
+                f'<a href="{url_esc}" target="_blank" rel="noopener">{title_esc}</a>'
+                f'{sal_html}'
+                f'<span class="locs"> — {locs_esc}</span></li>'
+            )
+        history_block = (
+            f'  <details class="history-block" data-section="{sid}">\n'
+            f'    <summary>{len(history_jobs)} kept in history — click to expand</summary>\n'
+            f'    <ul class="history-list">\n' + "\n".join(hist_items) + '\n'
             f'    </ul>\n'
             f'  </details>\n'
         )
@@ -3777,8 +3886,9 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         f'  <h1 id="{sid}">{board_link} {query_pills} {counter}</h1>\n'
         f'{company_info_row}'
         f'{spontaneous_row}'
-        f'  <ul data-section="{sid}">\n{ul_content}\n  </ul>\n'
         f'{rejected_block}'
+        f'{history_block}'
+        f'  <ul data-section="{sid}">\n{ul_content}\n  </ul>\n'
         f'  </section>'
     )
 
@@ -4213,8 +4323,15 @@ HTML_TEMPLATE = """<!doctype html>
     .problems-line a:hover { text-decoration: underline; }
     .problems-broken strong { color: var(--danger); }
     .problems-broken a       { color: var(--danger); }
+    .problems-suspect strong { color: var(--attention); }
+    .problems-suspect a       { color: var(--attention); }
     .problems-empty  strong { color: var(--fg-muted); }
     .problems-empty  a       { color: var(--fg-muted); }
+    .problems-never-matched strong { color: var(--accent); }
+    .problems-never-matched a       { color: var(--accent); }
+    /* Second banner (never-matched) is closed by default; keep visual
+       distance from the first one. */
+    .never-matched-banner { margin-top: -0.6rem; }
     .top-bar {
       display: flex;
       align-items: center;
@@ -4557,6 +4674,25 @@ HTML_TEMPLATE = """<!doctype html>
     }
     button.review:hover { background: var(--attention); color: #ffffff; border-color: var(--severe); }
     button.review:disabled { opacity: 0.4; cursor: wait; }
+    /* "Keep in history" button — grey outlined circle, sits at the far right
+       of the state-button row (only shown for jobs at least +1'd). */
+    button.keep {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid var(--fg-muted);
+      color: var(--fg-muted);
+      border-radius: 50%;
+      width: 1.3rem;
+      height: 1.3rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+      align-self: center;
+    }
+    button.keep:hover { background: var(--fg-muted); color: #ffffff; }
+    button.keep:disabled { opacity: 0.4; cursor: wait; }
 
     .like {
       flex-shrink: 0;
@@ -4738,6 +4874,16 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--accent-emphasis);
       background: rgba(9, 105, 218, 0.15);
       font-weight: 600;
+    }
+    /* Typical YoE at this company for this seniority — purple, sits just
+       left of the salary badge. Cursor: help because the tooltip carries
+       the "indicative" caveat. */
+    .badge.xp {
+      border-color: rgba(130, 80, 223, 0.5);
+      color: #6639ba;
+      background: rgba(130, 80, 223, 0.12);
+      font-weight: 600;
+      cursor: help;
     }
     .badge.ic-level {
       border-color: rgba(154, 103, 0, 0.4);
@@ -4943,6 +5089,44 @@ HTML_TEMPLATE = """<!doctype html>
     }
     .rejected-list li.rejected-job a { color: var(--fg-muted); text-decoration: line-through; }
     .rejected-list li.rejected-job a:hover { color: var(--accent); }
+    /* History block — same layout as rejected, no strike-through since these
+       are kept intentionally, and a distinct pill accent to tell them apart. */
+    .history-block {
+      margin-top: 0.7rem;
+      margin-left: 0.25rem;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.8rem;
+      background: rgba(130, 80, 223, 0.05);
+      border: 1px solid rgba(130, 80, 223, 0.3);
+      border-radius: 6px;
+    }
+    .history-block > summary { cursor: pointer; color: #6639ba; font-weight: 500; }
+    .history-block[open] > summary { margin-bottom: 0.4rem; }
+    .history-list { list-style: none; padding-left: 0.25rem; margin: 0; }
+    .history-list li.history-job {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      padding: 0.15rem 0;
+      color: var(--fg);
+    }
+    .history-list li.history-job a { color: var(--fg); }
+    .history-list li.history-job a:hover { color: var(--accent); }
+    button.unkeep {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid #6639ba;
+      color: #6639ba;
+      border-radius: 50%;
+      width: 1.3rem;
+      height: 1.3rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+    }
+    button.unkeep:hover { background: #6639ba; color: #ffffff; }
     .restore {
       flex-shrink: 0;
       background: transparent;
@@ -6094,6 +6278,15 @@ function updateCounters(sid, deltaVisible, deltaRejected) {
   }
   const totalEl = document.getElementById('total-count');
   if (totalEl) totalEl.textContent = parseInt(totalEl.textContent) + deltaVisible;
+  // Total NEW tracks visible .badge.new-badge rows — rejecting a NEW job
+  // removes the <li>, so recompute from the DOM rather than track a delta
+  // (we don't know up front whether the removed row carried the badge).
+  const totalNewEl = document.getElementById('total-new-count');
+  if (totalNewEl) {
+    totalNewEl.textContent = document.querySelectorAll(
+      'li.job:not(.hidden) .badge.new-badge'
+    ).length;
+  }
   refreshStateCounts();
   // If the section is now empty, mark it .empty so hide-empty-sections works.
   // We recompute across the affected section rather than trust the delta —
@@ -6146,8 +6339,10 @@ function showUndoToast() {
 async function undoLastReject() {
   const last = rejectUndoStack.pop();
   if (!last) return;
+  // Route undo to the right endpoint depending on how the row was removed.
+  const undoEndpoint = last.kind === 'history' ? '/unhistory' : '/unreject';
   try {
-    await apiPost('/unreject', last.url);
+    await apiPost(undoEndpoint, last.url);
   } catch (err) {
     alert('Undo failed: ' + err.message);
     rejectUndoStack.push(last);
@@ -6163,7 +6358,13 @@ async function undoLastReject() {
   last.ul.querySelectorAll('li').forEach(li => {
     if (!li.classList.contains('job') && li.textContent.trim() === 'none') li.remove();
   });
-  updateCounters(last.sid, +1, -1);
+  // History undo doesn't move a rejected counter — the +1 visible/-1 rejected
+  // math is only right for reject undo.
+  if (last.kind === 'history') {
+    updateCounters(last.sid, +1, 0);
+  } else {
+    updateCounters(last.sid, +1, -1);
+  }
   showUndoToast();
 }
 
@@ -6241,6 +6442,33 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* --- Keep in history: like reject but posts /history --------------------- */
+document.querySelectorAll('button.keep').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = btn.dataset.url;
+    const li = btn.closest('li');
+    const ul = li.closest('ul');
+    const sid = ul?.dataset.section;
+    btn.disabled = true;
+    li.style.opacity = '0.3';
+    try {
+      await apiPost('/history', url);
+      // Reuse the reject undo stack — the toast is identical semantics.
+      const next = li.nextElementSibling;
+      rejectUndoStack.push({url, sid, li, next, ul, kind: 'history'});
+      li.remove();
+      if (sid) updateCounters(sid, -1, 0);
+      showUndoToast();
+    } catch (err) {
+      btn.disabled = false;
+      li.style.opacity = '1';
+      alert('Keep failed: ' + err.message);
+    }
+  });
+});
+
 /* --- Restore from the "Rejected in this section" list ---------------- */
 document.querySelectorAll('.restore').forEach(btn => {
   btn.addEventListener('click', async (e) => {
@@ -6267,6 +6495,39 @@ document.querySelectorAll('.restore').forEach(btn => {
       // the main list without a manual step. A plain location.reload() would
       // just re-serve the STATIC jobs.html — which was rendered BEFORE the
       // /unreject POST, so the job would still appear as rejected.
+      const rb = document.getElementById('refresh-btn');
+      if (rb && !rb.disabled) rb.click();
+    } catch (err) {
+      btn.disabled = false;
+      li.style.opacity = '1';
+      alert('Restore failed: ' + err.message);
+    }
+  });
+});
+
+/* --- Restore from the "Kept in history" list --------------------------- */
+document.querySelectorAll('.unkeep').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = btn.dataset.url;
+    const li = btn.closest('li.history-job');
+    const block = li.closest('.history-block');
+    const sid = block?.dataset.section;
+    btn.disabled = true;
+    li.style.opacity = '0.4';
+    try {
+      await apiPost('/unhistory', url);
+      li.remove();
+      const summary = block?.querySelector('summary');
+      const remaining = block?.querySelectorAll('li.history-job').length ?? 0;
+      if (summary) {
+        summary.textContent = remaining + ' kept in history — click to expand';
+      }
+      if (remaining === 0 && block) block.remove();
+      // Re-render via refresh so the row comes back to the main list. Same
+      // rationale as the reject restore path — the static HTML routes the
+      // URL into the history block until we regenerate.
       const rb = document.getElementById('refresh-btn');
       if (rb && !rb.disabled) rb.click();
     } catch (err) {
@@ -6359,6 +6620,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/toapply", "/untoapply",
             "/applied", "/unapplied",
             "/app-rejected", "/un-app-rejected",
+            "/history", "/unhistory",
             "/to-review",
             "/refresh", "/refresh-status", "/rescore",
             "/save-probe", "/save-open-selected",
@@ -6465,6 +6727,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/unreject":
             s = load_rejected(); s.discard(url); save_rejected(s)
             sys.stdout.write(f"unrejected: {url}\n")
+        elif self.path == "/history":
+            s = load_history(); s.add(url); save_history(s)
+            sys.stdout.write(f"history+: {url}\n")
+        elif self.path == "/unhistory":
+            s = load_history(); s.discard(url); save_history(s)
+            sys.stdout.write(f"history-: {url}\n")
         elif self.path == "/to-review":
             # Append title to TOREVIEW.md AND reject the URL so the job
             # doesn't come back next run. User cleans up TOREVIEW.md later
@@ -6692,6 +6960,7 @@ def main():
     to_apply = load_to_apply()
     applied = load_applied()
     app_rejected = load_app_rejected()
+    history = load_history()
     seen = load_seen()
     job_index = load_job_index()
     # Loaded once and reused when building orphan job dicts — see the
@@ -6819,30 +7088,70 @@ def main():
             u for u in cared
             if u not in fresh_urls
             and u not in rejected
+            and u not in history
             and job_index.get(u, {}).get("source") == src["name"]
         ]
         orphans = []
+        # Only trusted fetcher kinds (full-board API) can reliably say a URL
+        # has been removed. For query-based scrapers (Phenom/Playwright/etc.),
+        # a missing URL might just be outside the current queries — we still
+        # surface the job (so the user's liked entry doesn't vanish), but
+        # without the REMOVED badge and without the "no longer on the board"
+        # description fallback that would be a lie.
+        _trust_removal = src["kind"] in _TRUSTED_REMOVAL_KINDS
         for u in orphan_urls:
             meta = job_index.get(u, {})
             score_entry = _score_cache_for_orphans.get(u, {})
             cached_desc = _desc_cache_for_orphans.get(u, "")
+            if _trust_removal:
+                desc_fallback = "<em>Original posting has been removed from this board.</em>"
+            else:
+                desc_fallback = "<em>Not returned by this run's search — job may still be on the board. Click ↗ to check.</em>"
             orphans.append({
                 "title": meta.get("title", "(unknown)"),
                 "locations": meta.get("locations") or [],
                 "url": u,
-                "description": cached_desc or "<em>Original posting has been removed from this board.</em>",
+                "description": cached_desc or desc_fallback,
+                "salary": score_entry.get("salary", ""),
+                "is_new": False,
+                "is_orphan": _trust_removal,
+            })
+        # Hide any job whose title marks it as spontaneous — the ✉ Spontaneous
+        # link already surfaces the same URL at the top of the section, so
+        # showing it in the main list is a duplicate. Also route history
+        # entries into their own block (below rejected).
+        visible = orphans + [
+            j for j in all_jobs
+            if j["url"] not in rejected
+            and j["url"] not in history
+            and not is_spontaneous(j)
+        ]
+        rejected_jobs = [j for j in all_jobs if j["url"] in rejected]
+        # History: jobs the user K'd. Some may still be in the current fetch
+        # (visible pruning already routes them out of `visible`), others have
+        # dropped off the board — reconstruct those from job_index + caches
+        # like we do for orphans, so the History block always contains every
+        # K'd URL that belongs to this source.
+        history_in_fetch = [j for j in all_jobs if j["url"] in history]
+        _history_fetched_urls = {j["url"] for j in history_in_fetch}
+        history_from_index = []
+        for u in history:
+            if u in _history_fetched_urls:
+                continue
+            if job_index.get(u, {}).get("source") != src["name"]:
+                continue
+            meta = job_index.get(u, {})
+            score_entry = _score_cache_for_orphans.get(u, {})
+            history_from_index.append({
+                "title": meta.get("title", "(unknown)"),
+                "locations": meta.get("locations") or [],
+                "url": u,
+                "description": "",
                 "salary": score_entry.get("salary", ""),
                 "is_new": False,
                 "is_orphan": True,
             })
-        # Hide any job whose title marks it as spontaneous — the ✉ Spontaneous
-        # link already surfaces the same URL at the top of the section, so
-        # showing it in the main list is a duplicate.
-        visible = orphans + [
-            j for j in all_jobs
-            if j["url"] not in rejected and not is_spontaneous(j)
-        ]
-        rejected_jobs = [j for j in all_jobs if j["url"] in rejected]
+        history_jobs_here = history_in_fetch + history_from_index
         # rejected_here = count of jobs from this run's fetch that were rejected.
         # Orphans don't count as rejected (they're just gone from the board).
         rejected_here = len(rejected_jobs)
@@ -6852,6 +7161,7 @@ def main():
             liked, src.get("queries", []),
             rejected_jobs=rejected_jobs,
             to_apply=to_apply, applied=applied, app_rejected=app_rejected,
+            history=history, history_jobs=history_jobs_here,
             # Only show "total" when the source can report the true board-wide
             # count (Ashby / Greenhouse / Workable — they return the full list
             # and we filter client-side). Playwright sources search per query
@@ -6996,6 +7306,14 @@ def main():
     # Build a "sources with problems" banner so you can see at a glance
     # which scrapers crashed or returned nothing this run. Broken (red) →
     # code needs a fix. Empty (grey) → source likely blocked or URL moved.
+    # Also compute per-source rejected counts across ALL history so we can
+    # flag sources whose scraper never surfaced anything you cared enough
+    # to reject (usually means: broken since day 1, or wrong queries).
+    _reject_by_source = {}
+    for u in rejected:
+        src_name = job_index.get(u, {}).get("source")
+        if src_name:
+            _reject_by_source[src_name] = _reject_by_source.get(src_name, 0) + 1
     _broken = [
         (name, results[name].get("error") or "")
         for name in (s["name"] for s in active_sources)
@@ -7007,8 +7325,49 @@ def main():
         and not results[name].get("jobs")
         and not results[name].get("total_board")
     ]
+    # Suspect: scraper did NOT crash and reported a total_board, but the
+    # pre-blacklist raw count is far below that total. Signals a scraper
+    # that only sees part of the board (broken pagination, wrong regex,
+    # partial page load).
+    #
+    # Sources with `queries` set filter server-side by keyword, so raw
+    # count vs total_board mismatch is EXPECTED (Anthropic returns 83 of
+    # 627 = only jobs matching "security"/"cryptography"/etc.). Only
+    # sources with queries=[] can be legitimately compared.
+    _suspect = []
+    for src in active_sources:
+        if src.get("queries"):
+            continue                        # keyword filter → mismatch is normal
+        r = results[src["name"]] or {}
+        if r.get("error") or not r.get("total_board"):
+            continue
+        total_board = r["total_board"]
+        raw = r.get("raw_fetched")
+        if raw is None:
+            continue
+        gap = total_board - raw
+        if total_board >= 10 and gap >= 5 and raw < total_board * 0.5:
+            _suspect.append((src["name"], raw, total_board))
+    # "Never seen matching" — sources with 0 rejected across ALL history AND
+    # 0 visible right now. Usually means the scraper works technically but
+    # the queries are too narrow OR the source really has nothing matching
+    # your profile. Excludes sources already listed in the "issues" banner
+    # (broken / suspect / empty) so a company shows up in exactly ONE list.
+    _issue_names = {n for n, _ in _broken} | {n for n, _, _ in _suspect} | set(_empty)
+    _never_matched = []
+    for src in active_sources:
+        name = src["name"]
+        if name in _issue_names:
+            continue
+        r = results[name] or {}
+        has_visible = len(r.get("jobs") or []) > 0
+        if has_visible:
+            continue
+        if _reject_by_source.get(name, 0) > 0:
+            continue
+        _never_matched.append(name)
     problems_banner = ""
-    if _broken or _empty:
+    if _broken or _empty or _suspect:
         parts = []
         if _broken:
             broken_html = ", ".join(
@@ -7019,6 +7378,15 @@ def main():
                 f'<div class="problems-line problems-broken">'
                 f'<strong>⚠ Broken scrapers ({len(_broken)}):</strong> {broken_html}</div>'
             )
+        if _suspect:
+            suspect_html = ", ".join(
+                f'<a href="#{slug(n)}" title="Scraper saw only {raw}/{total} jobs — likely missing pagination or wrong selector.">{html.escape(n)} ({raw}/{total})</a>'
+                for n, raw, total in sorted(_suspect, key=lambda x: x[0].lower())
+            )
+            parts.append(
+                f'<div class="problems-line problems-suspect">'
+                f'<strong>🟡 Suspect scrapers ({len(_suspect)}):</strong> {suspect_html}</div>'
+            )
         if _empty:
             empty_html = ", ".join(
                 f'<a href="#{slug(n)}">{html.escape(n)}</a>'
@@ -7028,15 +7396,34 @@ def main():
                 f'<div class="problems-line problems-empty">'
                 f'<strong>⚪ Sources with 0 jobs ({len(_empty)}):</strong> {empty_html}</div>'
             )
+        _issue_total = len(_broken) + len(_suspect) + len(_empty)
         problems_banner = (
-            '  <details class="problems-banner" open>\n'
-            f'    <summary>Sources with issues this run — click to collapse</summary>\n'
+            '  <details class="problems-banner">\n'
+            f'    <summary>Sources with issues this run ({_issue_total}) — click to expand</summary>\n'
             f'    {"".join(parts)}\n'
+            '  </details>\n'
+        )
+    # Separate collapsible: "Never seen matching" — sources that have never
+    # produced a job you rejected AND have 0 visible right now. Not an
+    # "issue" per se (queries just don't hit), but worth surfacing so you
+    # can prune the source list.
+    never_matched_banner = ""
+    if _never_matched:
+        nm_html = ", ".join(
+            f'<a href="#{slug(n)}">{html.escape(n)}</a>'
+            for n in sorted(_never_matched, key=lambda x: x.lower())
+        )
+        never_matched_banner = (
+            '  <details class="problems-banner never-matched-banner">\n'
+            f'    <summary>Never seen matching ({len(_never_matched)}) — click to expand</summary>\n'
+            f'    <div class="problems-line problems-never-matched">'
+            f'<strong>🔍 No rejects, no matches — ever:</strong> {nm_html}</div>\n'
             '  </details>\n'
         )
     html_body = (
         total_bar + "\n"
         + problems_banner
+        + never_matched_banner
         + render_html_nav(nav_entries) + "\n"
         + render_html_filters(seniority_labels, all_locations) + "\n"
         + "\n".join(html_sections)

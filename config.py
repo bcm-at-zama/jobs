@@ -21,6 +21,10 @@ APPLIED_DB          = "applied.json"
 # {url: {reason, feedback, ts}} — jobs where I applied and the company
 # rejected me. Kept even after the job is removed from the board.
 APP_REJECTED_DB     = "app_rejected.json"
+# History: jobs you want to remember even though you're not applying and
+# not rejecting them. Typically clicked via the K button once you've read
+# the description and want to archive it out of the main list.
+HISTORY_DB          = "history.json"
 SEEN_DB             = "seen.json"
 # {url: {title, locations, source}} — used to render orphans (jobs the user
 # +1'd / marked but no longer returned by the source board).
@@ -381,6 +385,143 @@ SENIORITY = [
 ]
 # Seniority toggles rendered ON by default at the top of the filter bar.
 SENIORITY_TOGGLES = ["Manager", "Director"]
+
+# =============================================================================
+# Typical years-of-experience per (company, seniority label)
+# =============================================================================
+# Purple badge shown to the LEFT of the salary badge when we know the
+# company's leveling grid. Values are indicative — real ranges vary and
+# atypical profiles (founders, PhDs) enter higher. Sources: levels.fyi,
+# published pay grids, engineering blog posts.
+#
+# Keyed by company name → seniority label (as produced by detect_seniority
+# in config.SENIORITY). Missing entries just show no badge.
+SENIORITY_XP = {
+    "Google": {
+        "Senior":       "~5y (L5)",
+        "Staff":        "~10y (L6)",
+        "Senior Staff": "~13y (L7)",
+        "Principal":    "~15y+ (L8)",
+        "Distinguished":"~20y+ (L9)",
+    },
+    "Meta": {
+        "Senior":       "~6y (E5)",
+        "Staff":        "~9y (E6)",
+        "Senior Staff": "~12y (E7)",
+        "Principal":    "~15y+ (E8)",
+        "Distinguished":"~20y+ (E9)",
+    },
+    "Microsoft": {
+        "Senior":       "~6-8y (63-64)",
+        "Principal":    "~10-12y (65-66)",
+    },
+    "Apple": {
+        "Senior":       "~5-7y (ICT4)",
+        "Staff":        "~8-10y (ICT5)",
+        "Principal":    "~12y+ (ICT6)",
+    },
+    "NVIDIA": {
+        "Senior":       "~5-8y",
+        "Staff":        "~10-12y",
+        "Principal":    "~14y+",
+        "Distinguished":"~18y+",
+    },
+    "OpenAI": {
+        "Senior":       "~5y",
+        "Staff":        "~10y",
+        "Principal":    "~13y+",
+    },
+    "Anthropic": {
+        "Senior":       "~5y (L4)",
+        "Staff":        "~9y (L5)",
+        "Senior Staff": "~12y (L6)",
+    },
+    "Stripe": {
+        "Senior":       "~5y (L3)",
+        "Staff":        "~8y (L4)",
+        "Principal":    "~12y+ (L5)",
+    },
+    "Databricks": {
+        "Senior":       "~5y",
+        "Staff":        "~9y",
+        "Principal":    "~13y+",
+    },
+    "Airbnb": {
+        "Senior":       "~6y (L5)",
+        "Staff":        "~9y (L6)",
+        "Principal":    "~12y+ (L7)",
+    },
+    "Pinterest": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Roblox": {
+        "Senior":       "~5y",
+        "Principal":    "~10y+",
+    },
+    "Dropbox": {
+        "Senior":       "~5y (IC4)",
+        "Staff":        "~8y (IC5)",
+        "Principal":    "~12y+ (IC6)",
+    },
+    "GitHub": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "GitLab": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Snowflake": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Cloudflare": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Datadog": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Discord": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+    },
+    "Block": {
+        "Senior":       "~5y (L4)",
+        "Staff":        "~8y (L5)",
+        "Principal":    "~12y+ (L6)",
+    },
+    "Robinhood": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Twilio": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Elastic": {
+        "Senior":       "~5y",
+        "Principal":    "~10y+",
+    },
+    "Cursor": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+    },
+    "Perplexity": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+    },
+}
 
 # =============================================================================
 # Sources — the boards to fetch
