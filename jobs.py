@@ -3562,6 +3562,16 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         for kw in sorted(HIGHLIGHTS, key=lambda s: -len(s)):
             if re.search(rf"\b{re.escape(kw)}\b", _search_blob, re.I):
                 highlight_hits.append(kw)
+        # Suppress a shorter keyword if another kept hit already contains it
+        # (case-insensitive). Avoids rendering both "Cybersecurity" and
+        # "Security" on the same job — the longer label subsumes the shorter.
+        if len(highlight_hits) > 1:
+            _lowers = [h.lower() for h in highlight_hits]
+            highlight_hits = [
+                h for i, h in enumerate(highlight_hits)
+                if not any(j != i and _lowers[i] in _lowers[j] and _lowers[i] != _lowers[j]
+                           for j in range(len(highlight_hits)))
+            ]
         highlight_html = "".join(
             f'<span class="badge highlight-badge" title="Match on '
             f'{html.escape(kw, quote=True)}">{html.escape(kw)}</span>'
@@ -3670,6 +3680,17 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'onclick="event.stopPropagation()">$</button>'
             if url else ""
         )
+        # "?" button — opens claude.ai/new in a new tab, pre-filled with a
+        # prompt asking whether this job is a good fit. Job title, company,
+        # location, salary and description are pulled from the DOM client-side.
+        ask_claude_btn = (
+            f'<button class="ask-claude" data-url="{url_esc}" '
+            f'data-title="{title_attr}" '
+            f'data-company="{html.escape(name, quote=True)}" '
+            f'title="Ask Claude whether this role fits your profile" '
+            f'onclick="event.stopPropagation()">?</button>'
+            if url else ""
+        )
         # Highest state wins for the <li> visual class (used to move to top).
         # app-rejected takes precedence over applied — the row goes grey.
         state_class = ""
@@ -3690,7 +3711,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'{score_html}'
             f'<span class="title">{title_html}</span>'
             f'{new_html}{orphan_html}{seniority_html}{xp_html}{ic_html}{salary_html}{highlight_html}'
-            f'{summary_link}{salary_edit_btn}'
+            f'{summary_link}{salary_edit_btn}{ask_claude_btn}'
             f'{"".join(["<span class=\"locs\"> — ", locs, "</span>"]) if has_locs else ""}'
             f'</summary>\n'
             f'      <div class="description">\n'
@@ -4350,6 +4371,23 @@ HTML_TEMPLATE = """<!doctype html>
     }
     #total-count { color: #ffffff; }
     .top-bar-row2 { margin-top: -0.5rem; }
+    .shortcuts-legend {
+      margin: 0 0 0.5rem;
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+    }
+    .shortcuts-legend kbd {
+      display: inline-block;
+      padding: 0 0.3rem;
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--fg);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      line-height: 1.3;
+    }
     .state-count {
       font-size: 1rem;
       font-weight: 600;
@@ -4937,6 +4975,24 @@ HTML_TEMPLATE = """<!doctype html>
     button.salary-edit:hover {
       background: rgba(9, 105, 218, 0.15);
       border-color: rgba(9, 105, 218, 0.5);
+    }
+    /* "?" button — same pill shape as $, purple accent to signal "Claude". */
+    button.ask-claude {
+      display: inline-block;
+      margin: 0 0.35rem 0 0;
+      padding: 0 0.4rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #6639ba;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button.ask-claude:hover {
+      background: rgba(130, 80, 223, 0.12);
+      border-color: rgba(130, 80, 223, 0.5);
     }
     /* Manual salary badge — same look as the LLM-extracted one, just a
        thicker border so it's visually distinguishable at a glance. */
@@ -5694,12 +5750,6 @@ function buildOpenSelectedScript(urls) {
 function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
-  // Cmd-click (macOS) / Ctrl-click / Alt-click / middle-click: copy URLs to
-  // the clipboard, one per line, instead of opening them. The button's title
-  // gets a hint appended so the shortcut is discoverable.
-  if (btn.title && !/Cmd-click/.test(btn.title)) {
-    btn.title += ' — Cmd/Ctrl/Alt-click to copy URLs to clipboard instead.';
-  }
   btn.addEventListener('click', (ev) => {
     const urls = collectUrls(selector);
     const status = document.getElementById('dump-status');
@@ -5708,14 +5758,32 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
       setTimeout(() => status.textContent = '', 3000);
       return;
     }
-    const copyMode = ev.metaKey || ev.ctrlKey || ev.altKey;
+    const openMode = ev.metaKey || ev.ctrlKey;    // ⌘/Ctrl-click
+    const copyMode = ev.altKey;                   // Alt-click
+    const askMode  = ev.shiftKey;                 // ⇧-click
+    // Bare click: do nothing — this is a passive counter/label now. The
+    // modifier keys are the only way to trigger an action.
+    if (!openMode && !copyMode && !askMode) {
+      ev.preventDefault();
+      status.textContent = 'Use ⌘/Ctrl-click to open · Alt-click to copy · ⇧-click to ask Claude.';
+      setTimeout(() => { if (status.textContent.startsWith('Use ')) status.textContent = ''; }, 4000);
+      return;
+    }
+    if (askMode) {
+      ev.preventDefault();
+      openClaudeWithPrompt(buildClaudePromptForUrls(urls), status);
+      status.textContent = 'Asking Claude about ' + urls.length + ' job' + (urls.length>1?'s':'') + '…';
+      setTimeout(() => { if (status.textContent.startsWith('Asking')) status.textContent = ''; }, 4000);
+      return;
+    }
     if (copyMode) {
       ev.preventDefault();
       copyToClipboard(urls.join('\\n') + '\\n', status,
         urls.length + ' links copied to clipboard');
       return;
     }
-    // Open every URL synchronously — this must happen in the click handler.
+    // openMode = ⌘/Ctrl-click — open every URL synchronously in the click
+    // handler (otherwise Safari/Firefox block popups).
     let opened = 0;
     for (const u of urls) {
       const win = window.open(u, '_blank', 'noopener,noreferrer');
@@ -6155,6 +6223,51 @@ document.querySelectorAll('button.salary-edit').forEach(btn => {
       renderSalaryOnLi(li, '', true);
     }
     saveManualSalaries(map);
+  });
+});
+
+/* --- "Ask Claude" helpers (single job + batch) --------------------------- */
+// Build a French prompt that only ships the URL(s). Claude is expected to
+// fetch the page itself — we deliberately don't dump title/company/salary
+// so the user sees a short readable prompt in the Claude tab.
+function buildClaudePromptForUrls(urls) {
+  if (!urls || !urls.length) return '';
+  if (urls.length === 1) {
+    return "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n\\n" + urls[0];
+  }
+  return "Est-ce que ces " + urls.length + " jobs sont bons pour mon profil ? Je te partagerai mon profil sur demande.\\n\\n" + urls.join('\\n');
+}
+// Open claude.ai/new with the prompt pre-filled via ?q=. If the URL would
+// be too long, copy the prompt to clipboard and open a bare claude.ai tab.
+function openClaudeWithPrompt(prompt, statusEl) {
+  if (!prompt) return;
+  const target = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+  if (target.length < 7500) {
+    window.open(target, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  const openBare = () => window.open('https://claude.ai/new', '_blank', 'noopener,noreferrer');
+  const after = () => {
+    if (statusEl) {
+      statusEl.textContent = 'Prompt copied — paste in the Claude tab.';
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+    openBare();
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(prompt).then(after, after);
+  } else {
+    openBare();
+  }
+}
+// Per-job "?" button → single-URL prompt.
+document.querySelectorAll('button.ask-claude').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = btn.dataset.url || '';
+    if (!url) return;
+    openClaudeWithPrompt(buildClaudePromptForUrls([url]));
   });
 });
 
@@ -7288,14 +7401,22 @@ def main():
     # An applied+rejected job counts as Rejected, NOT Applied — mutually exclusive.
     n_applied      = len((applied_keys & visible_urls) - app_rej_keys)
     n_app_rejected = len(app_rej_keys & visible_urls)
+    shortcuts_legend = (
+        '  <div class="shortcuts-legend">\n'
+        '    <strong>Shortcuts on Liked / To Apply / Applied / Rejected buttons:</strong> '
+        '<kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click open URLs · '
+        '<kbd>Alt</kbd>-click copy URLs · '
+        '<kbd>⇧</kbd>-click ask Claude about them.\n'
+        '  </div>\n'
+    )
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <button type="button" class="dump-btn total-btn" id="total-jobs" title="Total number of jobs currently visible (updates with filters)">Total jobs: <span id="total-count">{total}</span></button>\n'
         f'    <button type="button" class="dump-btn total-new-btn" id="total-new" title="Number of NEW jobs currently visible (first-seen this run — updates with filters)">Total New: <span id="total-new-count">{total_new}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Open every +1 (Liked) URL in your browser AND save the same list as debug/open_liked.sh">Open Liked: <span id="liked-count">{n_liked}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Open every To apply URL in your browser AND save the same list as debug/open_toapply.sh">Open To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Open every Applied URL in your browser AND save the same list as debug/open_applied.sh">Open Applied: <span id="applied-count">{n_applied}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Open every Rejected-by-company URL in your browser AND save the same list as debug/open_app_rejected.sh">Open Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">Liked: <span id="liked-count">{n_liked}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">Applied: <span id="applied-count">{n_applied}</span></button>\n'
+        f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · Alt-click to copy · ⇧-click to ask Claude.">Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
         f'<span class="refresh-icon" aria-hidden="true">⟳</span></button>\n'
