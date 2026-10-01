@@ -14142,5 +14142,886 @@
     "title": "Responsable RH Senior H/F/X",
     "locations": [],
     "source": "Yamaha"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557006428": {
+    "title": "Enterprise Digital Security Specialist",
+    "locations": [
+      "USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557021546": {
+    "title": "Senior Security Researcher",
+    "locations": [
+      "Redmond, USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557015188": {
+    "title": "Senior/Software Engineer II - Agentic Security",
+    "locations": [
+      "Redmond, USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://jobs.ashbyhq.com/elevenlabs/5494be31-7899-4f7a-b10f-4c49378b44ef": {
+    "title": "Frontend Leaning Engineer - Creative & Studio",
+    "locations": [
+      "UK",
+      "Spain",
+      "Europe, EMEA",
+      "USA",
+      "New York, USA",
+      "Germany",
+      "Switzerland",
+      "Chile",
+      "Colombia",
+      "Italy",
+      "London, UK",
+      "France"
+    ],
+    "source": "Eleven Labs"
+  },
+  "https://www.metacareers.com/profile/job_details/1777714903507624": {
+    "title": "Security Delivery Manager",
+    "locations": [
+      "Bellevue, USA",
+      "Menlo Park, USA",
+      "Washington, USA",
+      "New York, USA",
+      "USA"
+    ],
+    "source": "Meta"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Director-of-Engineering---Machine-Learning---AI-Products_R170847": {
+    "title": "Director of Engineering \u2013 Machine Learning & AI Products",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Francisco/Director-of-Product-Communications--Creators---Creative-Professionals_R164620": {
+    "title": "Director of Product Communications",
+    "locations": [
+      "San Francisco, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Director-of-Product-Management---Adobe-Builders-eXperience--ABX-_R170346-1": {
+    "title": "Director of Product Management - Adobe Builders eXperience (ABX)",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Remote-California/Director-of-Product-Management--Adobe-Lightroom-Creative-Pro_R171225": {
+    "title": "Director of Product Management, Adobe Lightroom Creative Pro",
+    "locations": [
+      "California, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Francisco/Director-Product-Management--IC---GenAI-Model-Customization_R171377-1": {
+    "title": "Director Product Management (IC), GenAI Model Customization",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Francisco/Director-Product-Management--Firefly-Foundry_R171141": {
+    "title": "Director Product Management, Firefly Foundry",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Francisco/Director--Channel-Planning_R170685": {
+    "title": "Director, Channel Planning",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Director--Content-Strategy---Insights_R170128": {
+    "title": "Director, Content Strategy & Insights",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Senior-Director--Corporate-Strategy_R157976-1": {
+    "title": "Director, Corporate Strategy",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/London/Dir--Corp-Development-Strategy_R165971": {
+    "title": "Director, Corporate Strategy EMEA",
+    "locations": [
+      "London, UK"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Francisco/Director--Digital-Strategy---Technology_R171010": {
+    "title": "Director, Digital Strategy - Technology",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Director--Employee-Experience-M-A_R171812": {
+    "title": "Director, Employee Experience M&A",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Francisco/Director--Engineering---Agentic-Product_R170801": {
+    "title": "Director, Engineering \u2013 Agentic Product",
+    "locations": [
+      "San Francisco, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Director--ML-Engineering_R169097": {
+    "title": "Director, ML Services Engineering",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Director--UI-Development_R171269": {
+    "title": "Director, UI Development",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Principal-Architect---Security--Privacy-and-Governance-in-Large-scale-Enterprise-Agentic-AI-Solutions_R171198": {
+    "title": "Principal Architect \u2014 Distributed Systems & Agentic AI Security, Governance",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Senior-Product-Security-Engineer_R171794": {
+    "title": "Senior Product Security Engineer",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Senior-Product-Security-Engineer_R171629": {
+    "title": "Senior Product Security Engineer",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Lehi/Senior-SOAR-Engineer_R171215": {
+    "title": "Senior Security Automation Engineer",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Seattle/Senior-Security-Automation-Engineer--Web---Edge-Security_R171674": {
+    "title": "Senior Security Automation Engineer, Web & Edge Security",
+    "locations": [
+      "Seattle, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Seattle/Senior-Security-IAM-Engineer_R171376": {
+    "title": "Senior Security IAM Engineer",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Francisco/Sr-Director-of-Design--Firefly_R171368": {
+    "title": "Sr Director of Design, Firefly",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Noida/Sr-Manager--Integrated-Security-Operations_R171954": {
+    "title": "Sr Manager, Integrated Security Operations",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Lehi/Security-Engineer_R167438": {
+    "title": "Sr Security Engineer",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Sr-Director--Engineering---Digital-Video---Audio--DVA-_R170842-1": {
+    "title": "Sr. Director, Engineering - Digital Video & Audio (DVA)",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Sr-Director--Strategic-Partner-Accounts_R168265": {
+    "title": "Sr. Director, Strategic Accounts",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/New-York/Staff-Product-Security-Engineer_R171624": {
+    "title": "Staff Product Security Engineer",
+    "locations": [],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/London/Value-Creation-Director---Adobe-Private-Capital_R170201": {
+    "title": "Value Creation Director - Adobe Private Capital",
+    "locations": [
+      "London, UK"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Vice-President--Product-and-Software-Security_R171443": {
+    "title": "Vice President, Product and Software Security",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "Adobe"
+  },
+  "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Lehi/Western-Region-Sr-Security-Manager_R171442": {
+    "title": "Western Region Sr. Security Manager",
+    "locations": [
+      "Lehi"
+    ],
+    "source": "Adobe"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-California-Folsom/Director-of-Data-Governance-and-Operations_JR0284841": {
+    "title": "Director of Data Governance and Operations",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-California-Santa-Clara/Director-of-Global-Customer-Planning-and-Operations_JR0287566": {
+    "title": "Director of Global Customer Planning and Operations",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/Malaysia-Kulim/Director-of-Supply-Planning---Assembly--Test--and-Materials_JR0287574": {
+    "title": "Director of Supply Planning - Assembly, Test, and Materials",
+    "locations": [
+      "Kulim, Malaysia"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-California-Santa-Clara/Director--Global-IT_JR0287410": {
+    "title": "Director, Global IT",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Arizona-Phoenix/Director--Global-Network-Operations_JR0285640": {
+    "title": "Director, Global Network Operations",
+    "locations": [
+      "Arizona, Phoenix"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Oregon-Hillsboro/Director--Process-Engineer---Dry-Etch_JR0285230-1": {
+    "title": "Director, Process Engineer \u2013 Dry Etch",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Arizona-Phoenix/Identity-Security---PKI-Engineer_JR0286687": {
+    "title": "Identity Security - PKI Engineer",
+    "locations": [
+      "Arizona, Phoenix"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Oregon-Hillsboro/Industrial-Security-Representative-1_JR0286014": {
+    "title": "Industrial Security Representative 1",
+    "locations": [
+      "Oregon, Hillsboro"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-California-Santa-Clara/Semiconductor-Device-Modeling-Engineer_JR0286250": {
+    "title": "Semiconductor Device Modeling Engineer",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/Malaysia-Penang/Semiconductor-Manufacturing-Engineer_JR0287401": {
+    "title": "Semiconductor Manufacturing Engineer",
+    "locations": [
+      "Penang, Malaysia"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/Malaysia-Penang/Semiconductor-Manufacturing-Engineer_JR0287405": {
+    "title": "Semiconductor Manufacturing Engineer",
+    "locations": [
+      "Penang, Malaysia"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/Malaysia-Kulim/Semiconductor-Manufacturing-Engineer--Segment-Lead---Contract-_JR0285787": {
+    "title": "Semiconductor Manufacturing Engineer (Segment Lead) (Contract)",
+    "locations": [
+      "Kulim, Malaysia"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Arizona-Phoenix/Semiconductor-Packaging-Integration-Research-Manager_JR0286872": {
+    "title": "Semiconductor Packaging Integration Research Manager",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Oregon-Hillsboro/Semiconductor-Research-Integration-Engineer_JR0286873": {
+    "title": "Semiconductor Research Integration Engineer",
+    "locations": [
+      "Oregon, Hillsboro"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Arizona-Phoenix/Senior-Systems-Engineer---Windows-Active-Directory_JR0287359": {
+    "title": "Senior Systems Engineer \u2013 Windows Active Directory",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/Virtual-US/Software-Engineering-Manager_JR0284770": {
+    "title": "Sr. Director, Software Engineering",
+    "locations": [
+      "Virtual, USA"
+    ],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Oregon-Hillsboro/Sr-Security-Architect_JR0282220": {
+    "title": "Sr. Security Architect",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://intel.wd1.myworkdayjobs.com/en-US/External/job/US-Oregon-Hillsboro/Staff-Semiconductor-Device-Modeling-Engineer_JR0285922": {
+    "title": "Staff Semiconductor Device Modeling Engineer",
+    "locations": [],
+    "source": "Intel"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--AI-Strategy-and-Product-Management_R0137370-1": {
+    "title": "Director, AI Strategy and Product Management",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--AI-Strategy-and-Product-Management_R0137424-1": {
+    "title": "Director, AI Strategy and Product Management",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--Chief-of-Staff_R0137487": {
+    "title": "Director, Chief of Staff",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Sydney-New-South-Wales-Australia/Director--Consumer-Australia_R0138181-1": {
+    "title": "Director, Consumer Australia",
+    "locations": [
+      "Sydney, Australia"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Director--Cost-Governance_R0137455": {
+    "title": "Director, Cost Transformation & Governance",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Scottsdale-Arizona-United-States-of-America/Director--Cybersecurity-Engineering_R0137863": {
+    "title": "Director, Cybersecurity Engineering",
+    "locations": [
+      "Scottsdale, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Director--Data-Analytics_R0137485": {
+    "title": "Director, Data Analytics",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--Debit---Money-Management-Engineering_R0138171-1": {
+    "title": "Director, Debit & Money Management Engineering",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Director--Enterprise-Quality-team_R0137774": {
+    "title": "Director, Enterprise Quality team",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Director--Experience-Design-Systems_R0137762": {
+    "title": "Director, Experience Design Systems",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--Large-Enterprise_R0138017": {
+    "title": "Director, Large Enterprise",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Director--PBP-M-A_R0137780": {
+    "title": "Director, PBP M&A",
+    "locations": [
+      "Austin, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--Pilot_R0137274": {
+    "title": "Director, Pilot",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Director--Product-Management_R0138046": {
+    "title": "Director, Product Management",
+    "locations": [
+      "Austin, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Director--Merchant-and-eComm-Experience_R0137480": {
+    "title": "Director, Product Management \u2013 BNPL Merchant Experiences",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Director--Seller-Experience---Productivity_R0137486": {
+    "title": "Director, Seller Experience & Productivity",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/London-County-London-England-United-Kingdom/Director--Small-and-Medium-Business--UK_R0137421-1": {
+    "title": "Director, Small and Medium Business  UK",
+    "locations": [
+      "London, UK"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--TE-FP-A_R0138003": {
+    "title": "Director, TE FP&A",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Scottsdale-Arizona-United-States-of-America/PCR-Security-Reviewer_R0137422-1": {
+    "title": "PCR Security Reviewer",
+    "locations": [
+      "Scottsdale, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Scottsdale-Arizona-United-States-of-America/Security-Consultant_R0137423-1": {
+    "title": "Security Consultant",
+    "locations": [
+      "Scottsdale, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Central-Singapore-Singapore/Senior-Cybersecurity-Engineer_R0137321": {
+    "title": "Senior Cybersecurity Engineer",
+    "locations": [
+      "Central Singapore, Singapore"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Central-Singapore-Singapore/Senior-Cybersecurity-Threat-Analyst_R0135904-1": {
+    "title": "Senior Cybersecurity Threat Analyst",
+    "locations": [
+      "Central Singapore, Singapore"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Sr-Cybersecurity-Engineer_R0137313-1": {
+    "title": "Senior Product Security Engineer",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Sr-Director--Product-Management--Crypto_R0137328": {
+    "title": "Sr Director, Product Management, Crypto",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Sr-Cyber-Security-Engineer_R0137891": {
+    "title": "Sr. Cyber Security Engineer",
+    "locations": [
+      "Austin, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Sr-Cybersecurity-Engineer_R0137865": {
+    "title": "Sr. Cybersecurity Engineer",
+    "locations": [
+      "Austin, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Sr-Director--Enterprise-Quality_R0138220": {
+    "title": "Sr. Director, Enterprise Quality",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Sr-Director--Revolving-Credit-Product_R0137478": {
+    "title": "Sr. Director, Revolving Credit Product",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Sr-Manager--Cybersecurity-Threat-Analysis_R0137353-1": {
+    "title": "Sr. Manager, Cybersecurity Threat Analysis",
+    "locations": [
+      "Austin, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Chicago-Illinois-United-States-of-America/Sr-Staff-Cybersecurity-Engineer_R0137317-1": {
+    "title": "Sr. Staff Product Security Engineer- AI",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Chicago-Illinois-United-States-of-America/Sr-Staff--Cybersecurity-Risk_R0137389-1": {
+    "title": "Sr. Staff, Cybersecurity Risk",
+    "locations": [
+      "Chicago, USA"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Central-Singapore-Singapore/Staff-Cybersecurity-Threat-Analyst_R0137949": {
+    "title": "Staff Cybersecurity Threat Analyst",
+    "locations": [
+      "Central Singapore, Singapore"
+    ],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Staff-Product-Security-AI-Engineer_R0137563": {
+    "title": "Staff Product Security AI Engineer",
+    "locations": [],
+    "source": "PayPal"
+  },
+  "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/London-County-London-England-United-Kingdom/UK-Cyber-Security---Risk-Senior-Manager_R0136276-1": {
+    "title": "UK Cyber Security & Risk Senior Manager",
+    "locations": [
+      "London, UK"
+    ],
+    "source": "PayPal"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Virginia---Mclean/Account-Partner-Senior-Director_JR357884-1": {
+    "title": "Account Partner Senior Director",
+    "locations": [
+      "Virginia - Mclean"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/BISO---Product-Security--Multiple-Levels-_JR357070": {
+    "title": "BISO - Product Security (Multiple Levels)",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Customer-Strategy---Planning-Director--Agentforce-Operations_JR361367": {
+    "title": "Customer Strategy & Planning Director, Agentforce Operations",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Florida---Remote/Data---AI-Practice--Architect-Director---Data-360_JR359765": {
+    "title": "Data + AI Practice, Architect Director - Data 360",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Director-of-Product-Management--Agent-Native-Web-Experiences_JR355984-1": {
+    "title": "Director of Product Management, Agent-Native Web Experiences",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/France---Paris/Director-of-Product-Strategy---Office-of-the-CEO_JR360050-1": {
+    "title": "Director of Product Strategy - Office of the CEO",
+    "locations": [
+      "France - Paris"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Director-of-Software-Engineering--Data-_JR359867": {
+    "title": "Director of Software Engineering (Data)",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Director--AI---Tooling_JR353524": {
+    "title": "Director, AI & Tooling",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Indiana---Indianapolis/Human-AI-Collaboration-Director_JR351019": {
+    "title": "Director, Human-AI Collaboration",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Director--Product-Management---Campaign-Brief-Agent_JR355350": {
+    "title": "Director, Product Management \u2014 Campaign Brief Agent",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/United-Kingdom---London/Director--Product-Solutions---Life-Sciences_JR359251": {
+    "title": "Director, Product Solutions - Life Sciences",
+    "locations": [
+      "United Kingdom - London"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/India---Bangalore/Senior-Director--Renewals_JR327643": {
+    "title": "Director, Renewals",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/India---Bangalore/Director--Strategy---Enablement_JR340233": {
+    "title": "Director, Strategy & Enablement",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Director--Workforce-Operations--Data-Solutions_JR341047": {
+    "title": "Director, Workforce Operations, Data Solutions",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Brazil---Remote/Engagement-Delivery-Director_JR360959-1": {
+    "title": "Engagement Delivery Director",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Enterprise-Endpoint-Security-Architect_JR358423": {
+    "title": "Enterprise Endpoint Security Architect",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/New-York---New-York/Enterprise-Security-Partner--Multiple-Levels----Senior-Analyst---Lead---Senior-Lead_JR359834": {
+    "title": "Enterprise Security Partner (Multiple Levels) - Senior Analyst / Lead / Senior Lead",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/India---Hyderabad/Instructors-Senior-FY27-Q3_JR355901": {
+    "title": "Instructors Senior-FY27-Q3",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/India---Hyderabad/Instructors-Senior-FY27-Q3_JR355904": {
+    "title": "Instructors Senior-FY27-Q3",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Member-of-Technical-Staff---Machine-Learning---Agent-Security-Engineering_JR358244": {
+    "title": "Member of Technical Staff \u2014 Machine Learning & Agent Security Engineering",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Portfolio-Leader--Manager-Sr-Manager-Director-_JR349478": {
+    "title": "Portfolio Leader (Manager/Director Levels)",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Massachusetts---Boston/Product-Management-Senior-Director_JR360464": {
+    "title": "Product Management Senior Director",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Product-Security_JR358978": {
+    "title": "Product Security Engineer",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Product-Security-Engineer--Senior_JR358976": {
+    "title": "Product Security Engineer, Senior",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Product-Security-Lead_JR358501": {
+    "title": "Product Security Lead",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Product-Security-Senior_JR358508": {
+    "title": "Product Security Senior",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Product-Security-Senior_JR355872-1": {
+    "title": "Product Security Senior",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Illinois---Chicago/Program-Executive-Sr-Director--Health-Life-Science-_JR360743": {
+    "title": "Program Executive Sr. Director (Health Life Science)",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/United-Kingdom---London/RVP--Agentforce_JR362089": {
+    "title": "RVP, Agentforce",
+    "locations": [
+      "United Kingdom - London"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Security-Engineer--Senior-Lead----MeshMesh_JR361086": {
+    "title": "Security Engineer (Senior/Lead) - MeshMesh",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Washington---Bellevue/Senior--SMTS--Endpoint-Security-Software--Engineer_JR359790": {
+    "title": "Senior (SMTS) Endpoint Security Software  Engineer",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Senior-Director-Service-Strategy--Core--and-AI_JR355117": {
+    "title": "Senior Director Service Strategy, Core, and AI",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Indiana---Indianapolis/Employee-Success-Business-Partner-Director_JR346977": {
+    "title": "Senior Director, Employee Success Business Partner",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/United-Kingdom---London/Senior-Director--Field-Service_JR345652": {
+    "title": "Senior Director, Field Service",
+    "locations": [
+      "United Kingdom - London"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/New-York---New-York/Senior-Director--Product-Design---Ecosystem_JR359981-1": {
+    "title": "Senior Director, Product Design - Ecosystem",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Senior-Director--Security-Engineering---Slack_JR361721-2": {
+    "title": "Senior Director, Security Engineering - Slack",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Senior-Director--Security-Vendor---Technology-Strategy_JR359021": {
+    "title": "Senior Director, Security Vendor & Technology Strategy",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Illinois---Chicago/Senior-Director--Tableau-AMER_JR359857-1": {
+    "title": "Senior Director, Tableau AMER",
+    "locations": [
+      "Illinois - Chicago"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Senior-Director--Technology-Program-Management_JR359859-1": {
+    "title": "Senior Director, Technology Program Management",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Illinois---Chicago/Senior-Instructor---Tableau_JR359561": {
+    "title": "Senior Instructor - Tableau",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---Remote/Senior-Offensive-Security-Engineer--Red-Team-_JR332452-1": {
+    "title": "Senior Offensive Security Engineer (Red Team)",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Indiana---Remote/Senior-Technical-Architect---Technical-Architect-Director---Data-Foundation-Delivery_JR361479-1": {
+    "title": "Senior Technical Architect / Technical Architect Director - Data Foundation Delivery",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Slack-VP--Product-Design--Individual-Contributor--Principal-Architect-_JR358869": {
+    "title": "Slack VP, Product Design (Individual Contributor; Principal Architect)",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Senior-Software-Security-Engineering_JR328549": {
+    "title": "Software Security Engineer (Distributed Systems)",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Sr-Director---Software-Engineering_JR352407": {
+    "title": "Sr. Director - Software Engineering",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Sr-Director-of-Product-Management--Data-360_JR361847": {
+    "title": "Sr. Director of Product Management, Data 360",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Sr-Director--Ecosystem_JR362298": {
+    "title": "Sr. Director, Ecosystem",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Indiana---Indianapolis/Sr-Manager--HRIS-Data-Strategy---Security_JR345412": {
+    "title": "Sr. Manager, HRIS Data Strategy & Security",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Sr-Manager-Director--Strategy--Operations---Program-Management--Maestro_JR360276": {
+    "title": "Sr. Manager/Director, Strategy, Operations & Program Management, Maestro",
+    "locations": [
+      "California - San Francisco"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Illinois---Chicago-Metro---Remote/Technical-Architect--Products--Auto--Consumer--Or-Energy-Industry-_JR358273": {
+    "title": "Sr. Technical Architect / Technical Architect Director - PACE (Products, Auto, Consumer, Or Energy Industry)",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/SVP--Experience-Strategy---Studio---Experience---Design-Org_JR360044": {
+    "title": "SVP, Experience Strategy & Studio - Experience Design",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/SVP--Global-Solution-Engineering----Tableau_JR359775": {
+    "title": "SVP, Global Solution Engineering  - Tableau",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/SVP--Research---Insights---Experience---Design-Org_JR360043": {
+    "title": "SVP, Research & Insights - Experience Design",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Canada---Toronto/Technical-Architect-Director---PubSec---Mulesoft-Canada_JR362275": {
+    "title": "Technical Architect Director - PubSec - Mulesoft Canada",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Illinois---Chicago/Technology-Program-Management-Director_JR356566": {
+    "title": "Technology Program Management Director",
+    "locations": [
+      "Illinois - Chicago"
+    ],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/VP--Alliances---Partner-Account-Management--Accenture_JR341265": {
+    "title": "VP, Alliances - Partner Account Management, Accenture",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Illinois---Chicago/VP--Success-Management---Portfolio-Leader_JR351656": {
+    "title": "VP, Success Management - Portfolio Leader",
+    "locations": [],
+    "source": "Salesforce"
   }
 }

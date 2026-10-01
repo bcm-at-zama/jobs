@@ -1,6 +1,34 @@
 Companies to add later
 ======================
 
+How to probe a broken source
+----------------------------
+For each company marked [BROKEN], here's what to send me so I can fix the config.
+
+**Workday (board_id wrong, got 404/422):**
+1. Google "<Company> careers" → open the official careers page.
+2. Click "Search jobs" or "View all jobs".
+3. Watch the URL in the address bar. It should look like
+   `https://<tenant>.wd<N>.myworkdayjobs.com/<board_id>` (sometimes with `/en-US/`).
+4. Send me that URL verbatim.
+
+**Greenhouse (slug wrong, got 404):**
+1. Google "<Company> jobs greenhouse" or go to their careers.
+2. Click any job → the URL should be `boards.greenhouse.io/<slug>/jobs/<id>`
+   OR `job-boards.greenhouse.io/<slug>/jobs/<id>`.
+3. Send me the <slug> part.
+4. If the URL is not greenhouse, send me the real ATS URL (lever.co, workable.com,
+   smartrecruiters.com, ashbyhq.com, etc.) and the slug.
+
+**Playwright (page has no job HTML links):**
+1. Click any job on the company's careers page.
+2. The job detail URL is usually a totally different domain (greenhouse,
+   smartrecruiters, workable, etc.) — the ATS.
+3. Send me ONE example job URL; I'll figure out the ATS and add it properly.
+
+
+
+
 Effort ranking:
   [P]  = ~1h Playwright custom scraper (small board or unique HTML)
   [W]  = Workday-based — NOW SUPPORTED (kind: "workday"). See "Workday usage"
@@ -15,7 +43,7 @@ Effort ranking:
 
 ### HIGH VALUE (matches Benoit's profile — crypto / dev tools / French)
 
-  GitGuardian          [P]  French secrets-scanning security co — very relevant
+  GitGuardian          [DONE 2026-10-01] added as pw — job cards served on gitguardian.com/job-openings/<id>-<slug>
   BlaBlaCar            [P]  French travel — SmartRecruiters
   Contentsquare        [P]  French analytics — SmartRecruiters
   Aikido               [P]  Belgian appsec — greenhouse.io/aikido (embed only?)
@@ -24,12 +52,12 @@ Effort ranking:
   Arnica               [??] Israeli appsec
   Latacora             [??] US security consultancy
   NCC Group            [W]  UK security consultancy — NOW UNLOCKABLE
-  Groq                 [W]  LPU inference chips — NOW UNLOCKABLE
+  Groq                 [DEFERRED 2026-10-01] groq.com/careers redirects to groq.com with no visible careers page. Revisit later.
   Sakana AI            [W]  Tokyo AI lab — flaky Workable, keep an eye on it
 
 ### MEDIUM VALUE (music tech — Benoit's founder space)
 
-  Native Instruments proper (post-Soundwide merger) [P]
+  Native Instruments   [BROKEN 2026-10-01] careers page has no job HTML links (JS). REMOVED. Need user to find real ATS URL.
   Splash               [P]  music AI
   Serato               [P]  DJ software
   Bandcamp             [P]  Epic Games subsidiary
@@ -37,38 +65,38 @@ Effort ranking:
   Spotify              [W]  NOW UNLOCKABLE
   LANDR                [P]  Montreal — mastering / music AI
   Roli                 [P]  London MIDI hardware
-  Bitwig               [P]  Berlin — DAW
-  Sequential           [P]  Focusrite subsidiary
-  Avid                 [W]  NOW UNLOCKABLE — Pro Tools
+  Bitwig               [DEFERRED 2026-10-01] bitwig.com/jobs = 404, bitwig.com/about has 0 openings. Revisit later.
+  Sequential           [DEFERRED 2026-10-01] 0 open positions. Revisit later.
+  Avid                 [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe real URL.
   Deezer               [P]  Paris — French streaming
   Tidal                [P]  Block subsidiary but separate ATS
-  Beatport             [P]  Denver electronic-music store
+  Beatport             [DEFERRED 2026-10-01] about.beatport.com/careers exists but 0 open positions. Revisit later.
 
 ### GAFAM-adjacent (Workday unlocked — see below)
 
-  Amazon / AWS         [W]  NOW UNLOCKABLE (huge volume — beware token cost)
-  Adobe                [W]  NOW UNLOCKABLE
-  Salesforce / Slack   [W]  NOW UNLOCKABLE
-  Intel                [W]  NOW UNLOCKABLE
-  Qualcomm             [W]  NOW UNLOCKABLE
-  Samsung              [P]  proprietary careers site
-  IBM                  [W]  NOW UNLOCKABLE
+  Amazon / AWS         [W]  SKIPPED — amazon.jobs is custom (not Workday), + huge volume
+  Adobe                [DONE 2026-10-01] added as workday
+  Salesforce / Slack   [DONE 2026-10-01] added as workday
+  Intel                [DONE 2026-10-01] added as workday
+  Qualcomm             [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe.
+  Samsung              [P]  proprietary careers site — SKIPPED pending scraper
+  IBM                  [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe.
   Uber                 [SR] smartrecruiters
-  Netflix              [W]  NOW UNLOCKABLE
-  Palantir             [W]  NOW UNLOCKABLE
-  Tesla                [W]  NOW UNLOCKABLE
+  Netflix              [DONE 2026-10-01] added as eightfold (new fetcher kind). Host: explore.jobs.netflix.net, domain: netflix.com
+  Palantir             [DONE 2026-10-01] added as lever (new fetcher kind). URL confirmed: jobs.lever.co/palantir/<uuid>
+  Tesla                [W]  SKIPPED — proprietary Taleo-based ATS, needs custom fetcher
   ByteDance / TikTok   [P]  proprietary (jobs.bytedance.com)
   Booking.com          [W]  NOW UNLOCKABLE
   Shopify              [SR] smartrecruiters (careers.shopify.com)
-  PayPal               [W]  NOW UNLOCKABLE
-  SAP                  [SF] NOW UNLOCKABLE (successfactors)
-  Oracle               [W]  Oracle has its own recruiter tool — variant of Workday
+  PayPal               [DONE 2026-10-01] added as workday
+  SAP                  [DONE 2026-10-01] added as successfactors
+  Oracle               [W]  SKIPPED — Oracle iRecruitment is NOT a Workday variant (TODO.txt note was wrong). Needs custom fetcher.
   ServiceNow           [SR] smartrecruiters
   Atlassian            [SR] smartrecruiters
   Zoom                 [W]  NOW UNLOCKABLE
-  Unity                [W]  NOW UNLOCKABLE
-  Cisco                [W]  NOW UNLOCKABLE
-  VMware / Broadcom    [W]  NOW UNLOCKABLE (post-acquisition)
+  Unity                [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe.
+  Cisco                [BROKEN 2026-10-01] jobs.cisco.com is not a Workday URL. REMOVED. Need user to probe their real Workday URL.
+  VMware / Broadcom    [BROKEN 2026-10-01] workday tenant/board wrong (404). REMOVED. Need user to probe.
 
 ### Music wave 5 skipped / hard-to-scrape
 

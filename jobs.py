@@ -417,6 +417,99 @@ def normalize_workable(raw, account_slug=""):
     return out
 
 
+def fetch_eightfold(source):
+    """Eightfold.ai careers (used by Netflix via explore.jobs.netflix.net,
+    and many Fortune 500s). Config keys:
+      - `host`   : the public base URL (e.g. https://explore.jobs.netflix.net)
+      - `domain` : the Eightfold `domain` filter (e.g. netflix.com)
+    API: GET {host}/api/apply/v2/jobs?domain=<domain>&num=50&start=<offset>
+    """
+    host = (source.get("host") or "").rstrip("/")
+    domain = source.get("domain") or ""
+    if not host or not domain:
+        err(f"[{source['name']}] Eightfold needs host + domain")
+        return {"jobs": [], "spontaneous_url": None}
+    out = []
+    total_board = None
+    offset = 0
+    num = 50
+    while True:
+        api = (
+            f"{host}/api/apply/v2/jobs?"
+            f"domain={urllib.parse.quote(domain)}&num={num}&start={offset}&sort_by=relevance"
+        )
+        try:
+            req = urllib.request.Request(api, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                page = json.load(resp)
+        except Exception as e:
+            err(f"[{source['name']}] Eightfold page {offset} failed: {e}")
+            break
+        positions = page.get("positions") or []
+        if total_board is None:
+            total_board = page.get("count") or 0
+        if not positions:
+            break
+        for p in positions:
+            pid = p.get("id") or p.get("canonical_positionId") or ""
+            title = p.get("name") or ""
+            loc = p.get("location") or ""
+            locs = p.get("locations") if isinstance(p.get("locations"), list) else []
+            if loc and loc not in locs:
+                locs = [loc] + locs
+            team = p.get("team") or ""
+            desc = p.get("job_description") or ""
+            url_full = f"{host}/careers?pid={pid}&domain={urllib.parse.quote(domain)}&sort_by=relevance" if pid else ""
+            out.append({
+                "title": title,
+                "locations": locs,
+                "url": url_full,
+                "description": desc,
+                "blob": " ".join([title, team]),
+            })
+        offset += num
+        if len(out) >= (total_board or 0):
+            break
+        if offset >= 1000:
+            break   # safety cap
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": total_board or len(out)}
+
+
+def fetch_lever(source):
+    """Lever (jobs.lever.co) — public JSON API. Returns the full posting list.
+    Docs: https://github.com/lever/postings-api"""
+    slug = source["slug"]
+    url = f"https://api.lever.co/v0/postings/{slug}?mode=json"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = json.load(resp)
+    except Exception as e:
+        err(f"[{source['name']}] Lever fetch failed: {e}")
+        return {"jobs": [], "spontaneous_url": None}
+    all_jobs = []
+    for p in raw if isinstance(raw, list) else []:
+        title = p.get("text") or ""
+        cat = p.get("categories") or {}
+        locs = []
+        loc = cat.get("location") or ""
+        if loc: locs.append(loc)
+        team = cat.get("team") or ""
+        desc = p.get("descriptionPlain") or p.get("description") or ""
+        all_jobs.append({
+            "title": title,
+            "locations": locs,
+            "url": p.get("hostedUrl") or "",
+            "description": desc,
+            "blob": " ".join([title, team, cat.get("commitment", "")]),
+        })
+    matched = [j for j in all_jobs if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(all_jobs),
+            "total_board": len(all_jobs)}
+
+
 def fetch_workable(source):
     slug = source["slug"]
     url = f"https://apply.workable.com/api/v3/accounts/{slug}/jobs"
@@ -2098,6 +2191,8 @@ FETCHERS = {
     "ashby": fetch_ashby,
     "greenhouse": fetch_greenhouse,
     "workable": fetch_workable,
+    "lever": fetch_lever,
+    "eightfold": fetch_eightfold,
     "apple": fetch_apple,
     "google": fetch_google,
     "microsoft": fetch_microsoft,
@@ -3395,7 +3490,20 @@ def _flatten_locations(locs):
             best[key] = (score, display)
         elif score > best[key][0]:
             best[key] = (score, display)
-    return [best[k][1] for k in order]
+    results = [best[k][1] for k in order]
+    # Third pass: drop a bare country ("UK") when any other result already
+    # references that country ("London, UK") — the bare entry is redundant.
+    # Only runs when the input had 2+ entries so we don't strip single-value
+    # legitimate "UK"-only jobs.
+    if len(results) > 1:
+        countries_in_cities = set()
+        for r in results:
+            if "," in r:
+                tail = r.rsplit(",", 1)[1].strip().lower()
+                if tail:
+                    countries_in_cities.add(tail)
+        results = [r for r in results if "," in r or r.strip().lower() not in countries_in_cities]
+    return results
 
 
 def dedup_by_url(jobs):
@@ -3664,12 +3772,17 @@ def _render_role_long(text):
     return "".join(out)
 
 
-def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None, app_rejected=None, history=None, history_jobs=None, fetched_count=None):
+def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None, app_rejected=None, history=None, history_jobs=None, fetched_count=None, display_name=None):
     to_apply = to_apply or set()
     applied = applied or set()
     app_rejected = app_rejected or {}
     history = history or set()
     history_jobs = history_jobs or []
+    # `name` is the stable internal key used for sid / state attribution.
+    # `display_name` is what gets rendered in the H1 and board link, so
+    # a source like inMusic Brands can display as "inMusic Brands
+    # (including Native Instruments)" without breaking job_index/GROUP_OF.
+    display = display_name or name
     sid = slug(name)
     def _state_rank(u):
         # Lower rank = higher on the page.
@@ -3923,8 +4036,8 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
     )
     board_link = (
         f'<a class="board-link" href="{html.escape(board_url, quote=True)}" '
-        f'target="_blank" rel="noopener">{html.escape(name)}</a>'
-        if board_url else html.escape(name)
+        f'target="_blank" rel="noopener">{html.escape(display)}</a>'
+        if board_url else html.escape(display)
     )
     # Company info line: blurb + employees + revenue. Only rendered when
     # we have data for the company; empty otherwise.
@@ -4118,21 +4231,19 @@ def render_html_nav(entries):
         return "no-fetched"
     by_group = {g: [] for g in GROUP_ORDER}
     for entry in entries:
-        # Back-compat: entries may be 2-, 3-, or 4-tuples. Pad to 4 with defaults.
-        padded = entry + ("",) * (4 - len(entry)) if len(entry) < 4 else entry
-        name, visible_count, fetched_count, error = padded[:4]
+        # Back-compat: entries may be 2-, 3-, 4- or 5-tuples. Pad to 5 with defaults.
+        padded = tuple(entry) + ("",) * (5 - len(entry)) if len(entry) < 5 else tuple(entry)
+        name, visible_count, fetched_count, error, display_name = padded[:5]
         group = GROUP_OF.get(name, "Other")
-        by_group.setdefault(group, []).append((name, visible_count, fetched_count, error))
+        by_group.setdefault(group, []).append((name, visible_count, fetched_count, error, display_name))
     rows = []
     for group in GROUP_ORDER + [g for g in by_group if g not in GROUP_ORDER]:
         items = by_group.get(group) or []
         if not items:
             continue
         items.sort(key=lambda kv: kv[0].lower())
-        def _btn_html(name, visible_count, fetched_count, error):
+        def _btn_html(name, visible_count, fetched_count, error, display_name):
             cls = _btn_class(visible_count, fetched_count, error)
-            # Tooltip: what's wrong for grey/orange/red pills so hover
-            # explains what happened without reading the docs.
             tooltip = {
                 "broken":     f"Scraper crashed: {error}" if error else "Scraper crashed",
                 "no-fetched": "Source returned 0 jobs this run — probably blocked, URL changed, or the board is empty.",
@@ -4140,15 +4251,16 @@ def render_html_nav(entries):
                 "has-jobs":   f"{visible_count} job(s) match your filters.",
             }.get(cls, "")
             title_attr = f' title="{html.escape(tooltip, quote=True)}"' if tooltip else ""
+            label = display_name or name
             return (
                 f'<a class="nav-btn {cls}" '
                 f'href="#{slug(name)}" data-fetched="{fetched_count}"{title_attr}>'
-                f'{html.escape(name)} '
+                f'{html.escape(label)} '
                 f'(<span class="nav-count">{visible_count}</span>)</a>'
             )
         buttons = "".join(
-            _btn_html(name, visible_count, fetched_count, error)
-            for name, visible_count, fetched_count, error in items
+            _btn_html(name, visible_count, fetched_count, error, display_name)
+            for name, visible_count, fetched_count, error, display_name in items
         )
         rows.append(
             '    <div class="nav-row">'
@@ -4643,6 +4755,18 @@ HTML_TEMPLATE = """<!doctype html>
     /* Purple "C" button — ask Claude to rate ALL visible jobs. */
     .claude-c-btn { margin-left: 0.4rem; background: #d0bfff; color: #6639ba; font-size: 1.1rem; }
     .claude-c-btn:hover { background: #b197fc; }
+    /* Settings gear next to C — set/clear the pinned Claude URL. Same
+       circle size as R / AI / C; glyph size bumped so the gear visually
+       matches the letter buttons (⚙ renders smaller at the same em).
+       Green by default, deeper green when a URL is pinned. */
+    .claude-chat-url-btn {
+      margin-left: 0.4rem;
+      background: #b2f2bb; color: #2b8a3e;
+      font-size: 1.8rem;
+    }
+    .claude-chat-url-btn:hover { background: #8ce99a; color: #1b5e20; }
+    .claude-chat-url-btn.has-url { background: #2b8a3e; color: #ffffff; }
+    .claude-chat-url-btn.has-url:hover { background: #1b5e20; }
     .rescore-btn:hover { background: #74c0fc; }
     .rescore-btn.busy .rescore-icon {
       animation: refresh-spin 1s linear infinite;
@@ -5092,6 +5216,11 @@ HTML_TEMPLATE = """<!doctype html>
     .paste-bar-label {
       grid-column: 1 / 2; font-size: 0.82rem; color: var(--fg-muted);
     }
+    .paste-bar-hint {
+      grid-column: 1 / 3; font-size: 0.82rem; color: var(--attention);
+      margin-bottom: 0.2rem;
+    }
+    .paste-bar-hint strong { color: var(--severe); }
     #claude-paste-area {
       grid-column: 1 / 2;
       width: 100%; box-sizing: border-box;
@@ -5158,16 +5287,35 @@ HTML_TEMPLATE = """<!doctype html>
       font-weight: 600;
       cursor: help;
     }
-    /* Claude /10 fit badge — green for ≥8, orange for 5-7, grey otherwise. */
+    /* Claude /10 fit badge — unified red style. */
     .badge.claude-fit {
       font-weight: 700;
       cursor: help;
       min-width: 2rem;
       text-align: center;
+      color: #ffffff;
+      background: var(--danger);
+      border-color: var(--danger-emphasis);
     }
-    .badge.claude-fit.fit-hi  { color: #ffffff;      background: var(--success); border-color: var(--success); }
-    .badge.claude-fit.fit-mid { color: var(--attention); background: #fff8c5;    border-color: rgba(154,103,0,0.4); }
-    .badge.claude-fit.fit-lo  { color: var(--fg-muted); background: var(--bg-subtle); border-color: var(--border); }
+    /* Floating tooltip appended to <body> on mouseenter so no parent's
+       overflow:hidden can clip it. Styled here. */
+    .claude-fit-tooltip {
+      position: fixed;
+      max-width: 32rem;
+      padding: 0.5rem 0.7rem;
+      font-weight: 500;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      white-space: normal;
+      text-align: left;
+      color: var(--fg);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      z-index: 10000;
+      pointer-events: none;
+    }
     .badge.ic-level {
       border-color: rgba(154, 103, 0, 0.4);
       color: var(--attention);
@@ -6141,6 +6289,9 @@ function _renderClaudeFitOnLi(li, score, reason) {
   const summary = li?.querySelector('summary');
   if (!summary) return;
   let badge = summary.querySelector('.badge.claude-fit');
+  // Clean up any legacy inline reason span from the previous iteration.
+  const stale = summary.querySelector('.claude-fit-reason');
+  if (stale) stale.remove();
   if (!score) {
     if (badge) badge.remove();
     return;
@@ -6148,19 +6299,22 @@ function _renderClaudeFitOnLi(li, score, reason) {
   if (!badge) {
     badge = document.createElement('span');
     badge.className = 'badge claude-fit';
-    // Place after seniority badge if present, otherwise after the title.
     const anchor = summary.querySelector('.badge.xp')
                 || summary.querySelector('.badge.seniority')
                 || summary.querySelector('.title');
     if (anchor) anchor.after(badge); else summary.appendChild(badge);
   }
   const n = parseInt(score, 10);
-  badge.classList.remove('fit-hi','fit-mid','fit-lo');
-  if (n >= 8)      badge.classList.add('fit-hi');
-  else if (n >= 5) badge.classList.add('fit-mid');
-  else             badge.classList.add('fit-lo');
-  badge.title = 'Claude fit score — ' + (reason || 'click C to re-score');
-  badge.textContent = 'C ' + n + '/10';
+  // Custom tooltip via data-tooltip (instant on hover — the native title
+  // attribute has a 500-1000ms delay). CSS below styles .badge.claude-fit:hover::after.
+  if (reason) {
+    badge.dataset.tooltip = reason;
+    badge.removeAttribute('title');
+  } else {
+    badge.title = 'Click C to re-score';
+    delete badge.dataset.tooltip;
+  }
+  badge.textContent = 'Score: ' + n + '/10';
 }
 function _applyClaudeFitsToDOM() {
   const map = _loadClaudeFits();
@@ -6187,6 +6341,48 @@ function _applyClaudeFitsToDOM() {
 // Hydrate badges on first render.
 _applyClaudeFitsToDOM();
 
+// Floating tooltip for Claude fit badges — instant on hover, independent
+// of any parent's overflow:hidden (appended to <body>).
+(function _wireClaudeFitTooltip() {
+  let tip = null;
+  const show = (badge) => {
+    const text = badge.dataset.tooltip;
+    if (!text) return;
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.className = 'claude-fit-tooltip';
+      document.body.appendChild(tip);
+    }
+    tip.textContent = text;
+    const rect = badge.getBoundingClientRect();
+    tip.style.visibility = 'hidden';
+    tip.style.left = '0px';
+    tip.style.top = '0px';
+    // Measure after setting the text so width is correct.
+    const tipRect = tip.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
+    let top = rect.top - tipRect.height - 8;
+    // Keep inside viewport horizontally.
+    const margin = 8;
+    left = Math.max(margin, Math.min(left, window.innerWidth - tipRect.width - margin));
+    // If no room above, flip to below.
+    if (top < margin) top = rect.bottom + 8;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    tip.style.visibility = 'visible';
+  };
+  const hide = () => { if (tip) tip.style.visibility = 'hidden'; };
+  // Delegate so it works for badges created after initial render.
+  document.addEventListener('mouseover', (e) => {
+    const badge = e.target.closest?.('.badge.claude-fit[data-tooltip]');
+    if (badge) show(badge);
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (e.target.closest?.('.badge.claude-fit[data-tooltip]')) hide();
+  });
+  window.addEventListener('scroll', hide, true);
+})();
+
 function _collectVisibleJobUrls() {
   const urls = [];
   const seen = new Set();
@@ -6197,57 +6393,20 @@ function _collectVisibleJobUrls() {
   return urls;
 }
 
-// Pull everything Claude needs about every visible job directly from the
-// DOM, so Claude.ai doesn't have to fetch any URL (which would trigger
-// a permission dialog per domain).
-function _collectVisibleJobData() {
-  const out = [];
-  document.querySelectorAll('li.job:not(.hidden)').forEach(li => {
-    const url = li.querySelector('button.like, button.reject')?.dataset.url;
-    if (!url) return;
-    const title = (li.querySelector('.title')?.textContent || '').trim();
-    const section = li.closest('.company-section');
-    // The <h1 id="…"> contains "<board_link> <query_pills> <counter>" — the
-    // first anchor is the company name.
-    const company = section?.querySelector('h1 a.board-link')?.textContent?.trim()
-                 || section?.querySelector('h1 a')?.textContent?.trim()
-                 || '';
-    const locs = (li.dataset.locations || '').trim();
-    const salaryTxt = (li.querySelector('.badge.salary')?.textContent || '')
-      .replace(/^\\s*\\uD83D\\uDCB0\\s*/, '').trim();
-    const descRaw = ((li.querySelector('.desc-body')?.innerText) || '')
-      .trim().replace(/\\s+/g, ' ');
-    const desc = descRaw.length > 2000 ? descRaw.slice(0, 2000) + '…' : descRaw;
-    out.push({ url, title, company, locations: locs, salary: salaryTxt, description: desc });
-  });
-  return out;
-}
-
-// Prompt for a batched Claude.ai scoring request. Includes description
-// excerpts so Claude doesn't need to fetch the URLs (= no permission
-// dialogs), and tells it explicitly not to.
-function _buildClaudeScoringPrompt(jobsData) {
-  const parts = [
-    "Évalue le fit de chacun de ces " + jobsData.length + " jobs par rapport à mon profil (je te le partage sur demande).",
-    "Pour chaque job, donne un score de fit sur 10 et une justification courte.",
-    "",
-    "IMPORTANT : NE FETCH PAS les URLs. Toutes les infos nécessaires sont ci-dessous.",
-    "",
-    "FORMAT STRICT de la réponse — une ligne par job, EXACTEMENT :",
-    "N. X/10 — <justification en une phrase>",
-    "",
-  ];
-  jobsData.forEach((j, i) => {
-    const n = i + 1;
-    parts.push("=== " + n + ". " + (j.title || "(no title)") + " @ " + (j.company || "?"));
-    if (j.locations) parts.push("Location : " + j.locations);
-    if (j.salary)    parts.push("Salary   : " + j.salary);
-    parts.push("URL      : " + j.url);
-    parts.push("");
-    parts.push(j.description || "(no description available)");
-    parts.push("");
-  });
-  return parts.join('\\n');
+// Prompt for a batched Claude.ai scoring request. Claude fetches each URL
+// itself — this gives up-to-date, complete descriptions at the cost of a
+// per-domain permission prompt. User's call: our rendered HTML can be
+// stale/incomplete so forcing Claude to go to the source is preferred.
+function _buildClaudeScoringPrompt(urls) {
+  const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
+  return (
+    "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
+    "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification courte.\\n\\n" +
+    "FORMAT STRICT de la réponse — une ligne par job, EXACTEMENT :\\n" +
+    "N. X/10 — <justification en une phrase>\\n\\n" +
+    "Jobs :\\n" +
+    numbered
+  );
 }
 
 // Parser tolerant to common markdown variants:
@@ -6277,7 +6436,10 @@ function _openClaudePasteBar(urls, promptMode) {
   if (bar) bar.remove();
   // Explain how the Claude tab was opened so the user knows if they need
   // to paste the PROMPT first (long prompts don't fit in the URL).
-  const promptHint = promptMode === 'copied'
+  const promptHint =
+      promptMode === 'copied-to-pinned'
+      ? '<div class="paste-bar-hint">📎 Opened your pinned Claude chat. <strong>⌘V to send the prompt</strong>, then paste the reply here.</div>'
+      : promptMode === 'copied'
       ? '<div class="paste-bar-hint">⚠ Prompt too long for URL — <strong>⌘V in Claude first</strong> to send it, then paste its reply here.</div>'
       : promptMode === 'failed'
       ? '<div class="paste-bar-hint">⚠ Could not copy prompt. Re-click C or dismiss.</div>'
@@ -6339,16 +6501,15 @@ function _openClaudePasteBar(urls, promptMode) {
 // C button — one click: opens Claude.ai with the batched prompt pre-filled
 // AND shows a bottom paste bar for the reply. Zero clicks after that in
 // our UI: paste → auto-save → badges.
-document.getElementById('claude-score-all')?.addEventListener('click', () => {
-  const data = _collectVisibleJobData();
+document.getElementById('claude-score-all')?.addEventListener('click', async () => {
+  const urls = _collectVisibleJobUrls();
   const status = document.getElementById('dump-status');
-  if (!data.length) {
+  if (!urls.length) {
     if (status) { status.textContent = 'No visible jobs to rate.'; setTimeout(() => status.textContent = '', 3000); }
     return;
   }
-  const urls = data.map(j => j.url);
-  openClaudeWithPrompt(_buildClaudeScoringPrompt(data));
-  _openClaudePasteBar(urls);
+  const mode = await openClaudeWithPrompt(_buildClaudeScoringPrompt(urls), status);
+  _openClaudePasteBar(urls, mode);
 });
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
@@ -6746,12 +6907,63 @@ function _openInTab(href) {
     a.remove();
   }, 0);
 }
+// Pinned Claude.ai chat URL — set via the ⚙ button. When present, every C
+// click reuses THIS conversation (so previously granted fetch permissions
+// carry over) and the prompt is copied to the clipboard for pasting.
+const CLAUDE_CHAT_URL_KEY = 'jobs:claude-chat-url:v1';
+function _getPinnedClaudeChatUrl() {
+  try { return (localStorage.getItem(CLAUDE_CHAT_URL_KEY) || '').trim(); }
+  catch (e) { return ''; }
+}
+function _setPinnedClaudeChatUrl(url) {
+  try {
+    if (url) localStorage.setItem(CLAUDE_CHAT_URL_KEY, url);
+    else localStorage.removeItem(CLAUDE_CHAT_URL_KEY);
+  } catch (e) {}
+  // Update the gear badge style so the user sees whether an URL is set.
+  const btn = document.getElementById('claude-chat-url-setup');
+  if (btn) btn.classList.toggle('has-url', !!url);
+}
+// Hydrate the gear's visual state on load.
+(function _syncPinnedChatBtn() {
+  const btn = document.getElementById('claude-chat-url-setup');
+  if (btn && _getPinnedClaudeChatUrl()) btn.classList.add('has-url');
+})();
+
+document.getElementById('claude-chat-url-setup')?.addEventListener('click', () => {
+  const current = _getPinnedClaudeChatUrl();
+  const val = window.prompt(
+    'Pinned Claude.ai conversation URL (leave empty to clear).\\n' +
+    'When set, the C button opens THAT chat instead of a new one — so permissions you granted there carry over. The prompt is copied to clipboard for you to paste.',
+    current
+  );
+  if (val === null) return;
+  const trimmed = val.trim();
+  _setPinnedClaudeChatUrl(trimmed);
+});
+
 // Open claude.ai with the prompt pre-filled when it fits in the URL,
-// otherwise copy to clipboard and open a bare tab. Returns a promise that
-// resolves to "prefilled" / "copied" / "failed" so callers can show the
-// right instruction to the user.
+// otherwise copy to clipboard and open a bare tab. If the user has pinned
+// a chat URL (via ⚙), always open that chat (prompt copied — no ?q= on
+// existing chats). Returns "prefilled" / "copied" / "copied-to-pinned" /
+// "failed" so callers can show the right instruction.
 async function openClaudeWithPrompt(prompt, statusEl) {
   if (!prompt) return 'failed';
+  const pinned = _getPinnedClaudeChatUrl();
+  if (pinned) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(prompt);
+        _openInTab(pinned);
+        return 'copied-to-pinned';
+      } catch (e) {
+        _openInTab(pinned);
+        return 'failed';
+      }
+    }
+    _openInTab(pinned);
+    return 'failed';
+  }
   const target = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
   if (target.length < 7500) {
     _openInTab(target);
@@ -6781,32 +6993,12 @@ document.querySelectorAll('button.ask-claude').forEach(btn => {
     e.stopPropagation();
     const url = btn.dataset.url || '';
     if (!url) return;
-    // Pull the full job data from the same <li> so Claude doesn't have to
-    // fetch the URL (= no permission dialog).
-    const li = btn.closest('li');
-    let prompt;
-    if (li) {
-      const title = (li.querySelector('.title')?.textContent || '').trim();
-      const section = li.closest('.company-section');
-      const company = section?.querySelector('h1 a.board-link')?.textContent?.trim()
-                   || section?.querySelector('h1 a')?.textContent?.trim() || '';
-      const locs = (li.dataset.locations || '').trim();
-      const salary = (li.querySelector('.badge.salary')?.textContent || '')
-        .replace(/^\\s*\\uD83D\\uDCB0\\s*/, '').trim();
-      const descRaw = ((li.querySelector('.desc-body')?.innerText) || '')
-        .trim().replace(/\\s+/g, ' ');
-      const desc = descRaw.length > 3000 ? descRaw.slice(0, 3000) + '…' : descRaw;
-      prompt = _buildClaudeScoringPrompt([{
-        url, title, company, locations: locs, salary, description: desc,
-      }]);
-    } else {
-      // Fallback — no DOM context, just the URL.
-      prompt = (
-        "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-        "Donne-moi un score de fit sur 10 et une brève justification.\\n\\n" +
-        url
-      );
-    }
+    // URL-only — Claude fetches the page itself (fresh / complete info).
+    const prompt = (
+      "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
+      "Va chercher la description sur le site, puis donne-moi un score de fit sur 10 et une brève justification.\\n\\n" +
+      url
+    );
     openClaudeWithPrompt(prompt);
   });
 });
@@ -7096,6 +7288,74 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* --- Keep in history: like reject but posts /history --------------------- */
+// Factored wire function so client-created unkeep buttons behave exactly
+// like server-rendered ones.
+function _wireUnkeepButton(btn) {
+  if (!btn || btn.__wired) return;
+  btn.__wired = true;
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = btn.dataset.url;
+    const li = btn.closest('li.history-job');
+    const block = li?.closest('.history-block');
+    btn.disabled = true;
+    if (li) li.style.opacity = '0.4';
+    try {
+      await apiPost('/unhistory', url);
+      li?.remove();
+      const summary = block?.querySelector('summary');
+      const remaining = block?.querySelectorAll('li.history-job').length ?? 0;
+      if (summary) summary.textContent = remaining + ' kept in history — click to expand';
+      if (remaining === 0 && block) block.remove();
+      // Trigger a refresh so the row comes back into the main list.
+      const rb = document.getElementById('refresh-btn');
+      if (rb && !rb.disabled) rb.click();
+    } catch (err) {
+      btn.disabled = false;
+      if (li) li.style.opacity = '1';
+      alert('Restore failed: ' + err.message);
+    }
+  });
+}
+
+// Insert a job into (or create) the per-section History block, mirroring
+// the server-side layout in render_html_section.
+function _addToHistoryBlock(sid, data) {
+  if (!sid) return;
+  const section = document.querySelector('.company-section[data-section="' + sid + '"]');
+  if (!section) return;
+  let block = section.querySelector(':scope > .history-block[data-section="' + sid + '"]');
+  if (!block) {
+    block = document.createElement('details');
+    block.className = 'history-block';
+    block.dataset.section = sid;
+    block.innerHTML =
+      '<summary>0 kept in history — click to expand</summary>' +
+      '<ul class="history-list"></ul>';
+    // Insert BEFORE the main <ul data-section> (same slot as server render).
+    const mainUl = section.querySelector(':scope > ul[data-section]');
+    if (mainUl) section.insertBefore(block, mainUl);
+    else section.appendChild(block);
+  }
+  const listUl = block.querySelector('.history-list');
+  const li = document.createElement('li');
+  li.className = 'history-job';
+  const safeUrl   = (data.url || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const safeTitle = (data.title || '(no title)').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const safeLocs  = (data.locations || 'N/A').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  li.innerHTML =
+    '<button class="unkeep" data-url="' + safeUrl + '" title="Remove from history (bring back to the main list)">↩</button>' +
+    '<a href="' + safeUrl + '" target="_blank" rel="noopener">' + safeTitle + '</a>' +
+    (data.salaryHtml || '') +
+    '<span class="locs"> — ' + safeLocs + '</span>';
+  listUl.appendChild(li);
+  const n = listUl.querySelectorAll('li.history-job').length;
+  const summary = block.querySelector('summary');
+  summary.textContent = n + ' kept in history — click to expand';
+  _wireUnkeepButton(li.querySelector('.unkeep'));
+}
+
 document.querySelectorAll('button.keep').forEach(btn => {
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -7106,6 +7366,11 @@ document.querySelectorAll('button.keep').forEach(btn => {
     const sid = ul?.dataset.section;
     btn.disabled = true;
     li.style.opacity = '0.3';
+    // Grab everything we need from the li BEFORE removing it.
+    const title = (li.querySelector('.title')?.textContent || '').trim();
+    const locations = (li.dataset.locations || '').trim();
+    const salaryBadge = li.querySelector('.badge.salary');
+    const salaryHtml = salaryBadge ? salaryBadge.outerHTML : '';
     try {
       await apiPost('/history', url);
       // Reuse the reject undo stack — the toast is identical semantics.
@@ -7113,6 +7378,9 @@ document.querySelectorAll('button.keep').forEach(btn => {
       rejectUndoStack.push({url, sid, li, next, ul, kind: 'history'});
       li.remove();
       if (sid) updateCounters(sid, -1, 0);
+      // Mirror the server-side render: move the row into the section's
+      // history block so the user sees it right away without a refresh.
+      _addToHistoryBlock(sid, {url, title, locations, salaryHtml});
       showUndoToast();
     } catch (err) {
       btn.disabled = false;
@@ -7159,37 +7427,9 @@ document.querySelectorAll('.restore').forEach(btn => {
 });
 
 /* --- Restore from the "Kept in history" list --------------------------- */
-document.querySelectorAll('.unkeep').forEach(btn => {
-  btn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const url = btn.dataset.url;
-    const li = btn.closest('li.history-job');
-    const block = li.closest('.history-block');
-    const sid = block?.dataset.section;
-    btn.disabled = true;
-    li.style.opacity = '0.4';
-    try {
-      await apiPost('/unhistory', url);
-      li.remove();
-      const summary = block?.querySelector('summary');
-      const remaining = block?.querySelectorAll('li.history-job').length ?? 0;
-      if (summary) {
-        summary.textContent = remaining + ' kept in history — click to expand';
-      }
-      if (remaining === 0 && block) block.remove();
-      // Re-render via refresh so the row comes back to the main list. Same
-      // rationale as the reject restore path — the static HTML routes the
-      // URL into the history block until we regenerate.
-      const rb = document.getElementById('refresh-btn');
-      if (rb && !rb.disabled) rb.click();
-    } catch (err) {
-      btn.disabled = false;
-      li.style.opacity = '1';
-      alert('Restore failed: ' + err.message);
-    }
-  });
-});
+// Wire all server-rendered unkeep buttons on page load — client-created
+// ones get wired at creation time via _wireUnkeepButton.
+document.querySelectorAll('.unkeep').forEach(_wireUnkeepButton);
 </script>
 </body>
 </html>
@@ -7843,6 +8083,7 @@ def main():
             rejected_jobs=rejected_jobs,
             to_apply=to_apply, applied=applied, app_rejected=app_rejected,
             history=history, history_jobs=history_jobs_here,
+            display_name=src.get("display_name"),
             # Only show "total" when the source can report the true board-wide
             # count (Ashby / Greenhouse / Workable — they return the full list
             # and we filter client-side). Playwright sources search per query
@@ -7857,7 +8098,7 @@ def main():
         # TITLE/LOCATION_BLACKLIST get "no-match" (orange = check your
         # filters), not "no-fetched" (grey = scraper broken).
         _fetched_for_pill = result.get("total_board") or len(all_jobs)
-        nav_entries.append((src["name"], len(visible), _fetched_for_pill, result.get("error") or ""))
+        nav_entries.append((src["name"], len(visible), _fetched_for_pill, result.get("error") or "", src.get("display_name") or ""))
         all_visible.extend(visible)
         # Optional: dump this source's visible jobs' descriptions for audit.
         if dump_dir:
@@ -7992,6 +8233,8 @@ def main():
         f'<span class="rescore-icon" aria-hidden="true">AI</span></button>\n'
         f'    <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" title="Ask Claude to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="Claude fit scores">'
         f'<span aria-hidden="true">C</span></button>\n'
+        f'    <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" title="Set a reusable Claude.ai conversation URL. If set, the C button opens THAT chat (so previous permissions carry over) and copies the prompt to clipboard. Click to set / change / clear." aria-label="Set Claude chat URL">'
+        f'<span aria-hidden="true">⚙</span></button>\n'
         f'  </div>\n' + shortcuts_legend
     )
     # Build a "sources with problems" banner so you can see at a glance

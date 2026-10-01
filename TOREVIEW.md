@@ -1,3 +1,16 @@
 - Director, Supplier Relations APAC
 - IT Ops Engineer
 - Staff Security Governance Engineer, Policies & Standards
+- Director of Product Communications
+- Director, Channel Planning
+- Director, Content Strategy & Insights
+- Director, Corporate Strategy
+- Director, Employee Experience M&A
+- Sr. Director, Strategic Accounts
+- Value Creation Director - Adobe Private Capital
+- Director of Data Governance and Operations
+- Semiconductor Device Modeling Engineer
+- VP, Alliances - Partner Account Management, Accenture
+- VP, Success Management - Portfolio Leader
+- Account Partner Senior Director
+- Instructors Senior-FY27-Q3

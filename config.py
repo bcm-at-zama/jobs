@@ -71,9 +71,9 @@ SCORE_LONG_ROLES = True   # role_long (structured markdown) is the only role out
 # Highlights — words drawn with a marker style in titles + descriptions
 # =============================================================================
 
-HIGHLIGHTS = ["Security", "Manager", "Codex", "Codemender", "Cyber",
+HIGHLIGHTS = ["Security", "Codex", "Codemender", "Cyber",
               "CyberSecurity", "SEAR", "DeepMind", "Researcher", "Logic",
-              "MDASH", "Codex Security", "Claude Security"]
+              "Codex Security", "Claude Security"]
 
 # When titles come from a URL slug (Apple, Google, Ableton, …), each dash is
 # split and each word .capitalize()'d. Add anything here to preserve custom
@@ -525,6 +525,35 @@ SENIORITY_XP = {
         "Senior":       "~5y",
         "Staff":        "~8y",
     },
+    # --- Wave 6 additions ---
+    "Adobe": {
+        "Senior":       "~5y",
+        "Staff":        "~9y",
+        "Principal":    "~13y+",
+    },
+    "Salesforce": {
+        "Senior":       "~5y",
+        "Lead":         "~7y",
+        "Principal":    "~10-12y",
+    },
+    "Intel": {
+        "Senior":       "~5-8y",
+        "Staff":        "~10y",
+        "Principal":    "~13y+",
+    },
+    "PayPal": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "SAP": {
+        "Senior":       "~5-7y",
+        "Principal":    "~10y+",
+    },
+    "GitGuardian": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+    },
 }
 
 # =============================================================================
@@ -755,6 +784,7 @@ SOURCES = [
     {"name": "Softube",              "kind": "bamboohr",   "slug": "softube",              "queries": [],
      "board": "https://softube.bamboohr.com/careers"},
     {"name": "inMusic Brands",       "kind": "pinpoint",   "slug": "inmusicbrands",        "queries": [],
+     "display_name": "inMusic Brands (including Native Instruments)",
      "board": "https://inmusicbrands.pinpointhq.com/"},
     {"name": "Yamaha",               "kind": "umantis",    "slug": "yamaha",               "queries": [],
      "board": "https://recruitingapp-5230.de.umantis.com/Jobs/All",
@@ -800,6 +830,54 @@ SOURCES = [
     # Boss: single page with all listings inline as <h3> — custom fetcher.
     {"name": "Boss",                 "kind": "boss",       "slug": "boss",                 "queries": [],
      "board": "https://www.boss.info/uk/company/employment_opportunities/employment_opportunities/"},
+    # --- Wave 6: Big Tech + GAFAM-adjacent — VERIFIED WORKING ---
+    {"name": "Adobe",                "kind": "workday",    "slug": "adobe",                "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://adobe.wd5.myworkdayjobs.com/external_experienced"},
+    {"name": "Salesforce",           "kind": "workday",    "slug": "salesforce",           "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://salesforce.wd12.myworkdayjobs.com/External_Career_Site"},
+    {"name": "Intel",                "kind": "workday",    "slug": "intel",                "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://intel.wd1.myworkdayjobs.com/External"},
+    {"name": "PayPal",               "kind": "workday",    "slug": "paypal",               "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://paypal.wd1.myworkdayjobs.com/jobs"},
+    {"name": "SAP",                  "kind": "successfactors", "slug": "sap",              "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://jobs.sap.com/search/?q=&locationsearch=&searchResultView=LIST"},
+    # Cisco uses their own careers.cisco.com portal (not Workday). Job URLs:
+    #   https://careers.cisco.com/global/en/job/<id>/<slug>
+    # Scraping the product-and-engineering category page as the listing seed.
+    {"name": "Cisco",                "kind": "pw",         "slug": "cisco",                "queries": [],
+     "board": "https://careers.cisco.com/global/en/c/product-and-engineering-jobs",
+     "search_url": "https://careers.cisco.com/global/en/c/product-and-engineering-jobs",
+     "link_re": r'href="(/global/en/job/\d+/[^"#?]+)"',
+     "origin": "https://careers.cisco.com"},
+
+    # Netflix uses Eightfold.ai with a vanity host. Verified 2026-10-01 via
+    # https://explore.jobs.netflix.net/careers?pid=<id>&domain=netflix.com
+    {"name": "Netflix",              "kind": "eightfold",  "slug": "netflix",              "queries": ["security", "cryptography", "CTO", "VP"],
+     "host": "https://explore.jobs.netflix.net",
+     "domain": "netflix.com"},
+
+    # Palantir uses Lever. Verified 2026-10-01 via sample URL
+    #   https://jobs.lever.co/palantir/<uuid>
+    {"name": "Palantir",             "kind": "lever",      "slug": "palantir",             "queries": ["security", "cryptography", "CTO", "VP"]},
+
+    # GitGuardian — careers page serves job cards directly on their own
+    # domain (not an iframe). URL pattern verified 2026-10-01:
+    #   https://www.gitguardian.com/job-openings/<id>-<title-slug>
+    {"name": "GitGuardian",          "kind": "pw",         "slug": "gitguardian",          "queries": [],
+     "board": "https://www.gitguardian.com/careers",
+     "search_url": "https://www.gitguardian.com/careers",
+     "link_re": r'href="(/job-openings/\d+-[a-z0-9-]+)"',
+     "origin": "https://www.gitguardian.com"},
+
+    # --- Removed on 2026-10-01 (first run returned 404 / 422 / 0 matches) ---
+    # The URLs I guessed were wrong. Pending user to probe real URLs on their Mac
+    # and send them to me — see TODO.txt for the probe instructions. Specifically:
+    #   Qualcomm, IBM, Unity, Cisco, VMware (Broadcom), Avid  — Workday board_id wrong
+    #   Groq, Palantir, GitGuardian, Beatport                 — Greenhouse slug wrong
+    #   Native Instruments, Netflix, Bitwig, Sequential       — Playwright pages don't
+    #                                                           expose job URLs as HTML
+    #                                                           links (JS-rendered).
+
     # NOTE: These sites had static career pages with no scrapable listings.
     # Removed from SOURCES rather than shipping broken/empty entries.
     # Focusrite   — WordPress marketing page, no listings visible
@@ -970,6 +1048,17 @@ COMPANY_INFO = {
     "MOTU":                 {"blurb": "Mark of the Unicorn — Digital Performer DAW + audio interfaces (Ultralite, 828). Cambridge MA HQ. Small, deep DAW/DSP culture.", "employees": "~50", "revenue": "n/a"},
     "Boris FX / iZotope":   {"blurb": "Boris FX group — video/audio VFX tools including Continuum, Sapphire, Mocha (VFX) + iZotope RX/Ozone/Neutron (audio ML). Boston HQ. Iconic post-prod names.", "employees": "~200", "revenue": "n/a"},
     "Boss":                 {"blurb": "Roland's guitar pedal / effects brand — DS-1, Metal Zone, RC-series loopers. Job listings on the shared employment_opportunities page.", "employees": "part of Roland", "revenue": "part of Roland"},
+
+    # --- Wave 6: Big Tech / GAFAM-adjacent (verified working) ---
+    "Adobe":                {"blurb": "Creative Cloud, Photoshop, Premiere, Firefly. Public — San Jose HQ. Big focus on generative AI integration since 2024.", "employees": "~30,000", "revenue": "$21B (FY24)"},
+    "Salesforce":           {"blurb": "CRM giant — plus Slack, Tableau, MuleSoft. San Francisco HQ. Agentforce / Einstein AI push since 2024.", "employees": "~75,000", "revenue": "$35B (FY25)"},
+    "Intel":                {"blurb": "US chip giant — CPUs (Core, Xeon), foundry push. Santa Clara HQ. Ongoing turnaround vs TSMC / AMD.", "employees": "~110,000", "revenue": "$54B (FY24)"},
+    "PayPal":               {"blurb": "Payments / Braintrust / Venmo. San Jose HQ. Big fintech security + fraud focus.", "employees": "~24,000", "revenue": "$32B (FY24)"},
+    "SAP":                  {"blurb": "German enterprise ERP giant — S/4HANA, SuccessFactors, Ariba. Walldorf HQ. Strong security + crypto team.", "employees": "~110,000", "revenue": "€34B (FY24)"},
+    "GitGuardian":          {"blurb": "French secrets-scanning + non-human identity security — scans GitHub / GitLab / Bitbucket for leaked credentials. Paris HQ.", "employees": "~150", "revenue": "~$30M ARR"},
+    "Palantir":             {"blurb": "Foundry (government + enterprise analytics) + AIP. Denver HQ. Public — NYSE. Classified / defense work.", "employees": "~4,000", "revenue": "$2.9B (FY24)"},
+    "Netflix":              {"blurb": "Streaming + original content + gaming. Los Gatos CA HQ. Very strong security + ML infra teams.", "employees": "~14,000", "revenue": "$39B (FY24)"},
+    "Cisco":                {"blurb": "Networking + security giant — Catalyst, Umbrella, Duo, Splunk (post-acquisition). San Jose HQ.", "employees": "~85,000", "revenue": "$54B (FY24)"},
 }
 
 # Merge in the long-form blurbs kept in config_blurbs.py. Any name present in
@@ -1154,6 +1243,17 @@ GROUP_OF = {
     "Slate Digital":         "Music Companies",
     "Output":                "Music Companies",
     "Pioneer DJ":            "Music Companies",
+
+    # --- Wave 6: Big Tech / GAFAM-adjacent (verified working) ---
+    "Adobe":                 "Big Tech",
+    "Salesforce":            "Big Tech",
+    "Intel":                 "Big Tech",
+    "PayPal":                "Big Tech",
+    "SAP":                   "Big Tech",
+    "GitGuardian":           "Security Companies",
+    "Palantir":              "Big Tech",
+    "Netflix":               "Big Tech",
+    "Cisco":                 "Big Tech",
 }
 
 # =============================================================================
