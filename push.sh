@@ -13,6 +13,7 @@ git add liked.json
 git add to_apply.json
 git add job_index.json
 git add history.json
+git add claude_fit_cache.json
 git add TOREVIEW.md
 git add config_blurbs.py
 git commit -am "Update"

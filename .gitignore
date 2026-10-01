@@ -11,7 +11,8 @@ __pycache__/
 
 # NOTE — state files are intentionally NOT ignored (private repo, we want a backup):
 #   liked.json, to_apply.json, applied.json, app_rejected.json, rejected.json,
-#   seen.json, job_index.json, history.json, TOREVIEW.md
+#   seen.json, job_index.json, history.json, TOREVIEW.md,
+#   claude_fit_cache.json (Claude /10 scores — paid work, keep)
 # app_rejected.json contains interview notes/feedback — keep this repo PRIVATE.
 
 # Misc

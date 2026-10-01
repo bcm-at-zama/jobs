@@ -60,7 +60,7 @@ Step 6 — Serve
 # different profile, keep this file untouched and duplicate `config.py`.
 from config import (  # noqa: E402,F401 — public config surface
     OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, APP_REJECTED_DB, HISTORY_DB, SEEN_DB, JOB_INDEX_DB, PROFILE_FILE,
-    SCORE_CACHE, DESC_CACHE, RAW_LOCATIONS_FILE,
+    SCORE_CACHE, DESC_CACHE, CLAUDE_FIT_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
     SCORER, CLAUDE_MODEL, OLLAMA_URL, OLLAMA_MODEL,
@@ -2585,6 +2585,192 @@ def score_jobs(jobs):
                 ex.submit(_process, batch, i)
     finally:
         _save_score_cache(cache)
+
+
+# =============================================================================
+# Claude fit scores — triggered by the "C" button in the UI
+# =============================================================================
+_CLAUDE_FIT_SYSTEM = """You rate how well each job matches the candidate's profile.
+
+Return ONLY a JSON array with ONE element per job. If 5 jobs are provided, the array must contain 5 elements.
+
+Each element must be exactly:
+  {"i": <1-based index>, "score": <integer 0..10>, "reason": "<one short sentence, max 160 chars>"}
+
+Scoring guide (based on the candidate profile below):
+- 9-10 = exceptional match (role, seniority, geography, salary ALL align with profile)
+- 7-8  = good fit (minor gaps)
+- 5-6  = partial fit (notable gaps on seniority / geography / domain)
+- 3-4  = weak fit (wrong level or wrong domain)
+- 0-2  = no fit (wrong role entirely)
+
+The reason must be short, factual, and reference WHY the score — not a generic summary of the job."""
+
+
+def _load_claude_fit_cache():
+    try:
+        with open(CLAUDE_FIT_CACHE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_claude_fit_cache(cache):
+    with open(CLAUDE_FIT_CACHE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, indent=2)
+
+
+def _make_fit_prompt(batch):
+    """`batch` is a list of {url, title, company, locations, description}."""
+    lines = [
+        "Rate the fit of these " + str(len(batch)) + " jobs against the profile in the system prompt.",
+        "Return the JSON array now, nothing else.",
+        "",
+    ]
+    for i, j in enumerate(batch, 1):
+        head = f"{i}. {j.get('title') or '(no title)'} @ {j.get('company') or ''}"
+        if j.get("locations"):
+            head += " · " + ", ".join(j["locations"][:3])
+        lines.append(head)
+        desc = (j.get("description") or "").strip()
+        if desc:
+            # Keep it tight — the profile is in the cached system prompt.
+            lines.append(desc[:1800])
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _parse_fit_response(text, batch):
+    """Return {url: {score, reason}} from Claude's JSON reply."""
+    out = {}
+    try:
+        # Strip optional ```json fences / prose.
+        m = re.search(r"\[.*\]", text, re.DOTALL)
+        arr = json.loads(m.group(0) if m else text)
+    except Exception as e:
+        err(f"[claude-fit] bad JSON: {e}; raw={text[:200]!r}")
+        return out
+    if not isinstance(arr, list):
+        return out
+    for item in arr:
+        if not isinstance(item, dict):
+            continue
+        idx = item.get("i")
+        if not isinstance(idx, int) or idx < 1 or idx > len(batch):
+            continue
+        score = item.get("score")
+        if not isinstance(score, (int, float)):
+            continue
+        reason = str(item.get("reason") or "").strip()[:200]
+        url = batch[idx - 1]["url"]
+        out[url] = {"score": int(score), "reason": reason}
+    return out
+
+
+class ClaudeFitError(Exception):
+    """Raised from claude_fit_scores so the HTTP endpoint can surface a
+    specific setup problem (missing API key, missing profile, …) to the UI
+    instead of swallowing it and returning an empty dict."""
+
+
+def _anthropic_messages(payload, api_key, timeout=120):
+    """Minimal POST to https://api.anthropic.com/v1/messages. Returns the
+    parsed JSON response. Avoids the `anthropic` SDK so this works without
+    an extra pip install — the API is a straight HTTP call."""
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:500]
+        raise RuntimeError(f"anthropic api http {e.code}: {body}") from e
+
+
+def claude_fit_scores(urls, force=False):
+    """Score the given URLs with Claude for fit vs PROFILE.md. Writes
+    CLAUDE_FIT_CACHE incrementally. Returns {url: {score, reason, ts}}.
+    Raises ClaudeFitError when a prerequisite is missing."""
+    if not urls:
+        return {}
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise ClaudeFitError("ANTHROPIC_API_KEY not set in environment")
+    profile = _load_profile()
+    if not profile:
+        raise ClaudeFitError(f"{PROFILE_FILE} is empty or missing")
+    cache = _load_claude_fit_cache()
+    desc_cache = _load_desc_cache()
+    score_cache = _load_score_cache()
+    job_index = load_job_index()
+    client = anthropic.Anthropic()
+    out = {}
+    todo = []
+    for u in urls:
+        if u in cache and not force:
+            out[u] = cache[u]
+            continue
+        meta = job_index.get(u, {})
+        # Strip HTML from the description — Claude handles raw text fine
+        # but gets confused by job-board boilerplate HTML.
+        raw_desc = desc_cache.get(u) or ""
+        if isinstance(raw_desc, dict):
+            raw_desc = raw_desc.get("description") or ""
+        clean = re.sub(r"<[^>]+>", " ", raw_desc)
+        clean = re.sub(r"\s+", " ", clean).strip()
+        todo.append({
+            "url": u,
+            "title": meta.get("title", ""),
+            "company": meta.get("source", ""),
+            "locations": meta.get("locations") or [],
+            "description": clean or (score_cache.get(u, {}).get("role_long") or ""),
+        })
+    if not todo:
+        return out
+    sys.stdout.write(f"[claude-fit] scoring {len(todo)} jobs ({len(urls)-len(todo)} cached)\n")
+    sys.stdout.flush()
+    batch_size = 10
+    batches = [todo[i:i+batch_size] for i in range(0, len(todo), batch_size)]
+    lock = threading.Lock()
+    def _one_batch(batch):
+        try:
+            resp = _anthropic_messages({
+                "model": CLAUDE_MODEL,
+                "max_tokens": 2000,
+                "system": [
+                    {"type": "text", "text": _CLAUDE_FIT_SYSTEM},
+                    {"type": "text",
+                     "text": "CANDIDATE PROFILE:\n\n" + profile,
+                     "cache_control": {"type": "ephemeral"}},
+                ],
+                "messages": [{"role": "user", "content": _make_fit_prompt(batch)}],
+            }, api_key)
+            content = resp.get("content") or []
+            text = content[0].get("text", "") if content else ""
+            scored = _parse_fit_response(text, batch)
+        except Exception as e:
+            err(f"[claude-fit] batch failed: {e}")
+            return
+        ts = time.strftime("%Y-%m-%dT%H:%M:%S")
+        with lock:
+            for u, r in scored.items():
+                r["ts"] = ts
+                cache[u] = r
+                out[u] = r
+            _save_claude_fit_cache(cache)
+            sys.stdout.write(f"[claude-fit] +{len(scored)}/{len(batch)}\n")
+            sys.stdout.flush()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(batches))) as ex:
+        list(ex.map(_one_batch, batches))
+    return out
 
 
 _LOC_SPLIT_RE = re.compile(r"\s*[;|]\s*")
@@ -5267,6 +5453,9 @@ __BODY__
 <script>
 const HIGHLIGHTS = __HIGHLIGHTS__;
 const SERVER_URL = '__SERVER_URL__';
+// Server-side Claude fit cache (claude_fit_cache.json) for jobs currently
+// visible. Hydrated into localStorage on load so badges render on open.
+const CLAUDE_FITS_SERVER = __CLAUDE_FITS__;
 
 function highlightIn(node) {
   if (!HIGHLIGHTS.length) return;
@@ -5949,6 +6138,19 @@ function _applyClaudeFitsToDOM() {
     if (entry) _renderClaudeFitOnLi(li, entry.score, entry.reason);
   });
 }
+// Merge server-side scores into localStorage so hydration + per-tab state
+// stay consistent. Server wins when both have an entry (fresher by run).
+(function _mergeServerClaudeFits() {
+  if (!CLAUDE_FITS_SERVER || typeof CLAUDE_FITS_SERVER !== 'object') return;
+  const map = _loadClaudeFits();
+  let changed = false;
+  for (const [url, entry] of Object.entries(CLAUDE_FITS_SERVER)) {
+    if (!entry || typeof entry.score !== 'number') continue;
+    map[url] = entry;
+    changed = true;
+  }
+  if (changed) _saveClaudeFits(map);
+})();
 // Hydrate badges on first render.
 _applyClaudeFitsToDOM();
 
@@ -5962,98 +6164,64 @@ function _collectVisibleJobUrls() {
   return urls;
 }
 
-function _buildClaudeScoringPrompt(urls) {
-  const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
-  return (
-    "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
-    "Pour chaque job, donne un score de fit sur 10 et une justification courte.\\n\\n" +
-    "FORMAT STRICT de la réponse — une ligne par job, EXACTEMENT :\\n" +
-    "N. X/10 — <justification en une phrase>\\n\\n" +
-    "Jobs :\\n" +
-    numbered
-  );
-}
-
-// Parse Claude's reply. Accepts common variations:
-//   "1. 8/10 — fit raison" / "1) 8/10 - fit raison" / "**1.** 8/10 ..."
-const _CLAUDE_FIT_LINE_RE = /^[*\\s>-]*(\\d+)[.)]\\s*(\\d+)\\s*\\/\\s*10\\s*[—\\-–:]+\\s*(.*)$/gm;
-function _parseClaudeFits(text, urls) {
-  const out = {};
-  if (!text || !urls || !urls.length) return out;
-  _CLAUDE_FIT_LINE_RE.lastIndex = 0;
-  let m;
-  while ((m = _CLAUDE_FIT_LINE_RE.exec(text)) !== null) {
-    const idx = parseInt(m[1], 10);
-    const score = parseInt(m[2], 10);
-    const reason = (m[3] || '').trim();
-    if (idx >= 1 && idx <= urls.length && score >= 0 && score <= 10) {
-      out[urls[idx - 1]] = { score, reason, ts: new Date().toISOString() };
-    }
-  }
-  return out;
-}
-
-function _openClaudeScoreModal(urls) {
-  let modal = document.getElementById('claude-score-modal');
-  if (modal) modal.remove();
-  modal = document.createElement('div');
-  modal.id = 'claude-score-modal';
-  modal.className = 'modal-backdrop';
-  modal.innerHTML =
-    '<div class="modal">' +
-    '  <h3>Rate ' + urls.length + ' jobs with Claude</h3>' +
-    '  <p class="modal-step">1. Click <strong>Open Claude</strong> → send the prompt in the new tab (and attach your profile when asked).</p>' +
-    '  <p class="modal-step">2. Copy Claude\\'s reply back here and paste below.</p>' +
-    '  <p class="modal-step">3. Click <strong>Save scores</strong> — badges appear on each job.</p>' +
-    '  <textarea id="claude-score-paste" rows="10" placeholder="Paste Claude\\'s reply here (lines like &quot;1. 8/10 — reason&quot;)"></textarea>' +
-    '  <div class="modal-buttons">' +
-    '    <button type="button" id="claude-score-open" class="modal-primary">Open Claude</button>' +
-    '    <button type="button" id="claude-score-save" class="modal-primary">Save scores</button>' +
-    '    <button type="button" id="claude-score-cancel" class="modal-secondary">Close</button>' +
-    '  </div>' +
-    '  <div class="modal-status" id="claude-score-status"></div>' +
-    '</div>';
-  document.body.appendChild(modal);
-  modal.classList.add('visible');
-  const status = modal.querySelector('#claude-score-status');
-  modal.querySelector('#claude-score-cancel').onclick = () => modal.remove();
-  modal.querySelector('#claude-score-open').onclick = () => {
-    openClaudeWithPrompt(_buildClaudeScoringPrompt(urls), status);
-    status.textContent = 'Opened Claude in a new tab.';
-  };
-  modal.querySelector('#claude-score-save').onclick = () => {
-    const text = modal.querySelector('#claude-score-paste').value;
-    const parsed = _parseClaudeFits(text, urls);
-    const n = Object.keys(parsed).length;
-    if (n === 0) {
-      status.textContent = 'No scores found — check the format (lines like "1. 8/10 — reason").';
-      return;
-    }
-    const map = _loadClaudeFits();
-    Object.assign(map, parsed);
-    _saveClaudeFits(map);
-    // Render badges immediately.
-    for (const [url, entry] of Object.entries(parsed)) {
-      const li = [...document.querySelectorAll('li.job')].find(l =>
-        l.querySelector('button.like, button.reject')?.dataset.url === url);
-      if (li) _renderClaudeFitOnLi(li, entry.score, entry.reason);
-    }
-    status.textContent = 'Saved ' + n + ' score' + (n > 1 ? 's' : '') + '.';
-    setTimeout(() => modal.remove(), 1200);
-  };
-  // Esc closes.
-  const onKey = (e) => { if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', onKey); } };
-  document.addEventListener('keydown', onKey);
-}
-
-document.getElementById('claude-score-all')?.addEventListener('click', () => {
+// C button = fully automated server-side scoring via the Anthropic API.
+// No modal, no paste step. If the server returns nothing (missing API key,
+// empty profile, etc.) we surface the error in the status bar and stop —
+// not a fallback popup.
+document.getElementById('claude-score-all')?.addEventListener('click', async (ev) => {
   const urls = _collectVisibleJobUrls();
+  const status = document.getElementById('dump-status');
   if (!urls.length) {
-    const s = document.getElementById('dump-status');
-    if (s) { s.textContent = 'No visible jobs to rate.'; setTimeout(() => s.textContent = '', 3000); }
+    if (status) { status.textContent = 'No visible jobs to rate.'; setTimeout(() => status.textContent = '', 3000); }
     return;
   }
-  _openClaudeScoreModal(urls);
+  // ⇧-click = force re-score even if cached.
+  const force = !!ev.shiftKey;
+  const btn = ev.currentTarget;
+  btn.disabled = true;
+  btn.classList.add('busy');
+  if (status) status.textContent = 'Claude scoring ' + urls.length + ' job' + (urls.length>1?'s':'') + '…';
+  try {
+    const base = location.protocol === 'file:' ? SERVER_URL : '';
+    const res = await fetch(base + '/claude-fit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({urls, force}),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error('http ' + res.status + ' — ' + body.slice(0, 200));
+    }
+    const data = await res.json();
+    const scored = data.scores || {};
+    const n = Object.keys(scored).length;
+    if (n === 0) {
+      if (status) {
+        status.textContent = data.error
+          ? ('Claude scoring: ' + data.error)
+          : 'No scores returned.';
+      }
+      return;
+    }
+    // Merge into localStorage so badges hydrate on reload too.
+    const map = _loadClaudeFits();
+    for (const [u, r] of Object.entries(scored)) map[u] = r;
+    _saveClaudeFits(map);
+    // Render immediately.
+    document.querySelectorAll('li.job').forEach(li => {
+      const u = li.querySelector('button.like, button.reject')?.dataset.url;
+      if (u && scored[u]) _renderClaudeFitOnLi(li, scored[u].score, scored[u].reason);
+    });
+    if (status) {
+      status.textContent = 'Scored ' + n + ' job' + (n>1?'s':'') + '.';
+      setTimeout(() => status.textContent = '', 4000);
+    }
+  } catch (e) {
+    if (status) status.textContent = 'Claude scoring failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('busy');
+  }
 });
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
@@ -6948,6 +7116,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/history", "/unhistory",
             "/to-review",
             "/refresh", "/refresh-status", "/rescore",
+            "/claude-fit",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -7016,6 +7185,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "elapsed": int(time.time() - started) if started else 0,
             }).encode()
             self.send_response(200); self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/claude-fit":
+            urls = payload.get("urls") or []
+            force = bool(payload.get("force"))
+            if not isinstance(urls, list) or not urls:
+                self.send_response(400); self._cors(); self.end_headers()
+                return
+            # Synchronous — the client shows a spinner. 100 jobs batched 10
+            # per call with 4-way parallelism ≈ 3-5s total.
+            try:
+                scored = claude_fit_scores(urls, force=force)
+                body = json.dumps({"scores": scored}).encode()
+                self.send_response(200)
+            except ClaudeFitError as e:
+                # Setup problem (missing API key / SDK / profile). Surface
+                # it as a 200 with a human-readable `error` so the UI can
+                # display the specific message in the status bar.
+                err(f"/claude-fit setup: {e}")
+                body = json.dumps({"scores": {}, "error": str(e)}).encode()
+                self.send_response(200)
+            except Exception as e:
+                err(f"/claude-fit crashed: {e}")
+                body = json.dumps({"error": str(e)[:300]}).encode()
+                self.send_response(500)
+            self._cors()
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers(); self.wfile.write(body); return
@@ -7763,11 +7959,16 @@ def main():
         + render_html_filters(seniority_labels, all_locations) + "\n"
         + "\n".join(html_sections)
     )
+    # Inline the Claude fit cache so badges hydrate on page load without
+    # waiting for a user click. Only visible URLs so the payload stays small.
+    _fit_cache = _load_claude_fit_cache()
+    _fit_subset = {j["url"]: _fit_cache[j["url"]] for j in all_visible if j["url"] in _fit_cache}
     html_output = (
         HTML_TEMPLATE
         .replace("__BODY__", html_body)
         .replace("__SERVER_URL__", server_url)
         .replace("__HIGHLIGHTS__", json.dumps(HIGHLIGHTS))
+        .replace("__CLAUDE_FITS__", json.dumps(_fit_subset))
     )
 
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:

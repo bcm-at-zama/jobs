@@ -32,6 +32,10 @@ JOB_INDEX_DB        = "job_index.json"
 PROFILE_FILE        = "PROFILE.md"
 SCORE_CACHE         = "llm_cache.json"
 DESC_CACHE          = "desc_cache.json"
+# {url: {score: int 0-10, reason: str, ts: ISO}} — Claude fit scores from
+# the "C" button. Keyed by URL. Written per-URL as scoring progresses so
+# interrupted runs don't lose work.
+CLAUDE_FIT_CACHE    = "claude_fit_cache.json"
 RAW_LOCATIONS_FILE  = "debug/raw_locations.txt"
 LIST_CACHE_DIR      = "list_cache"
 
