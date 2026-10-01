@@ -351,7 +351,6 @@
     "title": "Software Engineer, Security",
     "locations": [
       "San Francisco, USA",
-      "USA",
       "New York, USA"
     ],
     "source": "Cohere"
@@ -777,7 +776,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/a0389dc2-77d8-439b-960b-2acb8712991e": {
     "title": "Enterprise Deployment - Chief of Staff",
     "locations": [
-      "UK",
       "Australia",
       "USA",
       "Germany",
@@ -789,7 +787,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/ca4b5225-a18c-42b4-85d5-48734c30a586": {
     "title": "Enterprise Proposals Lead",
     "locations": [
-      "USA",
       "New York, USA"
     ],
     "source": "Eleven Labs"
@@ -828,7 +825,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/275f43d0-b62d-401d-830c-7c1ac0e688aa": {
     "title": "Enterprise Solutions Engineer - North America",
     "locations": [
-      "USA",
       "New York, USA",
       "San Francisco, USA"
     ],
@@ -869,7 +865,6 @@
     "locations": [
       "UK",
       "Spain",
-      "USA",
       "New York, USA",
       "Germany",
       "Boston, USA"
@@ -880,7 +875,6 @@
     "title": "Full-Stack Engineer (Back-End Leaning)",
     "locations": [
       "UK",
-      "USA",
       "New York, USA",
       "Germany",
       "Madrid, Spain",
@@ -891,7 +885,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/ada7cd2c-8b9f-4f19-a88b-7c2ca1be1fde": {
     "title": "Full-Stack Engineer (Front-End Leaning)",
     "locations": [
-      "UK",
       "New York, USA",
       "Los Angeles, USA",
       "London, UK",
@@ -903,8 +896,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/17c06970-0b47-43bc-beb7-ce34cc98f93c": {
     "title": "Full-Stack Engineer - Creative Studio",
     "locations": [
-      "UK",
-      "Spain",
       "Europe, EMEA",
       "USA",
       "Germany",
@@ -929,7 +920,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/687394d7-fbf8-49ed-822e-c0690191330c": {
     "title": "Infrastructure Security Engineer",
     "locations": [
-      "UK",
       "Croatia",
       "Italy",
       "Madrid, Spain",
@@ -955,7 +945,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/ef819b07-d617-42c7-873f-798d1a7d4024": {
     "title": "Localization Specialist",
     "locations": [
-      "USA",
       "New York, USA",
       "San Francisco, USA"
     ],
@@ -1026,8 +1015,6 @@
   "https://jobs.ashbyhq.com/elevenlabs/3b57cc5c-f019-4a0b-a5ff-e1046e4f1fa1": {
     "title": "Safety Engineer - Free Tier Abuse",
     "locations": [
-      "UK",
-      "USA",
       "New York, USA",
       "Los Angeles, USA",
       "London, UK",
@@ -1042,7 +1029,6 @@
     "locations": [
       "San Francisco, USA",
       "Australia",
-      "USA",
       "Singapore"
     ],
     "source": "Eleven Labs"
@@ -3039,8 +3025,7 @@
       "Menlo Park, USA",
       "Seattle, USA",
       "Washington, USA",
-      "New York, USA",
-      "USA"
+      "New York, USA"
     ],
     "source": "Meta"
   },
@@ -3463,7 +3448,7 @@
     "source": "Proton"
   },
   "https://job-boards.eu.greenhouse.io/proton/jobs/4392372101": {
-    "title": "Fullstack Software Engineer (Email Security & Anti-Abuse)",
+    "title": "Fullstack Software Engineer (Autonomous systems)",
     "locations": [
       "Geneva, Switzerland",
       "Taipei, Taiwan"
@@ -5657,8 +5642,7 @@
     "title": "Security Operations Lead",
     "locations": [
       "San Mateo",
-      "New York, USA",
-      "USA"
+      "New York, USA"
     ],
     "source": "Fireworks AI"
   },
@@ -5925,8 +5909,7 @@
   "https://careers.nebius.com/?gh_jid=4902968101": {
     "title": "Data Center Security Specialist  -  Oklahoma ",
     "locations": [
-      "Oklahoma, USA",
-      "USA"
+      "Oklahoma, USA"
     ],
     "source": "Nebius"
   },
@@ -5956,8 +5939,7 @@
     "title": "DC Operations Manager - Critical Infrastructure",
     "locations": [
       "Birmingham, USA",
-      "Independence, USA",
-      "USA"
+      "Independence, USA"
     ],
     "source": "Nebius"
   },
@@ -6041,8 +6023,7 @@
       "London, UK",
       "Germany",
       "USA",
-      "Spain",
-      "UK"
+      "Spain"
     ],
     "source": "Nebius"
   },
@@ -6060,7 +6041,6 @@
     "title": "IT Risks & Control Manager",
     "locations": [
       "Berlin, Germany",
-      "Germany",
       "USA",
       "Spain",
       "UK"
@@ -6599,8 +6579,7 @@
   "https://job-boards.greenhouse.io/tenstorrent/jobs/5246797007": {
     "title": "Sr. Engineer, Mechanical (Tooling Manager)",
     "locations": [
-      "\u65b0\u5317\u5e02, Taiwan",
-      "Taiwan"
+      "\u65b0\u5317\u5e02, Taiwan"
     ],
     "source": "Tenstorrent"
   },
@@ -6662,14 +6641,16 @@
   "http://block.xyz/careers/jobs/5281304008?gh_jid=5281304008": {
     "title": "Principal Security Engineer",
     "locations": [
-      "San Francisco, USA"
+      "San Francisco, USA",
+      "CA - San Francisco City -"
     ],
     "source": "Block"
   },
   "http://block.xyz/careers/jobs/5231316008?gh_jid=5231316008": {
     "title": "Senior Security Engineer, Platform Security",
     "locations": [
-      "San Francisco, USA"
+      "San Francisco, USA",
+      "CA - Bay Area -"
     ],
     "source": "Block"
   },
@@ -6934,8 +6915,7 @@
   "https://stripe.com/jobs/search?gh_jid=7982720": {
     "title": "Client Platform Security Engineer",
     "locations": [
-      "New York, USA",
-      "USA"
+      "New York, USA"
     ],
     "source": "Stripe"
   },
@@ -6950,8 +6930,7 @@
   "https://stripe.com/jobs/search?gh_jid=8172489": {
     "title": "Engineering Manager, Abuse Control Engineering",
     "locations": [
-      "Seattle, USA",
-      "USA"
+      "Seattle, USA"
     ],
     "source": "Stripe"
   },
@@ -6972,8 +6951,7 @@
   "https://stripe.com/jobs/search?gh_jid=7776179": {
     "title": "Security Engineer, Bridge",
     "locations": [
-      "New York, USA",
-      "USA"
+      "New York, USA"
     ],
     "source": "Stripe"
   },
@@ -6995,8 +6973,7 @@
   "https://stripe.com/jobs/search?gh_jid=7761694": {
     "title": "Software Engineer, Product Security Data Platforms",
     "locations": [
-      "Seattle, USA",
-      "USA"
+      "Seattle, USA"
     ],
     "source": "Stripe"
   },
@@ -7054,35 +7031,35 @@
   "https://jobs.ashbyhq.com/1password/d8e8cf3f-c994-43a7-854c-86849b95db41": {
     "title": "Developer, Authorization",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/b9ff2259-517c-4ec2-b92f-646be8bf12b6": {
     "title": "Developer, Enterprise Tenants and Policies",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/f51cc73a-fde2-4686-b54b-f183cdaedb45": {
     "title": "Developer, Full Stack/iOS",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/c247ea98-bf31-45f0-a38b-1fe255909538": {
     "title": "Developer, Rust",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/ec030dda-caff-4579-93ab-c9aa147a0241": {
     "title": "Developer, Web Extension",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
@@ -7096,21 +7073,21 @@
   "https://jobs.ashbyhq.com/1password/e84ee8a7-18ef-4303-a720-9fd582ce0f38": {
     "title": "Engineering Manager, Credential Governance",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/79957caf-90b6-447b-ae7a-5eeaeb3d43e4": {
     "title": "Field Chief Technology Officer - North America East",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/ebfa5bff-dc82-4125-a178-ce1e23e90dd3": {
     "title": "Field Chief Technology Officer - North America West",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
@@ -7124,7 +7101,7 @@
   "https://jobs.ashbyhq.com/1password/9c8f1dda-e951-4e15-a9e1-0f254736e0a3": {
     "title": "Manager, Solutions Engineering, MM",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
@@ -7139,84 +7116,84 @@
   "https://jobs.ashbyhq.com/1password/42e39877-8c7c-4f18-9d42-336777df1de9": {
     "title": "Principal Engineer, Product Engineering",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/b141ee0c-30aa-42f8-8ff7-b353f7f9d060": {
     "title": "Principal Solutions Engineer, Emerging Technologies",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/7f885c41-7572-439c-886f-bc508eb9a3d7": {
     "title": "Privacy Engineer",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/c6933be3-80a6-41f0-8e37-e70f72cae134": {
     "title": "Senior .NET Developer, SaaS Manager",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/08cb1ce3-984a-4878-b445-45632020d221": {
     "title": "Senior Communications Manager",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/7894002a-6096-4a67-a5db-10bea270953f": {
     "title": "Senior Developer (Windows), Product Security",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/ea50a3a5-0dff-44d5-8611-9f874a54c4d7": {
     "title": "Senior Developer, Admin Workflows",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/7cc29a43-a6ac-46f5-8cfd-c090f23b3289": {
     "title": "Senior Developer, Open Source",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/363ebcb3-897b-4266-8734-aa7592bd532d": {
     "title": "Senior Enterprise Systems Engineer, AI Productivity",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/df6afe6a-7e62-4d57-be23-22583d0cdeb9": {
     "title": "Senior IT Engineer",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/c1002e41-2b98-43b4-9e21-a082abee2b32": {
     "title": "Senior Manager Implementation and Onboarding",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/18eb7f61-5417-46b7-b7f5-14770aa2ac41": {
     "title": "Senior Manager, Renewals",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
@@ -7230,14 +7207,14 @@
   "https://jobs.ashbyhq.com/1password/a5b083d5-5f82-4316-b5ef-a577f2edb493": {
     "title": "Solutions Engineer, SMB",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
   "https://jobs.ashbyhq.com/1password/2cbe185d-e8d7-47f9-9a1a-5314470ef4f5": {
     "title": "Staff IT Engineer",
     "locations": [
-      "USA"
+      "(United States"
     ],
     "source": "1Password"
   },
@@ -7719,7 +7696,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4711370006": {
     "title": "Senior Analytics Engineer",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7727,7 +7704,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4715303006": {
     "title": "Senior Manager, Engineering (Container Product Engineering)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7735,6 +7712,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4713691006": {
     "title": "Senior Manager, Professional Services - EMEA",
     "locations": [
+      "United Kingdom -",
       "UK"
     ],
     "source": "Chainguard"
@@ -7742,7 +7720,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4692306006": {
     "title": "Senior Partner Solutions Architect - East (Professional Services)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7757,7 +7735,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4688970006": {
     "title": "Senior Product Security Engineer",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7765,7 +7743,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4688972006": {
     "title": "Senior Product Security Engineer",
     "locations": [
-      "UK",
+      "United Kingdom -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7773,7 +7751,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4706351006": {
     "title": "Senior Security Analyst (Governance and Trust)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7781,7 +7759,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4714346006": {
     "title": "Senior Security Engineer (Infrastructure)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7789,9 +7767,9 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4700937006": {
     "title": "Senior Software Engineer (AI CICD)",
     "locations": [
-      "Europe, EMEA",
-      "UK",
-      "USA",
+      "Europe -",
+      "United Kingdom -",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7799,7 +7777,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4713200006": {
     "title": "Senior Software Engineer (Athena)",
     "locations": [
-      "USA",
+      "United States -",
       "UK",
       "Remote Friendly"
     ],
@@ -7808,7 +7786,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4675043006": {
     "title": "Senior Software Engineer (Containers)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7816,7 +7794,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4688378006": {
     "title": "Senior Software Engineer (Customer Platform) ",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7824,7 +7802,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4715630006": {
     "title": "Senior Software Engineer (Repository)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7832,7 +7810,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4699416006": {
     "title": "Senior Software Engineer, Developer Platform ",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7840,7 +7818,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4712233006": {
     "title": "Senior Software Engineer, Sustaining Automation ",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7848,7 +7826,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4708949006": {
     "title": "Senior Solutions Architect - PubSec (Professional Services)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7864,7 +7842,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4713044006": {
     "title": "Staff Platform Database Engineer",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7872,7 +7850,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4688854006": {
     "title": "Staff Software Engineer (Guarded Containers)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7887,7 +7865,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4713466006": {
     "title": "Staff Software Engineer (Malware Detection)",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7926,7 +7904,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4712228006": {
     "title": "Staff Software Engineer, Sustaining Automation ",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7934,7 +7912,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4696736006": {
     "title": "Staff Vulnerability Management Engineer",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7942,7 +7920,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4696737006": {
     "title": "Staff Vulnerability Management Engineer",
     "locations": [
-      "UK",
+      "United Kingdom -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -7957,7 +7935,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4037494006": {
     "title": "Submitting for a General Application",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -8986,8 +8964,7 @@
   "https://www.okta.com/company/careers/opportunity/8087739?gh_jid=8087739": {
     "title": "Staff Product Security Engineer, PSIRT",
     "locations": [
-      "Barcelona, Spain",
-      "Spain"
+      "Barcelona, Spain"
     ],
     "source": "Okta"
   },
@@ -9165,7 +9142,6 @@
     "title": "Vulnerability Research Software Engineer",
     "locations": [
       "Remote Friendly",
-      "USA",
       "San Francisco, USA"
     ],
     "source": "Socket"
@@ -9658,8 +9634,7 @@
   "https://databricks.com/company/careers/open-positions/job?gh_jid=8430837002": {
     "title": "Staff Security Assurance Engineer ",
     "locations": [
-      "Washington, USA",
-      "USA"
+      "Washington, USA"
     ],
     "source": "Databricks"
   },
@@ -9814,7 +9789,6 @@
       "Madrid, Spain",
       "Montpellier, France",
       "Nantes, France",
-      "France",
       "Sophia Antipolis, France"
     ],
     "source": "Datadog"
@@ -9874,7 +9848,6 @@
       "Montpellier, France",
       "Nantes, France",
       "Paris, France",
-      "France",
       "Sophia Antipolis, France"
     ],
     "source": "Datadog"
@@ -9888,7 +9861,6 @@
       "Madrid, Spain",
       "Montpellier, France",
       "Nantes, France",
-      "France",
       "Sophia Antipolis, France"
     ],
     "source": "Datadog"
@@ -9929,7 +9901,6 @@
       "Madrid, Spain",
       "Montpellier, France",
       "Nantes, France",
-      "France",
       "Sophia Antipolis, France"
     ],
     "source": "Datadog"
@@ -9950,7 +9921,6 @@
       "Montpellier, France",
       "Nantes, France",
       "Paris, France",
-      "France",
       "Sophia Antipolis, France"
     ],
     "source": "Datadog"
@@ -9971,7 +9941,6 @@
       "Madrid, Spain",
       "Montpellier, France",
       "Nantes, France",
-      "France",
       "Sophia Antipolis, France"
     ],
     "source": "Datadog"
@@ -9985,7 +9954,6 @@
       "Madrid, Spain",
       "Montpellier, France",
       "Nantes, France",
-      "France",
       "Sophia Antipolis, France"
     ],
     "source": "Datadog"
@@ -10750,8 +10718,8 @@
   "https://jobs.ashbyhq.com/snowflake/a20eb88b-5307-406f-b2ed-e9d5c5001a82": {
     "title": "Principal Software Engineer II - Product Security",
     "locations": [
-      "Menlo Park, USA",
-      "Bellevue, USA"
+      "CA-Menlo Park",
+      "WA-Bellevue"
     ],
     "source": "Snowflake"
   },
@@ -10787,8 +10755,8 @@
   "https://jobs.ashbyhq.com/snowflake/5f731aa9-26a6-4760-8941-9f4aff96864d": {
     "title": "Senior Software Engineer - Identity, Data Security and Trust",
     "locations": [
-      "Bellevue, USA",
-      "Menlo Park, USA"
+      "WA-Bellevue",
+      "CA-Menlo Park"
     ],
     "source": "Snowflake"
   },
@@ -10802,21 +10770,23 @@
   "https://jobs.ashbyhq.com/snowflake/1c90dd70-ffa8-4a50-844d-00a3e8726bd3": {
     "title": "Senior Software Engineer - Security Foundations",
     "locations": [
-      "Bellevue, USA",
-      "Menlo Park, USA"
+      "WA-Bellevue",
+      "CA-Menlo Park"
     ],
     "source": "Snowflake"
   },
   "https://jobs.ashbyhq.com/snowflake/59fb145c-1a98-4fbb-897c-22b9b4d5a97d": {
     "title": "Senior Software Engineer, Trust & Platform Security",
     "locations": [
-      "Menlo Park, USA"
+      "CA-Menlo Park"
     ],
     "source": "Snowflake"
   },
   "https://jobs.ashbyhq.com/snowflake/8eb32064-6884-441f-a573-ea482d4c0e81": {
     "title": "Staff Security Engineer - Enterprise Security",
-    "locations": [],
+    "locations": [
+      "USA-"
+    ],
     "source": "Snowflake"
   },
   "https://jobs.ashbyhq.com/snowflake/5ed76bcd-cb61-4222-900b-ad9fa89a472e": {
@@ -10829,7 +10799,7 @@
   "https://jobs.ashbyhq.com/snowflake/aeb3fed3-b66c-475f-809c-06a456be6fb7": {
     "title": "Staff Software Engineer, Frontier Security Team",
     "locations": [
-      "Menlo Park, USA"
+      "CA-Menlo Park"
     ],
     "source": "Snowflake"
   },
@@ -11281,8 +11251,7 @@
   "https://stripe.com/jobs/search?gh_jid=8172503": {
     "title": "Abuse Research Engineer",
     "locations": [
-      "from the, USA",
-      "USA"
+      "from the, USA"
     ],
     "source": "Stripe"
   },
@@ -12169,7 +12138,6 @@
   "https://jobs.ashbyhq.com/lambda/4605a295-8303-45be-9ba7-f26af3bae8cd": {
     "title": "Account CTO",
     "locations": [
-      "USA",
       "San Jose, USA",
       "San Francisco, USA",
       "Bellevue, USA"
@@ -12241,8 +12209,7 @@
       "Berlin, Germany",
       "London, UK",
       "Europe, EMEA",
-      "Remote Friendly",
-      "UK"
+      "Remote Friendly"
     ],
     "source": "Nebius"
   },
@@ -12271,8 +12238,7 @@
       "Berlin, Germany",
       "London, UK",
       "Europe, EMEA",
-      "USA",
-      "UK"
+      "USA"
     ],
     "source": "Nebius"
   },
@@ -12699,8 +12665,7 @@
     "locations": [
       "Chicago, USA",
       "San Francisco, USA",
-      "Washington, USA",
-      "USA"
+      "Washington, USA"
     ],
     "source": "Okta"
   },
@@ -12749,7 +12714,6 @@
   "https://databricks.com/company/careers/open-positions/job?gh_jid=8337361002": {
     "title": "Director, Agent & AI Search",
     "locations": [
-      "USA",
       "San Francisco, USA"
     ],
     "source": "Databricks"
@@ -12757,7 +12721,6 @@
   "https://databricks.com/company/careers/open-positions/job?gh_jid=8688832002": {
     "title": "Director, Alliance",
     "locations": [
-      "Germany",
       "North Rhine Westphalia, Germany"
     ],
     "source": "Databricks"
@@ -12772,7 +12735,6 @@
   "https://databricks.com/company/careers/open-positions/job?gh_jid=8644002002": {
     "title": "Director, Global Delivery Excellence",
     "locations": [
-      "USA",
       "Maryland, USA"
     ],
     "source": "Databricks"
@@ -12924,8 +12886,8 @@
   "https://jobs.ashbyhq.com/snowflake/70fa0e09-f834-42e3-8e77-7133360b417a": {
     "title": "Director of Engineering, AI Functions",
     "locations": [
-      "Menlo Park, USA",
-      "Bellevue, USA"
+      "CA-Menlo Park",
+      "WA-Bellevue"
     ],
     "source": "Snowflake"
   },
@@ -12939,17 +12901,18 @@
   "https://jobs.ashbyhq.com/snowflake/fc9a4832-46ae-4c39-99d7-3e2b15c7d7da": {
     "title": "Director, Execution Operations",
     "locations": [
-      "Bellevue, USA",
-      "New York, USA",
-      "Menlo Park, USA"
+      "WA-Bellevue",
+      "NY-New York",
+      "CA-Menlo Park"
     ],
     "source": "Snowflake"
   },
   "https://jobs.ashbyhq.com/snowflake/0f4d6a2f-f88c-4cdf-9994-bd138413301c": {
     "title": "Director, Partner Development Manager",
     "locations": [
-      "San Francisco, USA",
-      "New York, USA"
+      "WA-",
+      "CA-Bay Area-",
+      "NY-New York City-"
     ],
     "source": "Snowflake"
   },
@@ -12963,8 +12926,8 @@
   "https://jobs.ashbyhq.com/snowflake/82f841ea-c0f8-4f5a-b170-212cc9da8c72": {
     "title": "Director, Product Management - Snowflake Transactions",
     "locations": [
-      "Menlo Park, USA",
-      "Bellevue, USA"
+      "CA-Menlo Park",
+      "WA-Bellevue"
     ],
     "source": "Snowflake"
   },
@@ -12985,18 +12948,19 @@
   "https://jobs.ashbyhq.com/snowflake/ccf814ac-c407-4c54-84de-c6bd4180bb1c": {
     "title": "Senior Delivery Director, Program Management",
     "locations": [
-      "Menlo Park, USA",
-      "New York, USA",
-      "Atlanta, USA",
+      "CA-Menlo Park",
+      "IL-",
+      "NY-New York",
+      "GA-Atlanta",
       "Seattle, USA",
-      "Denver, USA"
+      "CO-Denver"
     ],
     "source": "Snowflake"
   },
   "https://jobs.ashbyhq.com/snowflake/517c85f9-9b37-4510-a969-978671021376": {
     "title": "Senior Director, Analytics Engineering, Data Analytics & AI",
     "locations": [
-      "Menlo Park, USA"
+      "CA-Menlo Park"
     ],
     "source": "Snowflake"
   },
@@ -13629,7 +13593,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4714570006": {
     "title": "Software Engineer (Repositories) ",
     "locations": [
-      "UK",
+      "United Kingdom -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -13637,7 +13601,7 @@
   "https://job-boards.greenhouse.io/chainguard/jobs/4714568006": {
     "title": "Software Engineer (Repositories) ",
     "locations": [
-      "USA",
+      "United States -",
       "Remote Friendly"
     ],
     "source": "Chainguard"
@@ -13889,7 +13853,6 @@
   "https://job-boards.greenhouse.io/gitlab/jobs/8857084002": {
     "title": "Manager, Renewals",
     "locations": [
-      "USA",
       "North America, USA"
     ],
     "source": "GitLab"
@@ -14079,15 +14042,13 @@
   "https://careers.nebius.com/?gh_jid=4994675101": {
     "title": "DC Operations Manager - Critical Infrastructure",
     "locations": [
-      "Oklahoma, USA",
-      "USA"
+      "Oklahoma, USA"
     ],
     "source": "Nebius"
   },
   "https://jobs.ashbyhq.com/1password/804f6fcb-e244-4734-b3c9-029c108359f4": {
     "title": "Senior Developer Advocate",
     "locations": [
-      "USA",
       "San Francisco, USA",
       "New York, USA"
     ],
@@ -14167,10 +14128,8 @@
   "https://jobs.ashbyhq.com/elevenlabs/5494be31-7899-4f7a-b10f-4c49378b44ef": {
     "title": "Frontend Leaning Engineer - Creative & Studio",
     "locations": [
-      "UK",
       "Spain",
       "Europe, EMEA",
-      "USA",
       "New York, USA",
       "Germany",
       "Switzerland",
@@ -14188,8 +14147,7 @@
       "Bellevue, USA",
       "Menlo Park, USA",
       "Washington, USA",
-      "New York, USA",
-      "USA"
+      "New York, USA"
     ],
     "source": "Meta"
   },
@@ -15023,5 +14981,581 @@
     "title": "VP, Success Management - Portfolio Leader",
     "locations": [],
     "source": "Salesforce"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=125423&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=132708&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=131930&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=127728&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=128551&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134896&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134222&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134885&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134893&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134889&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134189&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134219&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134887&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134359&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134215&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134368&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134355&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134364&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134357&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=124351&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134352&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134877&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134347&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134354&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134898&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134365&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134333&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134349&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134875&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134335&amp;source=WEB_Search_NA": {
+    "title": "Jobdetail",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557014844": {
+    "title": "Principal Security Operations Engineer",
+    "locations": [
+      "London, UK"
+    ],
+    "source": "Microsoft"
+  },
+  "https://explore.jobs.netflix.net/careers?pid=790301385075&domain=netflix.com&sort_by=relevance": {
+    "title": "Expression of Interest - Technical Directors and R&D Engineers - Netflix Animation Studios",
+    "locations": [
+      "Sydney, Australia"
+    ],
+    "source": "Netflix"
+  },
+  "https://explore.jobs.netflix.net/careers?pid=790317684274&domain=netflix.com&sort_by=relevance": {
+    "title": "Software Engineer (L6), Platform Security",
+    "locations": [
+      "USA"
+    ],
+    "source": "Netflix"
+  },
+  "https://jobs.nvidia.com/careers/job/893397883639": {
+    "title": "Security Engineer, GPU Kernel Driver",
+    "locations": [],
+    "source": "NVIDIA"
+  },
+  "https://jobs.lever.co/palantir/bc803bd5-7793-452d-9ae5-9301ee24615a": {
+    "title": "Defensive Security Analyst",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/12d13a31-5764-4678-8835-809f0deae49b": {
+    "title": "Industrial Security Specialist",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/1124402c-2088-40c6-b6aa-b9ef7777519b": {
+    "title": "Information Security Engineer",
+    "locations": [
+      "Seattle, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/36703f67-6fae-445c-9277-f946121faaa0": {
+    "title": "Information Security Engineer",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/e2a8360a-710a-4185-b2a9-3b7d9fe590b1": {
+    "title": "Information Security Engineer",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/1e77a5e8-9843-4516-a186-7c24f0ff07a0": {
+    "title": "Information Security Engineer - Infrastructure Security",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/4bfef5e0-6689-4db8-9ffe-ab6df6836845": {
+    "title": "Information Security Engineer - Infrastructure Security",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/2127f3af-1fb3-4aa3-9aa1-eb06967e0166": {
+    "title": "Information Security Engineer - Insider Risk",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/b0e1823a-fbe7-4c9d-a4d3-a1e738db2589": {
+    "title": "Information Security Engineer - Insider Risk",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/5614a901-ef96-4b9c-928d-4a9c338c8aad": {
+    "title": "Offensive Security Engineer",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/5b1eac37-708b-4eb2-94f0-d2abe7945989": {
+    "title": "Offensive Security Engineer",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/721fe5ca-73b8-4223-826e-93a528194821": {
+    "title": "Platform Engineer - Identity Infrastructure",
+    "locations": [
+      "Palo Alto, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/a80afc2b-2564-4a98-84c2-34cdcc0402df": {
+    "title": "Platform Engineer - Identity Infrastructure",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/cf08f44c-bf75-45ed-9fab-f4836e51013e": {
+    "title": "Platform Engineer - Identity Infrastructure",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/8704b8c0-80b3-48b1-a82c-939994a0316c": {
+    "title": "Security Systems Engineer",
+    "locations": [
+      "Denver, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/98c244fc-444b-43ba-b152-30227191170b": {
+    "title": "Security Systems Engineer",
+    "locations": [
+      "Seattle, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/a9788f77-d6d2-4ef9-9d57-7002d587b84f": {
+    "title": "Security Systems Engineer",
+    "locations": [
+      "Palo Alto, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/fdbc68df-8817-49dc-96f3-18a53f4fcd4c": {
+    "title": "Security Systems Engineer",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/144f32bc-21e5-42bd-9710-7165a22d51e1": {
+    "title": "Senior Identity Security Engineer",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/146aba99-2a9a-44ee-9fb3-42dd1e211221": {
+    "title": "Senior Identity Security Engineer",
+    "locations": [
+      "Washington, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://jobs.lever.co/palantir/bb7af139-064c-4a59-a784-9ba8c4324d21": {
+    "title": "Senior Identity Security Engineer",
+    "locations": [
+      "Palo Alto, USA"
+    ],
+    "source": "Palantir"
+  },
+  "https://careers.qualcomm.com/careers/job/446721200879": {
+    "title": "CPU Security Architect",
+    "locations": [
+      "Santa Clara, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446720895526": {
+    "title": "Director of  Engineering \u2013 Automotive Platform SW",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446719631749": {
+    "title": "Gen AI / ML/Data Analytics Director, Engineering (Zhubei)",
+    "locations": [
+      "Hsinchu, Taiwan"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446718055817": {
+    "title": "Lead Server Product Architect- Sr Director",
+    "locations": [
+      "Santa Clara, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446719119990": {
+    "title": "QGOV Security Software Engineer",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446718664836": {
+    "title": "QGOV Security Software Engineer",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446718664837": {
+    "title": "QGOV Security Software Engineer",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446718664838": {
+    "title": "QGOV Security Software Engineer",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446721233000": {
+    "title": "RISC-V Security Architect",
+    "locations": [
+      "Santa Clara, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446719727512": {
+    "title": "Security Specialist",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446719741919": {
+    "title": "Senior Director SoC Architecture - AI Accelerators (Multiple Locations)",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446718372787": {
+    "title": "Senior Security Engineer (m/f/d)  -Berlin",
+    "locations": [
+      "Berlin, Germany"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446721044339": {
+    "title": "Senior Staff Security Engineer",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446720425705": {
+    "title": "Server Product Architect (RISC-V) \u2013 Sr. Director",
+    "locations": [
+      "Santa Clara, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446718288368": {
+    "title": "Staff Test Engineer, Hardware Security",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446720126001": {
+    "title": "Staff/Senior Staff Android Security Patches Engineer (ASB)",
+    "locations": [
+      "Ho Chi Minh, Vietnam"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Illinois---Remote/Engagement-Delivery-Director--HLS--Health---Life-Sciences_JR360926": {
+    "title": "Engagement Delivery Director- HLS- Health & Life Sciences",
+    "locations": [],
+    "source": "Salesforce"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Mountain-View-CA-USA/Director--Machine-Learning---User-Value_JOBREQ-2616297": {
+    "title": "Director, Machine Learning - User Value",
+    "locations": [
+      "Mountain View, USA"
+    ],
+    "source": "Unity"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Copenhagen-Denmark/Senior-Application-Security-Engineer_JOBREQ-2616330": {
+    "title": "Senior Application Security Engineer",
+    "locations": [],
+    "source": "Unity"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Remote-Texas-USA/Senior-Application-Security-Engineer_JOBREQ-2616260": {
+    "title": "Senior Application Security Engineer",
+    "locations": [
+      "Texas, USA"
+    ],
+    "source": "Unity"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Mountain-View-CA-USA/Senior-Backend-Engineer--ML-Inference-Systems_JOBREQ-2616050": {
+    "title": "Senior Backend Engineer, Vector AI",
+    "locations": [
+      "Mountain View, USA"
+    ],
+    "source": "Unity"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Remote-United-Kingdom/Senior-Developer-Support-Engineer--VPC-Deployment_JOBREQ-2616347": {
+    "title": "Senior Developer Support Engineer, VPC Deployment",
+    "locations": [
+      "UK"
+    ],
+    "source": "Unity"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Mountain-View-CA-USA/Senior-Machine-Learning-Engineer--Vector-Bidding-Science_JOBREQ-2616286": {
+    "title": "Senior Machine Learning Engineer, Vector Bidding Science",
+    "locations": [],
+    "source": "Unity"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Mountain-View-CA-USA/Staff-Backend-Engineer--ML-Inference-Systems_JOBREQ-2615964": {
+    "title": "Staff Backend Engineer, Vector AI",
+    "locations": [
+      "Mountain View, USA"
+    ],
+    "source": "Unity"
+  },
+  "https://unitytech.wd1.myworkdayjobs.com/en-US/Unity/job/Austin-TX-USA/Staff-Security-Architect_JOBREQ-2616403": {
+    "title": "Staff Security Architect",
+    "locations": [],
+    "source": "Unity"
+  },
+  "https://broadcom.wd1.myworkdayjobs.com/en-US/External_Career/job/USA-California--San-Jose---1730-Fox-Drive/Director-of-Advanced-Technology_R026741": {
+    "title": "Director of Advanced Technology",
+    "locations": [
+      "San Jose, USA"
+    ],
+    "source": "VMware (Broadcom)"
+  },
+  "https://broadcom.wd1.myworkdayjobs.com/en-US/External_Career/job/USA-CA-San-Jose-Innovation-Drive/Staff-Semiconductor-Power-Engineer--ICB4-_R026486": {
+    "title": "Staff Semiconductor Power Engineer (ICB4)",
+    "locations": [],
+    "source": "VMware (Broadcom)"
+  },
+  "https://broadcom.wd1.myworkdayjobs.com/en-US/External_Career/job/Japan-Remote-Location/Technical-Adoption-Manager-Application-Networking-and-Security_R025470-1": {
+    "title": "Technical Adoption Manager Application Networking and Security",
+    "locations": [],
+    "source": "VMware (Broadcom)"
+  },
+  "https://careers.datadoghq.com/detail/8188800/?gh_jid=8188800": {
+    "title": "Incident and Escalation Manager, EMEA",
+    "locations": [
+      "Paris, France"
+    ],
+    "source": "Datadog"
+  },
+  "https://job-boards.greenhouse.io/gitlab/jobs/8846318002": {
+    "title": "Social Impact Manager",
+    "locations": [
+      "North America, USA"
+    ],
+    "source": "GitLab"
+  },
+  "https://avid.wd5.myworkdayjobs.com/en-US/AVID/job/United-States-of-America/Chief-of-Staff-to-CCO_PR00006551": {
+    "title": "Chief of Staff to CCO",
+    "locations": [
+      "USA"
+    ],
+    "source": "Avid"
+  },
+  "https://avid.wd5.myworkdayjobs.com/en-US/AVID/job/Introduce-Yourself-_PR00006179": {
+    "title": "Introduce Yourself!",
+    "locations": [],
+    "source": "Avid"
+  },
+  "https://avid.wd5.myworkdayjobs.com/en-US/AVID/job/Philippines/Learning-Content-Specialist_PR00006513": {
+    "title": "Learning Content Specialist",
+    "locations": [
+      "Philippines"
+    ],
+    "source": "Avid"
+  },
+  "https://avid.wd5.myworkdayjobs.com/en-US/AVID/job/Manila/RMA-Specialist_PR00006177-1": {
+    "title": "RMA Specialist",
+    "locations": [
+      "Manila"
+    ],
+    "source": "Avid"
+  },
+  "https://recruitingapp-5230.de.umantis.com/Vacancies/748/Description/2": {
+    "title": "Business Developer (m/f/x)",
+    "locations": [],
+    "source": "Yamaha"
+  },
+  "https://explore.jobs.netflix.net/careers?pid=790317280456&domain=netflix.com&sort_by=relevance": {
+    "title": "Security Engineer 5 - IAM",
+    "locations": [
+      "USA"
+    ],
+    "source": "Netflix"
+  },
+  "https://careers.qualcomm.com/careers/job/446718185816": {
+    "title": "Product Security Engineer, Senior",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://jobs.sap.com/en/jobs/744000152865059/general-administration-position-for-candidates-with-disabilities/": {
+    "title": "General Administration Position For Candidates With Disabilities",
+    "locations": [],
+    "source": "SAP"
+  },
+  "https://jobs.sennheiser.com/job/Senior-Development-Engineer-Electronics-%28mfd%29/1183-en_US": {
+    "title": "Senior Development Engineer Electronics (m/f/d)",
+    "locations": [],
+    "source": "Sennheiser"
   }
 }

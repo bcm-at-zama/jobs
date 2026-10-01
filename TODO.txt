@@ -43,7 +43,7 @@ Effort ranking:
 
 ### HIGH VALUE (matches Benoit's profile — crypto / dev tools / French)
 
-  GitGuardian          [DONE 2026-10-01] added as pw — job cards served on gitguardian.com/job-openings/<id>-<slug>
+  GitGuardian          [DEFERRED 2026-10-01] Cloudflare bot-protection blocks Playwright — would need stealth setup.
   BlaBlaCar            [P]  French travel — SmartRecruiters
   Contentsquare        [P]  French analytics — SmartRecruiters
   Aikido               [P]  Belgian appsec — greenhouse.io/aikido (embed only?)
@@ -67,7 +67,7 @@ Effort ranking:
   Roli                 [P]  London MIDI hardware
   Bitwig               [DEFERRED 2026-10-01] bitwig.com/jobs = 404, bitwig.com/about has 0 openings. Revisit later.
   Sequential           [DEFERRED 2026-10-01] 0 open positions. Revisit later.
-  Avid                 [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe real URL.
+  Avid                 [DONE 2026-10-01] workday avid.wd5/AVID (was wd1/Avid_Careers)
   Deezer               [P]  Paris — French streaming
   Tidal                [P]  Block subsidiary but separate ATS
   Beatport             [DEFERRED 2026-10-01] about.beatport.com/careers exists but 0 open positions. Revisit later.
@@ -78,9 +78,9 @@ Effort ranking:
   Adobe                [DONE 2026-10-01] added as workday
   Salesforce / Slack   [DONE 2026-10-01] added as workday
   Intel                [DONE 2026-10-01] added as workday
-  Qualcomm             [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe.
+  Qualcomm             [DONE 2026-10-01] NOT workday — uses Phenom (same as NVIDIA). careers.qualcomm.com/careers
   Samsung              [P]  proprietary careers site — SKIPPED pending scraper
-  IBM                  [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe.
+  IBM                  [DONE 2026-10-01] NOT workday — custom portal careers.ibm.com. Added as pw with absolute link_re.
   Uber                 [SR] smartrecruiters
   Netflix              [DONE 2026-10-01] added as eightfold (new fetcher kind). Host: explore.jobs.netflix.net, domain: netflix.com
   Palantir             [DONE 2026-10-01] added as lever (new fetcher kind). URL confirmed: jobs.lever.co/palantir/<uuid>
@@ -94,9 +94,9 @@ Effort ranking:
   ServiceNow           [SR] smartrecruiters
   Atlassian            [SR] smartrecruiters
   Zoom                 [W]  NOW UNLOCKABLE
-  Unity                [BROKEN 2026-10-01] workday board_id wrong (422). REMOVED. Need user to probe.
-  Cisco                [BROKEN 2026-10-01] jobs.cisco.com is not a Workday URL. REMOVED. Need user to probe their real Workday URL.
-  VMware / Broadcom    [BROKEN 2026-10-01] workday tenant/board wrong (404). REMOVED. Need user to probe.
+  Unity                [DONE 2026-10-01] workday tenant=unitytech board=Unity (was: unity/UnityTechnologies)
+  Cisco                [DONE 2026-10-01] added as phenom (same ATS as NVIDIA). URLs under /global/en/job/, uses job_url_tpl override.
+  VMware / Broadcom    [DONE 2026-10-01] workday broadcom.wd1/External_Career (was External_Career_Site)
 
 ### Music wave 5 skipped / hard-to-scrape
 

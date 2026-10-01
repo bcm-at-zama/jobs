@@ -1532,7 +1532,10 @@ def fetch_meta(source):
 
 
 _PHENOM_JOB_RE = re.compile(
-    r'href="/careers/job/(\d+)"[^>]*>(.*?)</a>',
+    # Phenom tenants use two URL shapes:
+    #   /careers/job/<id>                        (NVIDIA, Dolby, Bose, Qualcomm)
+    #   https?://<host>/global/en/job/<id>/<slug> (Cisco — same ATS, custom path)
+    r'href="(?:https?://[^"/]+)?(?:/careers|/global/en)/job/(\d+)[^"]*"[^>]*>(.*?)</a>',
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -1553,9 +1556,12 @@ def fetch_phenom(source):
     origin = f"{_pu.scheme}://{_pu.netloc}" if _pu and _pu.scheme and _pu.netloc else "https://jobs.example.com"
     total_board = None
     try:
+        # Phenom board-total URL — most tenants expose /careers, Cisco uses
+        # /global/en. Allow override via source config.
+        board_total_url = source.get("board_total_url") or f"{origin}/careers?start=0&sort_by=relevance"
         total_board = _phenom_board_total(
             page, source["name"],
-            f"{origin}/careers?start=0&sort_by=relevance",
+            board_total_url,
             f"debug/debug-{slug(source['name'])}-total.html",
         )
         for q in source["queries"]:
@@ -1586,10 +1592,13 @@ def fetch_phenom(source):
                     title = parts[0] if parts else f"{source['name']} job {jid}"
                     location = parts[1] if len(parts) > 1 else ""
                     seen.add(jid)
+                    # Per-tenant URL template. Default = NVIDIA-style
+                    # /careers/job/<id>. Cisco uses /global/en/job/<id>.
+                    url_tpl = source.get("job_url_tpl") or "{origin}/careers/job/{jid}"
                     out.append({
                         "title": title,
                         "locations": [location] if location else [],
-                        "url": f"{origin}/careers/job/{jid}",
+                        "url": url_tpl.format(origin=origin, jid=jid),
                         "description": "",
                         "blob": title,
                     })
@@ -2877,7 +2886,7 @@ _CC_PREFIX_RE = re.compile(
 )
 
 # Workday job requisition IDs like "JR2021883". Not a location.
-_JR_ID_RE = re.compile(r"^JR\d{5,}$", re.IGNORECASE)
+_JR_ID_RE = re.compile(r"^(?:JR|PR|R)\d{5,}$", re.IGNORECASE)
 
 
 def _pre_split(part):
@@ -2985,6 +2994,9 @@ _CITY_TO_COUNTRY = {
     "tokyo": "Japan", "osaka": "Japan",
     "singapore": "Singapore",
     "tel aviv": "Israel",
+    "manila": "Philippines",
+    "ho chi minh": "Vietnam", "ho chi minh city": "Vietnam", "hanoi": "Vietnam",
+    "hsinchu city": "Taiwan", "hsinchu": "Taiwan", "taipei": "Taiwan",
     # Additional
     "bengaluru": "India", "bangalore": "India",
     "mumbai": "India", "new delhi": "India", "delhi": "India",
@@ -3238,6 +3250,21 @@ _TRAILING_OFFICE_RE = re.compile(
 # Trailing "-XYZ" suffixes on cities: "Bangalore-MSO", "Warsaw-Lixa C".
 # Only strip when the prefix is a plausible city.
 _TRAILING_DASH_TAG_RE = re.compile(r"\s*[-–—]\s*[A-Za-z][A-Za-z0-9 ]{0,15}\s*$")
+# Street-address trailer, e.g. "1730 Fox Drive" / "4100 1st St" /
+# "Innovation Drive". Matches a <number> + <word>+ + {Drive|Street|...}
+# OR a bare {Drive|Street|...} at end of segment (prefixed by a word).
+_STREET_ADDR_RE = re.compile(
+    r"\s*[-–—,]?\s*(?:\d+\s+)?[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*\s+"
+    r"(?:Drive|Dr|Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Way|Lane|Ln|Court|Ct|Plaza|Pkwy|Parkway)\.?\s*$",
+    re.IGNORECASE,
+)
+# Workday multi-dash "State- City - Street" format emitted by Cisco:
+# "California- San Jose - 1730 Fox Drive". Extract the middle segment
+# (always the city) when there are 2+ dashes and the tail looks like
+# a street address or number.
+_WD_STATE_CITY_STREET_RE = re.compile(
+    r"^\s*(?:[A-Z]{2}|[A-Za-z]+)\s*[-–—]\s*([A-Za-z][A-Za-z \-]+?)\s*[-–—]\s*\d+.*$"
+)
 
 
 def _clean_loc(part):
@@ -3245,6 +3272,13 @@ def _clean_loc(part):
     (Hybrid, Remote, Onsite …)."""
     s = _PLUS_MORE_RE.sub("", part).strip()
     s = _WORK_MODE_PREFIX_RE.sub("", s).strip()
+    # Workday "State- City - Street" format: extract just the city.
+    # Cisco emits e.g. "California- San Jose - 1730 Fox Drive".
+    m = _WD_STATE_CITY_STREET_RE.match(s)
+    if m:
+        s = m.group(1).strip()
+    # Trailing street address: "<something> 1730 Fox Drive" → "<something>".
+    s = _STREET_ADDR_RE.sub("", s).strip()
     # Leading "/" or "- " leftover from a splitter that already consumed the
     # first token: "Remote / Friendly" → post-split "/ Friendly". Strip.
     s = re.sub(r"^\s*[/\-–—]\s*", "", s).strip()

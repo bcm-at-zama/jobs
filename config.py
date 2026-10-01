@@ -350,6 +350,8 @@ LOCATION_BLACKLIST = [
     "Africa",
     "Netherlands", "Amsterdam",
     "South America", "Latin America", "LATAM",
+    "Vietnam", "Ho Chi Minh",
+    "Philippines", "Manila",
 ]
 
 # =============================================================================
@@ -839,16 +841,55 @@ SOURCES = [
      "board": "https://intel.wd1.myworkdayjobs.com/External"},
     {"name": "PayPal",               "kind": "workday",    "slug": "paypal",               "queries": ["security", "cryptography", "CTO", "VP"],
      "board": "https://paypal.wd1.myworkdayjobs.com/jobs"},
-    {"name": "SAP",                  "kind": "successfactors", "slug": "sap",              "queries": ["security", "cryptography", "CTO", "VP"],
-     "board": "https://jobs.sap.com/search/?q=&locationsearch=&searchResultView=LIST"},
-    # Cisco uses their own careers.cisco.com portal (not Workday). Job URLs:
-    #   https://careers.cisco.com/global/en/job/<id>/<slug>
-    # Scraping the product-and-engineering category page as the listing seed.
-    {"name": "Cisco",                "kind": "pw",         "slug": "cisco",                "queries": [],
-     "board": "https://careers.cisco.com/global/en/c/product-and-engineering-jobs",
-     "search_url": "https://careers.cisco.com/global/en/c/product-and-engineering-jobs",
-     "link_re": r'href="(/global/en/job/\d+/[^"#?]+)"',
-     "origin": "https://careers.cisco.com"},
+    # SAP uses their own jobs.sap.com portal with URL pattern
+    #   https://jobs.sap.com/en/jobs/<id>/<slug>/
+    # Verified 2026-10-01: regex pulls 12 jobs from the rendered dump. We use
+    # the same search URL that successfully rendered before (SF endpoint
+    # happens to serve the same listings page).
+    {"name": "SAP",                  "kind": "pw",         "slug": "sap",                  "queries": [],
+     "board": "https://jobs.sap.com/search/?q=&locationsearch=&searchResultView=LIST",
+     "search_url": "https://jobs.sap.com/search/?q=&locationsearch=&searchResultView=LIST",
+     "link_re": r'href="(/en/jobs/\d+/[^"#?]+)"',
+     "origin": "https://jobs.sap.com"},
+    # Avid on Workday. Verified 2026-10-01: wd5 (not wd1), board=AVID (uppercase).
+    {"name": "Avid",                 "kind": "workday",    "slug": "avid",                 "queries": [],
+     "board": "https://avid.wd5.myworkdayjobs.com/AVID"},
+
+    # VMware (now Broadcom) on Workday. Verified 2026-10-01.
+    # Board: External_Career (not External_Career_Site as initially guessed).
+    {"name": "VMware (Broadcom)",    "kind": "workday",    "slug": "broadcom",             "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://broadcom.wd1.myworkdayjobs.com/External_Career"},
+
+    # IBM uses their own careers portal (NOT Workday). Search page is on
+    # ibm.com, job detail URLs are on careers.ibm.com subdomain.
+    # Verified 2026-10-01 via https://careers.ibm.com/en_US/careers/JobDetail?jobId=<id>
+    {"name": "IBM",                  "kind": "pw",         "slug": "ibm",                  "queries": [],
+     "board": "https://www.ibm.com/careers/search?q=security",
+     "search_url": "https://www.ibm.com/careers/search?q=security",
+     "link_re": r'href="(https?://careers\.ibm\.com/en_US/careers/JobDetail\?jobId=\d+[^"]*)"',
+     "origin": "https://careers.ibm.com"},
+
+    # Qualcomm uses Phenom (same ATS as NVIDIA, Microsoft, Dolby, Bose).
+    # Verified 2026-10-01 via https://careers.qualcomm.com/careers?pid=<id>
+    {"name": "Qualcomm",             "kind": "phenom",     "slug": "qualcomm",             "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://careers.qualcomm.com/careers",
+     "search_url": "https://careers.qualcomm.com/careers?query=security&sort_by=relevance"},
+
+    # Unity on Workday. Tenant: unitytech, board_id: Unity. Verified 2026-10-01.
+    {"name": "Unity",                "kind": "workday",    "slug": "unity",                "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://unitytech.wd1.myworkdayjobs.com/Unity"},
+
+    # Cisco uses Phenom People (same ATS as NVIDIA / Microsoft / Qualcomm /
+    # Dolby / Bose), tenant CISCISGLOBAL. Verified 2026-10-01 from the
+    # rendered dump: scripts load cdn.phenompeople.com/CISCISGLOBAL/....
+    # Unlike other Phenom tenants, Cisco serves job URLs under /global/en
+    # instead of /careers, hence the per-tenant URL template.
+    # Scope: global (all categories), not restricted to any /c/<category> page.
+    {"name": "Cisco",                "kind": "phenom",     "slug": "cisco",                "queries": ["security", "cryptography", "CTO", "VP"],
+     "board": "https://careers.cisco.com/global/en",
+     "search_url": "https://careers.cisco.com/global/en?query=security&sort_by=relevance",
+     "job_url_tpl": "{origin}/global/en/job/{jid}",
+     "board_total_url": "https://careers.cisco.com/global/en?start=0&sort_by=relevance"},
 
     # Netflix uses Eightfold.ai with a vanity host. Verified 2026-10-01 via
     # https://explore.jobs.netflix.net/careers?pid=<id>&domain=netflix.com
@@ -1059,6 +1100,11 @@ COMPANY_INFO = {
     "Palantir":             {"blurb": "Foundry (government + enterprise analytics) + AIP. Denver HQ. Public — NYSE. Classified / defense work.", "employees": "~4,000", "revenue": "$2.9B (FY24)"},
     "Netflix":              {"blurb": "Streaming + original content + gaming. Los Gatos CA HQ. Very strong security + ML infra teams.", "employees": "~14,000", "revenue": "$39B (FY24)"},
     "Cisco":                {"blurb": "Networking + security giant — Catalyst, Umbrella, Duo, Splunk (post-acquisition). San Jose HQ.", "employees": "~85,000", "revenue": "$54B (FY24)"},
+    "Unity":                {"blurb": "Game engine (Unity3D) + ad / live-ops / Weta Digital VFX. San Francisco HQ. Public — Nasdaq.", "employees": "~5,500", "revenue": "~$1.8B"},
+    "Qualcomm":             {"blurb": "Mobile SoC leader (Snapdragon), 5G modems, auto AI. San Diego HQ. Strong IP licensing engine.", "employees": "~50,000", "revenue": "$38B (FY24)"},
+    "IBM":                  {"blurb": "Hybrid cloud (Red Hat), AI (watsonx), consulting, mainframes. Armonk NY HQ. Deep security + crypto practice.", "employees": "~280,000", "revenue": "$62B (FY24)"},
+    "VMware (Broadcom)":    {"blurb": "VMware (vSphere, NSX, Carbon Black) under Broadcom since late 2023. Palo Alto HQ. Heavy virt / networking / security.", "employees": "~30,000", "revenue": "n/a (part of Broadcom's $52B)"},
+    "Avid":                 {"blurb": "Pro Tools DAW + Media Composer NLE — the pro-audio / film-editing standard. Burlington MA HQ.", "employees": "~1,400", "revenue": "~$400M"},
 }
 
 # Merge in the long-form blurbs kept in config_blurbs.py. Any name present in
@@ -1254,6 +1300,11 @@ GROUP_OF = {
     "Palantir":              "Big Tech",
     "Netflix":               "Big Tech",
     "Cisco":                 "Big Tech",
+    "Unity":                 "Big Tech",
+    "Qualcomm":              "Big Tech",
+    "IBM":                   "Big Tech",
+    "VMware (Broadcom)":     "Big Tech",
+    "Avid":                  "Music Companies",
 }
 
 # =============================================================================
