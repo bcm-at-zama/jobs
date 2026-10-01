@@ -2711,7 +2711,6 @@ def claude_fit_scores(urls, force=False):
     desc_cache = _load_desc_cache()
     score_cache = _load_score_cache()
     job_index = load_job_index()
-    client = anthropic.Anthropic()
     out = {}
     todo = []
     for u in urls:
@@ -4617,7 +4616,7 @@ HTML_TEMPLATE = """<!doctype html>
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.9rem;
+      font-size: 1.1rem;
       font-weight: 700;
       line-height: 1;
       padding: 0;
@@ -5078,6 +5077,40 @@ HTML_TEMPLATE = """<!doctype html>
       background: var(--accent); color: #ffffff; border-color: var(--accent-emphasis);
     }
     .modal-actions button.primary:hover { background: var(--accent-emphasis); }
+    /* Sticky "paste Claude's reply here" bar — appears when you click C. */
+    #claude-paste-bar {
+      position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%);
+      z-index: 999;
+      width: min(720px, 94vw);
+      background: var(--bg); color: var(--fg);
+      border: 2px solid #6639ba; border-radius: 10px;
+      padding: 0.5rem 0.7rem;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.3);
+    }
+    #claude-paste-bar.done { border-color: var(--success); }
+    .paste-bar-inner { display: grid; grid-template-columns: 1fr auto; gap: 0.3rem 0.6rem; align-items: start; }
+    .paste-bar-label {
+      grid-column: 1 / 2; font-size: 0.82rem; color: var(--fg-muted);
+    }
+    #claude-paste-area {
+      grid-column: 1 / 2;
+      width: 100%; box-sizing: border-box;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border); border-radius: 6px;
+      font: inherit; font-size: 0.85rem;
+      background: var(--bg-subtle); color: var(--fg);
+      resize: vertical;
+    }
+    #claude-paste-close {
+      grid-column: 2 / 3; grid-row: 1 / 3;
+      align-self: start;
+      width: 1.6rem; height: 1.6rem;
+      padding: 0; cursor: pointer;
+      background: transparent; color: var(--fg-muted);
+      border: 1px solid var(--border); border-radius: 50%;
+      font-size: 1rem; line-height: 1;
+    }
+    #claude-paste-close:hover { background: var(--bg-subtle); color: var(--fg); }
     /* Shared modal buttons / status for the Claude-score dialog. */
     .modal .modal-step { margin: 0.3rem 0; font-size: 0.88rem; color: var(--fg-muted); }
     .modal .modal-buttons { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
@@ -6164,64 +6197,158 @@ function _collectVisibleJobUrls() {
   return urls;
 }
 
-// C button = fully automated server-side scoring via the Anthropic API.
-// No modal, no paste step. If the server returns nothing (missing API key,
-// empty profile, etc.) we surface the error in the status bar and stop —
-// not a fallback popup.
-document.getElementById('claude-score-all')?.addEventListener('click', async (ev) => {
-  const urls = _collectVisibleJobUrls();
+// Pull everything Claude needs about every visible job directly from the
+// DOM, so Claude.ai doesn't have to fetch any URL (which would trigger
+// a permission dialog per domain).
+function _collectVisibleJobData() {
+  const out = [];
+  document.querySelectorAll('li.job:not(.hidden)').forEach(li => {
+    const url = li.querySelector('button.like, button.reject')?.dataset.url;
+    if (!url) return;
+    const title = (li.querySelector('.title')?.textContent || '').trim();
+    const section = li.closest('.company-section');
+    // The <h1 id="…"> contains "<board_link> <query_pills> <counter>" — the
+    // first anchor is the company name.
+    const company = section?.querySelector('h1 a.board-link')?.textContent?.trim()
+                 || section?.querySelector('h1 a')?.textContent?.trim()
+                 || '';
+    const locs = (li.dataset.locations || '').trim();
+    const salaryTxt = (li.querySelector('.badge.salary')?.textContent || '')
+      .replace(/^\\s*\\uD83D\\uDCB0\\s*/, '').trim();
+    const descRaw = ((li.querySelector('.desc-body')?.innerText) || '')
+      .trim().replace(/\\s+/g, ' ');
+    const desc = descRaw.length > 2000 ? descRaw.slice(0, 2000) + '…' : descRaw;
+    out.push({ url, title, company, locations: locs, salary: salaryTxt, description: desc });
+  });
+  return out;
+}
+
+// Prompt for a batched Claude.ai scoring request. Includes description
+// excerpts so Claude doesn't need to fetch the URLs (= no permission
+// dialogs), and tells it explicitly not to.
+function _buildClaudeScoringPrompt(jobsData) {
+  const parts = [
+    "Évalue le fit de chacun de ces " + jobsData.length + " jobs par rapport à mon profil (je te le partage sur demande).",
+    "Pour chaque job, donne un score de fit sur 10 et une justification courte.",
+    "",
+    "IMPORTANT : NE FETCH PAS les URLs. Toutes les infos nécessaires sont ci-dessous.",
+    "",
+    "FORMAT STRICT de la réponse — une ligne par job, EXACTEMENT :",
+    "N. X/10 — <justification en une phrase>",
+    "",
+  ];
+  jobsData.forEach((j, i) => {
+    const n = i + 1;
+    parts.push("=== " + n + ". " + (j.title || "(no title)") + " @ " + (j.company || "?"));
+    if (j.locations) parts.push("Location : " + j.locations);
+    if (j.salary)    parts.push("Salary   : " + j.salary);
+    parts.push("URL      : " + j.url);
+    parts.push("");
+    parts.push(j.description || "(no description available)");
+    parts.push("");
+  });
+  return parts.join('\\n');
+}
+
+// Parser tolerant to common markdown variants:
+//   "1. 8/10 — fit raison" / "1) 8/10 - fit raison" / "**1.** 8/10 ..."
+const _CLAUDE_FIT_LINE_RE = /^[*\\s>-]*(\\d+)[.)]\\s*(\\d+)\\s*\\/\\s*10\\s*[—\\-–:]+\\s*(.*)$/gm;
+function _parseClaudeFits(text, urls) {
+  const out = {};
+  if (!text || !urls || !urls.length) return out;
+  _CLAUDE_FIT_LINE_RE.lastIndex = 0;
+  let m;
+  while ((m = _CLAUDE_FIT_LINE_RE.exec(text)) !== null) {
+    const idx = parseInt(m[1], 10);
+    const score = parseInt(m[2], 10);
+    const reason = (m[3] || '').trim();
+    if (idx >= 1 && idx <= urls.length && score >= 0 && score <= 10) {
+      out[urls[idx - 1]] = { score, reason, ts: new Date().toISOString() };
+    }
+  }
+  return out;
+}
+
+// 1-click flow: click C → opens Claude.ai with the prompt AND shows a
+// sticky paste bar at the bottom of the page. User pastes Claude's reply
+// → scores save and badges appear automatically. No "Save" button.
+function _openClaudePasteBar(urls, promptMode) {
+  let bar = document.getElementById('claude-paste-bar');
+  if (bar) bar.remove();
+  // Explain how the Claude tab was opened so the user knows if they need
+  // to paste the PROMPT first (long prompts don't fit in the URL).
+  const promptHint = promptMode === 'copied'
+      ? '<div class="paste-bar-hint">⚠ Prompt too long for URL — <strong>⌘V in Claude first</strong> to send it, then paste its reply here.</div>'
+      : promptMode === 'failed'
+      ? '<div class="paste-bar-hint">⚠ Could not copy prompt. Re-click C or dismiss.</div>'
+      : '';
+  bar = document.createElement('div');
+  bar.id = 'claude-paste-bar';
+  bar.innerHTML =
+    '<div class="paste-bar-inner">' +
+    promptHint +
+    '  <span class="paste-bar-label">Paste Claude\\'s reply here · <span id="claude-paste-status">' + urls.length + ' jobs</span></span>' +
+    '  <textarea id="claude-paste-area" rows="2" placeholder="&quot;1. 8/10 — reason\\n2. ...&quot;"></textarea>' +
+    '  <button type="button" id="claude-paste-close" title="Dismiss">×</button>' +
+    '</div>';
+  document.body.appendChild(bar);
+  const ta = bar.querySelector('#claude-paste-area');
+  const status = bar.querySelector('#claude-paste-status');
+  const close = () => bar.remove();
+  bar.querySelector('#claude-paste-close').onclick = close;
+  // Auto-focus when the user returns to this tab (visibility change).
+  const onVisible = () => { if (!document.hidden) ta.focus(); };
+  document.addEventListener('visibilitychange', onVisible);
+  bar.addEventListener('remove', () => document.removeEventListener('visibilitychange', onVisible));
+  ta.focus();
+  // Parse on paste OR when the user types enough. Debounce by 200ms so
+  // paste events don't fire mid-paste. "paste" event always fires once
+  // per Cmd-V so we handle that directly.
+  const tryParse = () => {
+    const text = ta.value;
+    if (!text.trim()) return;
+    const parsed = _parseClaudeFits(text, urls);
+    const n = Object.keys(parsed).length;
+    if (n === 0) {
+      status.textContent = 'no scores parsed — expected "N. X/10 — reason"';
+      return;
+    }
+    const map = _loadClaudeFits();
+    Object.assign(map, parsed);
+    _saveClaudeFits(map);
+    for (const [url, entry] of Object.entries(parsed)) {
+      const li = [...document.querySelectorAll('li.job')].find(l =>
+        l.querySelector('button.like, button.reject')?.dataset.url === url);
+      if (li) _renderClaudeFitOnLi(li, entry.score, entry.reason);
+    }
+    status.textContent = '✓ ' + n + ' score' + (n>1?'s':'') + ' saved';
+    bar.classList.add('done');
+    setTimeout(close, 1500);
+  };
+  ta.addEventListener('paste', () => setTimeout(tryParse, 50));
+  ta.addEventListener('input', () => {
+    // In case the user types manually or edits what they pasted.
+    clearTimeout(ta.__parseTimer);
+    ta.__parseTimer = setTimeout(tryParse, 400);
+  });
+  // Esc dismisses.
+  const onKey = (e) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+}
+
+// C button — one click: opens Claude.ai with the batched prompt pre-filled
+// AND shows a bottom paste bar for the reply. Zero clicks after that in
+// our UI: paste → auto-save → badges.
+document.getElementById('claude-score-all')?.addEventListener('click', () => {
+  const data = _collectVisibleJobData();
   const status = document.getElementById('dump-status');
-  if (!urls.length) {
+  if (!data.length) {
     if (status) { status.textContent = 'No visible jobs to rate.'; setTimeout(() => status.textContent = '', 3000); }
     return;
   }
-  // ⇧-click = force re-score even if cached.
-  const force = !!ev.shiftKey;
-  const btn = ev.currentTarget;
-  btn.disabled = true;
-  btn.classList.add('busy');
-  if (status) status.textContent = 'Claude scoring ' + urls.length + ' job' + (urls.length>1?'s':'') + '…';
-  try {
-    const base = location.protocol === 'file:' ? SERVER_URL : '';
-    const res = await fetch(base + '/claude-fit', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({urls, force}),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error('http ' + res.status + ' — ' + body.slice(0, 200));
-    }
-    const data = await res.json();
-    const scored = data.scores || {};
-    const n = Object.keys(scored).length;
-    if (n === 0) {
-      if (status) {
-        status.textContent = data.error
-          ? ('Claude scoring: ' + data.error)
-          : 'No scores returned.';
-      }
-      return;
-    }
-    // Merge into localStorage so badges hydrate on reload too.
-    const map = _loadClaudeFits();
-    for (const [u, r] of Object.entries(scored)) map[u] = r;
-    _saveClaudeFits(map);
-    // Render immediately.
-    document.querySelectorAll('li.job').forEach(li => {
-      const u = li.querySelector('button.like, button.reject')?.dataset.url;
-      if (u && scored[u]) _renderClaudeFitOnLi(li, scored[u].score, scored[u].reason);
-    });
-    if (status) {
-      status.textContent = 'Scored ' + n + ' job' + (n>1?'s':'') + '.';
-      setTimeout(() => status.textContent = '', 4000);
-    }
-  } catch (e) {
-    if (status) status.textContent = 'Claude scoring failed: ' + e.message;
-  } finally {
-    btn.disabled = false;
-    btn.classList.remove('busy');
-  }
+  const urls = data.map(j => j.url);
+  openClaudeWithPrompt(_buildClaudeScoringPrompt(data));
+  _openClaudePasteBar(urls);
 });
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
@@ -6619,26 +6746,33 @@ function _openInTab(href) {
     a.remove();
   }, 0);
 }
-function openClaudeWithPrompt(prompt, statusEl) {
-  if (!prompt) return;
+// Open claude.ai with the prompt pre-filled when it fits in the URL,
+// otherwise copy to clipboard and open a bare tab. Returns a promise that
+// resolves to "prefilled" / "copied" / "failed" so callers can show the
+// right instruction to the user.
+async function openClaudeWithPrompt(prompt, statusEl) {
+  if (!prompt) return 'failed';
   const target = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
   if (target.length < 7500) {
     _openInTab(target);
-    return;
+    return 'prefilled';
   }
-  const openBare = () => _openInTab('https://claude.ai/new');
-  const after = () => {
-    if (statusEl) {
-      statusEl.textContent = 'Prompt copied — paste in the Claude tab.';
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
-    }
-    openBare();
-  };
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(prompt).then(after, after);
-  } else {
-    openBare();
+    try {
+      await navigator.clipboard.writeText(prompt);
+      _openInTab('https://claude.ai/new');
+      if (statusEl) {
+        statusEl.textContent = 'Prompt copied — paste in the Claude tab.';
+        setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      }
+      return 'copied';
+    } catch (e) {
+      _openInTab('https://claude.ai/new');
+      return 'failed';
+    }
   }
+  _openInTab('https://claude.ai/new');
+  return 'failed';
 }
 // Per-job "?" button → single-URL prompt.
 document.querySelectorAll('button.ask-claude').forEach(btn => {
@@ -6647,7 +6781,33 @@ document.querySelectorAll('button.ask-claude').forEach(btn => {
     e.stopPropagation();
     const url = btn.dataset.url || '';
     if (!url) return;
-    openClaudeWithPrompt(buildClaudePromptForUrls([url]));
+    // Pull the full job data from the same <li> so Claude doesn't have to
+    // fetch the URL (= no permission dialog).
+    const li = btn.closest('li');
+    let prompt;
+    if (li) {
+      const title = (li.querySelector('.title')?.textContent || '').trim();
+      const section = li.closest('.company-section');
+      const company = section?.querySelector('h1 a.board-link')?.textContent?.trim()
+                   || section?.querySelector('h1 a')?.textContent?.trim() || '';
+      const locs = (li.dataset.locations || '').trim();
+      const salary = (li.querySelector('.badge.salary')?.textContent || '')
+        .replace(/^\\s*\\uD83D\\uDCB0\\s*/, '').trim();
+      const descRaw = ((li.querySelector('.desc-body')?.innerText) || '')
+        .trim().replace(/\\s+/g, ' ');
+      const desc = descRaw.length > 3000 ? descRaw.slice(0, 3000) + '…' : descRaw;
+      prompt = _buildClaudeScoringPrompt([{
+        url, title, company, locations: locs, salary, description: desc,
+      }]);
+    } else {
+      // Fallback — no DOM context, just the URL.
+      prompt = (
+        "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
+        "Donne-moi un score de fit sur 10 et une brève justification.\\n\\n" +
+        url
+      );
+    }
+    openClaudeWithPrompt(prompt);
   });
 });
 
@@ -7827,7 +7987,7 @@ def main():
         f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
-        f'<span class="refresh-icon" aria-hidden="true">⟳</span></button>\n'
+        f'<span class="refresh-icon" aria-hidden="true">R</span></button>\n'
         f'    <button type="button" class="refresh-btn rescore-btn" id="rescore-btn" title="Run the LLM scorer for jobs missing from score_cache (typically the NEW ones), then reload. Does not re-fetch." aria-label="Rescore">'
         f'<span class="rescore-icon" aria-hidden="true">AI</span></button>\n'
         f'    <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" title="Ask Claude to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="Claude fit scores">'
