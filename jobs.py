@@ -68,7 +68,7 @@ from config import (  # noqa: E402,F401 — public config surface
     HIGHLIGHTS, TITLE_CASE_OVERRIDES,
     TITLE_BLACKLIST, LOCATION_BLACKLIST,
     SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES,
-    SENIORITY_XP, SENIORITY_XP_DEFAULT,
+    SENIORITY_XP, SENIORITY_XP_DEFAULT, IC_LEVEL_XP,
     SOURCES, SPONTANEOUS_PATTERNS,
     GROUP_ORDER, GROUP_OF, COMPANY_INFO,
 )
@@ -1459,6 +1459,83 @@ def fetch_linkedin(source):
             "total_board": len(out)}
 
 
+_IBM_CARD_RE = re.compile(
+    # One IBM card: <div class="bx--card-group__cards__col" role="region" aria-label="TITLE">
+    # Carries the full title (incl. special chars) in aria-label. Body contains
+    # category / level / location in <div class="bx--card__eyebrow"> and
+    # <div class="ibm--card__copy__inner">LEVEL<br>LOCATION</div>.
+    r'<div[^>]*class="bx--card-group__cards__col"[^>]*aria-label="([^"]+)"[^>]*>'
+    r'(.*?)'
+    r'(?=<div[^>]*class="bx--card-group__cards__col"|</div>\s*</div>\s*</div>\s*<script)',
+    re.DOTALL | re.IGNORECASE,
+)
+_IBM_HREF_RE = re.compile(
+    r'href="(https?://careers\.ibm\.com/en_US/careers/JobDetail\?jobId=\d+[^"]*)"',
+    re.IGNORECASE,
+)
+_IBM_COPY_RE = re.compile(
+    r'<div class="ibm--card__copy__inner">([^<]*(?:<br[^>]*>[^<]*)*)</div>',
+    re.IGNORECASE,
+)
+
+
+def fetch_ibm(source):
+    """IBM careers (careers.ibm.com) via its Carbon-Design search page.
+
+    The generic fetch_pw_generic derives titles from the URL tail — but IBM's
+    URLs end in /JobDetail?jobId=12345, so every title came out as 'Jobdetail'.
+    Fix: parse the real cards from the rendered HTML (title in aria-label,
+    location in .ibm--card__copy__inner).
+    """
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright not installed")
+        return {"jobs": [], "spontaneous_url": None}
+    url = source.get("search_url") or source.get("board") or "https://www.ibm.com/careers/search?q=security"
+    p, browser, page = _open_browser()
+    try:
+        text = _render(page, url, wait_selector='a[href*="JobDetail"]',
+                       timeout=20000, debug_path="debug/debug-ibm-1.html")
+    finally:
+        browser.close()
+        p.stop()
+    out, seen = [], set()
+    for title_raw, body in _IBM_CARD_RE.findall(text):
+        href_m = _IBM_HREF_RE.search(body)
+        if not href_m:
+            continue
+        # Clean &amp; and other entities out of the href before dedup.
+        url_clean = html.unescape(href_m.group(1))
+        if url_clean in seen:
+            continue
+        seen.add(url_clean)
+        title = html.unescape(title_raw).strip()
+        loc = ""
+        copy_m = _IBM_COPY_RE.search(body)
+        if copy_m:
+            parts = [html.unescape(p).strip() for p in re.split(r"<br[^>]*>", copy_m.group(1)) if p.strip()]
+            # First line is usually the level ("Professional", "Internship"),
+            # second is the location — keep the latter.
+            if len(parts) >= 2:
+                loc = parts[1]
+            elif parts:
+                loc = parts[0]
+        # IBM uses "Multiple Cities" as a catch-all for multi-location jobs.
+        # It pollutes the city-picker without being actionable — drop it.
+        if loc == "Multiple Cities":
+            loc = ""
+        out.append({
+            "title": title,
+            "locations": [loc] if loc else [],
+            "url": url_clean,
+            "description": "",
+            "blob": title,
+        })
+    sys.stdout.write(f"[IBM] total jobs scraped: {len(out)}\n")
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
 def fetch_pw_generic(source):
     """Generic Playwright link scraper. Requires `search_url`, `link_re`, `origin` on source."""
     if not source.get("search_url") or not source.get("link_re"):
@@ -1652,6 +1729,31 @@ _META_TOTAL_RE = re.compile(
 )
 
 
+_META_LOC_RE = re.compile(r"^[A-Za-zÀ-ÿ.' -]+,\s*[A-Za-zÀ-ÿ. ]+$")
+# City-states / cities Meta renders without a trailing ", Country" suffix.
+# Add to this set if a legitimate single-token location gets filtered out.
+_META_CITY_STATES = {
+    "Singapore", "Hong Kong", "Dubai", "Dublin", "Taipei", "Seoul",
+    "Zurich", "Tel Aviv", "Luxembourg", "Monaco", "Doha", "Kuwait City",
+    "Macau", "Bahrain",
+}
+
+
+def _is_meta_location(s):
+    """True if the string looks like a Meta location, False if it's a department
+    name leaking into the anchor body ("Machine Learning", "Product Strategy").
+    Meta renders locations as 'City, Country' or as a city-state token."""
+    if s in _META_CITY_STATES:
+        return True
+    if not s or s == "⋅":
+        return False
+    if s.startswith("+") and "more" in s:  # "+21 more" marker
+        return False
+    if "&" in s:  # dept names like "People & Recruiting", never locations
+        return False
+    return bool(_META_LOC_RE.match(s))
+
+
 def fetch_meta(source):
     if not HAS_PLAYWRIGHT:
         err("[Meta] Playwright not installed")
@@ -1694,7 +1796,20 @@ def fetch_meta(source):
                 text_body = re.sub(r'<[^>]+>', '|', body)
                 parts = [p.strip() for p in text_body.split('|') if p.strip()]
                 title = parts[0] if parts else f"Meta job {jid}"
-                locs = parts[1:] if len(parts) > 1 else []
+                # Meta's anchor body is: title | loc1 | ⋅ | loc2 | ... | +N more
+                # | dept1 | subdept2. Keep only location-looking tokens; stop at
+                # the first dept so we don't scoop up "Product Strategy", etc.
+                # NOTE: do not name this loop variable `p` — the enclosing
+                # scope's `p` is the Playwright instance used in `p.stop()`
+                # inside the `finally` block.
+                locs = []
+                for part in parts[1:]:
+                    if _is_meta_location(part):
+                        locs.append(part)
+                    elif part == "⋅" or (part.startswith("+") and "more" in part):
+                        continue  # bullet or "+N more" — skip but keep scanning
+                    else:
+                        break  # hit a department — locations block is over
                 out.append({
                     "title": title,
                     "locations": locs,
@@ -2382,6 +2497,7 @@ FETCHERS = {
     "phenom": fetch_phenom,
     "cisco": fetch_cisco,
     "linkedin": fetch_linkedin,
+    "ibm": fetch_ibm,
     "scale": fetch_scale,
     "github": fetch_github,
     "checkmarx": fetch_checkmarx,
@@ -4026,17 +4142,30 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         seniority_html = (
             f'<span class="badge seniority">{html.escape(seniority)}</span>' if seniority else ""
         )
-        # Typical years-of-experience for this (company, seniority) — purple
-        # pill shown just left of the salary. Prefer the company-specific grid
-        # in SENIORITY_XP; fall back to generic startup leveling in
-        # SENIORITY_XP_DEFAULT when the company isn't listed.
+        # Typical years-of-experience for this job — purple pill. Resolution order:
+        #   1. SENIORITY_XP[company][seniority] — company-specific grid keyed
+        #      by seniority LABEL (Senior, Staff, Principal, ...)
+        #   2. IC_LEVEL_XP[company][level] — company-specific grid keyed by
+        #      INTERNAL LEVEL CODE (L5, E6, IC4, ...) parsed from the title.
+        #      Used for companies like Netflix that put "L5" in titles without
+        #      ever saying "Senior".
+        #   3. SENIORITY_XP_DEFAULT[seniority] — generic startup fallback.
         xp_specific = SENIORITY_XP.get(name, {}).get(seniority, "") if seniority else ""
-        xp_txt = xp_specific or (SENIORITY_XP_DEFAULT.get(seniority, "") if seniority else "")
-        xp_tooltip = (
-            f"Typical years-of-experience at {name} for {seniority} — from public leveling guide."
-            if xp_specific
-            else f"Generic startup estimate for {seniority} ({name} has no published leveling grid)."
-        ) if xp_txt else ""
+        ic_from_title = detect_ic_level(j.get("title", ""))
+        xp_from_level = IC_LEVEL_XP.get(name, {}).get(ic_from_title, "") if ic_from_title else ""
+        xp_txt = (
+            xp_specific
+            or xp_from_level
+            or (SENIORITY_XP_DEFAULT.get(seniority, "") if seniority else "")
+        )
+        if xp_specific:
+            xp_tooltip = f"Typical years-of-experience at {name} for {seniority} — from public leveling guide."
+        elif xp_from_level:
+            xp_tooltip = f"Typical years-of-experience at {name} for level {ic_from_title} — from public leveling guide."
+        elif xp_txt:
+            xp_tooltip = f"Generic startup estimate for {seniority} ({name} has no published leveling grid)."
+        else:
+            xp_tooltip = ""
         xp_html = (
             f'<span class="badge xp" title="{html.escape(xp_tooltip, quote=True)}">🎓 {html.escape(xp_txt)}</span>'
             if xp_txt else ""

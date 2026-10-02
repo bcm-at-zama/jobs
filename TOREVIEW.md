@@ -17,3 +17,5 @@
 - Principal Hardware Engineer
 - ASIC Engineer
 - Hardware Engineer
+- Communications Manager
+- Network Strategy Director

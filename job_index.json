@@ -3004,8 +3004,7 @@
   "https://www.metacareers.com/profile/job_details/1474780844527439": {
     "title": "Security Engineer",
     "locations": [
-      "London, UK",
-      "IT"
+      "London, UK"
     ],
     "source": "Meta"
   },
@@ -11474,9 +11473,7 @@
     "locations": [
       "Hong Kong",
       "Sydney, Australia",
-      "Singapore",
-      "Enterprise Engineering",
-      "IT"
+      "Singapore"
     ],
     "source": "Meta"
   },
@@ -11484,12 +11481,7 @@
     "title": "VP Robotics",
     "locations": [
       "Redmond, USA",
-      "Menlo Park, USA",
-      "AI Research",
-      "Generative AI",
-      "Hardware",
-      "Machine Learning",
-      "Computer Vision"
+      "Menlo Park, USA"
     ],
     "source": "Meta"
   },
@@ -13698,16 +13690,13 @@
     "title": "Director, Executive Development",
     "locations": [
       "Menlo Park, USA",
-      "San Francisco, USA",
-      "People & Recruiting"
+      "San Francisco, USA"
     ],
     "source": "Meta"
   },
   "https://www.metacareers.com/profile/job_details/1860623898267152": {
     "title": "Director, Executive Development",
-    "locations": [
-      "People & Recruiting"
-    ],
+    "locations": [],
     "source": "Meta"
   },
   "https://apply.careers.microsoft.com/careers/job/1970393557002737": {
@@ -13894,9 +13883,7 @@
       "Papillion, USA",
       "Aurora, USA",
       "Garland, USA",
-      "Huntsville, USA",
-      "Data Center",
-      "Data Center Operations"
+      "Huntsville, USA"
     ],
     "source": "Meta"
   },
@@ -15662,7 +15649,7 @@
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2012414/Director-Engineering-High-Speed-SerDes-Analog-Mixed-Signal-Silicon-One-Optics-Group": {
-    "title": "Director - Engineering, High Speed SerDes &amp; Analog / Mixed-Signal (Silicon One Optics Group)",
+    "title": "Director - Engineering, High Speed SerDes & Analog / Mixed-Signal (Silicon One Optics Group)",
     "locations": [],
     "source": "Cisco"
   },
@@ -15682,17 +15669,13 @@
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2023630/Embedded-Software-Engineer-C-Device-Driver-Linux-Multithreading-10-years-Bangalore": {
-    "title": "Embedded Software Engineer",
-    "locations": [
-      "C, Multithreading - 10+ years - Bangalore"
-    ],
+    "title": "Embedded Software Engineer | C, Device Driver, Linux ,Multithreading - 10+ years - Bangalore",
+    "locations": [],
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2023641/Embedded-Software-Engineer-C-Device-Driver-Linux-Multithreading-10-years-Bangalore": {
-    "title": "Embedded Software Engineer",
-    "locations": [
-      "C, Multithreading - 10+ years - Bangalore"
-    ],
+    "title": "Embedded Software Engineer | C, Device Driver, Linux ,Multithreading - 10+ years - Bangalore",
+    "locations": [],
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2012499/Embedded-Software-Engineering-Technical-Leader": {
@@ -15806,10 +15789,8 @@
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2021789/Principal-Software-Engineer-CASB-AVC-Application-Visibility-and-Control": {
-    "title": "Principal Software Engineer",
-    "locations": [
-      "CASB, AVC (Application Visibility and Control"
-    ],
+    "title": "Principal Software Engineer | CASB, AVC (Application Visibility and Control",
+    "locations": [],
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2024257/Principal-Software-Engineer-Linux-Kernel-Isovalent": {
@@ -16088,10 +16069,8 @@
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2026795/Software-Engineer-Solution-Validation-Benchmarking-Release-Engineer-10-years": {
-    "title": "Software Engineer",
-    "locations": [
-      "Solution Validation, Benchmarking & Release Engineer"
-    ],
+    "title": "Software Engineer | Solution Validation, Benchmarking & Release Engineer | 10+ years",
+    "locations": [],
     "source": "Cisco"
   },
   "https://careers.cisco.com/global/en/job/2019275/Software-Engineer": {
@@ -16467,8 +16446,7 @@
   "https://www.metacareers.com/profile/job_details/2126285361338199": {
     "title": "Security Engineering Manager",
     "locations": [
-      "Bellevue, USA",
-      "Product Strategy"
+      "Bellevue, USA"
     ],
     "source": "Meta"
   },
@@ -17149,5 +17127,82 @@
     "title": "Manager Wireless Foundations (m/f/d)| RD281",
     "locations": [],
     "source": "Sennheiser"
+  },
+  "https://careers.cisco.com/global/en/job/2011875/Senior-Technical-Lead-Full-Stack-Java-React-Angular-Cloud-12-Years-Experience": {
+    "title": "Senior Technical Lead \u2013 Full Stack (Java, React/Angular, Cloud) | 12+ Years Experience*",
+    "locations": [],
+    "source": "Cisco"
+  },
+  "https://careers.cisco.com/global/en/job/2018628/Software-Engineer-Shared-Components": {
+    "title": "Software Engineer (Shared Components)",
+    "locations": [],
+    "source": "Cisco"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=124351&source=WEB_Search_NA": {
+    "title": "Security Consultant-Data Security",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134364&source=WEB_Search_NA": {
+    "title": "Security Consultant-Infrastructure Security",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134365&source=WEB_Search_NA": {
+    "title": "Security Consultant-Infrastructure Security",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134368&source=WEB_Search_NA": {
+    "title": "Security Consultant-Infrastructure Security",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=134370&source=WEB_Search_NA": {
+    "title": "Security Consultant-Infrastructure Security",
+    "locations": [],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=131930&source=WEB_Search_NA": {
+    "title": "Senior Manager Cyber Security Threats",
+    "locations": [
+      "Austin, USA"
+    ],
+    "source": "IBM"
+  },
+  "https://careers.ibm.com/en_US/careers/JobDetail?jobId=125423&source=WEB_Search_NA": {
+    "title": "Senior Security Consultant - SAP Security (m/f/d)",
+    "locations": [
+      "Frankfurt, Germany"
+    ],
+    "source": "IBM"
+  },
+  "https://www.linkedin.com/jobs/view/senior-technical-consultant-at-linkedin-4472031117": {
+    "title": "Senior Technical Consultant",
+    "locations": [
+      "New York, USA"
+    ],
+    "source": "LinkedIn"
+  },
+  "https://www.linkedin.com/jobs/view/sr-staff-software-engineer-ai-infrastructure-at-linkedin-4472043694": {
+    "title": "Sr. Staff Software Engineer, AI Infrastructure",
+    "locations": [
+      "Sunnyvale, USA"
+    ],
+    "source": "LinkedIn"
+  },
+  "https://careers.qualcomm.com/careers/job/446718481105": {
+    "title": "Director/Principal Engineer \u2013 Automotive Software",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446720226835": {
+    "title": "Low Power Analog-Mixed Signal Technologist, Senior Director",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
   }
 }

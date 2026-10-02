@@ -383,6 +383,10 @@ SENIORITY = [
     ("Sr. Manager", "Senior Manager"),
     ("Sr Manager", "Senior Manager"),
     ("Manager", "Manager"),
+    # "Sr " / "Sr. " catch-all for IC titles (CrowdStrike uses "Sr Engineer",
+    # etc.). Placed AFTER manager entries so "Sr Manager" still → Senior Manager.
+    ("Sr. ", "Senior"),
+    ("Sr ", "Senior"),
     ("Lead", "Lead"),
     ("Senior", "Senior"),
     ("Associate", "Associate"),
@@ -591,6 +595,49 @@ SENIORITY_XP = {
         "Senior":       "~5y",
         "Staff":        "~8y",
         "Principal":    "~12y+",
+    },
+}
+
+# Internal level codes (L4, L5, E5, IC5...) → years-of-experience, per company.
+# Used as a FALLBACK when the title contains a level code but no seniority
+# keyword (e.g. Netflix "Security Engineer (L5)" — detect_seniority returns
+# nothing because "Senior" / "Staff" aren't in the title). Keyed by company
+# name → uppercased level code (as produced by detect_ic_level). Values are
+# the same free-text format as SENIORITY_XP.
+IC_LEVEL_XP = {
+    "Netflix": {
+        # Netflix is famous for a flat IC ladder — L4 is the entry level
+        # (no L1-L3), and multiple tiers of "Senior" exist. Source: levels.fyi.
+        "L4": "~3y (entry IC)",
+        "L5": "~6y (Senior)",
+        "L6": "~9y (Staff)",
+        "L7": "~12y+ (Principal)",
+        "L8": "~15y+ (Distinguished)",
+    },
+    "Google": {
+        "L3": "~1y (SWE II)",
+        "L4": "~3y (SWE III)",
+        "L5": "~5y (Senior)",
+        "L6": "~10y (Staff)",
+        "L7": "~13y (Senior Staff)",
+        "L8": "~15y+ (Principal)",
+        "L9": "~20y+ (Distinguished)",
+    },
+    "Meta": {
+        "E3": "~1y",
+        "E4": "~3y",
+        "E5": "~6y (Senior)",
+        "E6": "~9y (Staff)",
+        "E7": "~12y (Senior Staff)",
+        "E8": "~15y+ (Principal)",
+        "E9": "~20y+ (Distinguished)",
+    },
+    "LinkedIn": {
+        "IC3": "~5y (Senior)",
+        "IC4": "~8y (Staff)",
+        "IC5": "~11y (Senior Staff)",
+        "IC6": "~15y+ (Principal)",
+        "IC7": "~18y+ (Distinguished)",
     },
 }
 
@@ -934,11 +981,12 @@ SOURCES = [
     # IBM uses their own careers portal (NOT Workday). Search page is on
     # ibm.com, job detail URLs are on careers.ibm.com subdomain.
     # Verified 2026-10-01 via https://careers.ibm.com/en_US/careers/JobDetail?jobId=<id>
-    {"name": "IBM",                  "kind": "pw",         "slug": "ibm",                  "queries": [],
+    # IBM: generic pw scraper derived titles from URL tail (/JobDetail?jobId=…)
+    # so every job came out titled "Jobdetail". Dedicated fetch_ibm parses the
+    # Carbon-Design cards and pulls the real title from aria-label.
+    {"name": "IBM",                  "kind": "ibm",        "slug": "ibm",                  "queries": [],
      "board": "https://www.ibm.com/careers/search?q=security",
-     "search_url": "https://www.ibm.com/careers/search?q=security",
-     "link_re": r'href="(https?://careers\.ibm\.com/en_US/careers/JobDetail\?jobId=\d+[^"]*)"',
-     "origin": "https://careers.ibm.com"},
+     "search_url": "https://www.ibm.com/careers/search?q=security"},
 
     # Qualcomm uses Phenom (same ATS as NVIDIA, Microsoft, Dolby, Bose).
     # Verified 2026-10-01 via https://careers.qualcomm.com/careers?pid=<id>
@@ -1401,4 +1449,5 @@ SPONTANEOUS_PATTERNS = [
     "candidature spontan",
     "open application",
     "unsolicited application",
+    "introduce yourself",
 ]
