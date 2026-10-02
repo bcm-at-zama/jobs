@@ -7397,11 +7397,15 @@ document.getElementById('claude-chat-url-setup')?.addEventListener('click', () =
 // Open claude.ai with the prompt pre-filled when it fits in the URL,
 // otherwise copy to clipboard and open a bare tab. If the user has pinned
 // a chat URL (via ⚙), always open that chat (prompt copied — no ?q= on
-// existing chats). Returns "prefilled" / "copied" / "copied-to-pinned" /
+// existing chats) UNLESS the caller passes {forceFreshChat:true}: the
+// per-job "?" button is a one-shot question that benefits from a new chat
+// (and the user never notices the clipboard copy because ?q= pre-fills
+// everything). Returns "prefilled" / "copied" / "copied-to-pinned" /
 // "failed" so callers can show the right instruction.
-async function openClaudeWithPrompt(prompt, statusEl) {
+async function openClaudeWithPrompt(prompt, statusEl, opts) {
   if (!prompt) return 'failed';
-  const pinned = _getPinnedClaudeChatUrl();
+  const forceFreshChat = !!(opts && opts.forceFreshChat);
+  const pinned = forceFreshChat ? '' : _getPinnedClaudeChatUrl();
   if (pinned) {
     if (navigator.clipboard && window.isSecureContext) {
       try {
@@ -7451,7 +7455,9 @@ document.querySelectorAll('button.ask-claude').forEach(btn => {
       "Va chercher la description sur le site, puis donne-moi un score de fit sur 10 et une brève justification.\\n\\n" +
       url
     );
-    openClaudeWithPrompt(prompt);
+    // Bypass any pinned chat URL — a one-shot per-job question works
+    // better in a fresh conversation where ?q= pre-fills the prompt.
+    openClaudeWithPrompt(prompt, null, {forceFreshChat: true});
   });
 });
 
