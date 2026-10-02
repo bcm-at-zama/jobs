@@ -3624,7 +3624,7 @@ _TRAILING_DASH_RE = re.compile(r"\s*[-–—]\s*$")
 # Trailing office/status word: "Palo Alto Office", "Bellevue Office",
 # "Santa Clara Hybrid", "Palo Alto HQ".
 _TRAILING_OFFICE_RE = re.compile(
-    r"\s+(?:Office|HQ|Hybrid|Headquarters)\s*$", re.IGNORECASE,
+    r"\s+(?:Office|HQ|Hybrid|Headquarters|Local)\s*$", re.IGNORECASE,
 )
 # Trailing "-XYZ" suffixes on cities: "Bangalore-MSO", "Warsaw-Lixa C".
 # Only strip when the prefix is a plausible city.
@@ -3643,6 +3643,16 @@ _STREET_ADDR_RE = re.compile(
 # a street address or number.
 _WD_STATE_CITY_STREET_RE = re.compile(
     r"^\s*(?:[A-Z]{2}|[A-Za-z]+)\s*[-–—]\s*([A-Za-z][A-Za-z \-]+?)\s*[-–—]\s*\d+.*$"
+)
+# Reversed "<US-state-or-country> - <City>" shape — Salesforce's Workday emits
+# "California - San Francisco" and Snyk's Ashby emits "United States - Boston"
+# (plus "United States - Boston Local" after " Local" gets stripped above).
+# Flipped to "<City>, <Region>" so downstream city/country lookup works.
+# We require space-dash-space to avoid eating hyphenated city names like
+# "Winston-Salem", and we reject suffixes containing another " - " to avoid
+# mis-splitting 3-segment inputs like "USA - California - San Francisco".
+_REGION_DASH_CITY_RE = re.compile(
+    r"^\s*([A-Za-z][A-Za-z. ]{1,40}?)\s+[-–—]\s+([A-Za-z][A-Za-zÀ-ÿ. '-]+?)\s*$"
 )
 
 
@@ -3682,6 +3692,15 @@ def _clean_loc(part):
             s = tmp
         else:
             return ""
+    # Flip "<US-state-or-country> - <City>" → "<City>, <Region>" (Salesforce
+    # Workday, Snyk Ashby). Must run AFTER _TRAILING_OFFICE_RE so trailing
+    # " Local"/" Office" tokens are already stripped from the city segment.
+    m = _REGION_DASH_CITY_RE.match(s)
+    if m:
+        prefix, suffix = m.group(1).strip(), m.group(2).strip()
+        low = prefix.lower()
+        if (low in _US_STATES or low in _KNOWN_COUNTRIES) and " - " not in suffix:
+            s = f"{suffix}, {prefix}"
     # Trailing dash: "Remote -", "France -", "Australia -".
     s = _TRAILING_DASH_RE.sub("", s).strip()
     # Mid-segment trailing dash before a comma: "Tel Aviv -, USA" → "Tel Aviv, USA".
