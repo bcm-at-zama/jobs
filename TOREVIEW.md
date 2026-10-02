@@ -14,3 +14,6 @@
 - VP, Success Management - Portfolio Leader
 - Account Partner Senior Director
 - Instructors Senior-FY27-Q3
+- Principal Hardware Engineer
+- ASIC Engineer
+- Hardware Engineer

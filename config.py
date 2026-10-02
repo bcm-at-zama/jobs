@@ -762,7 +762,22 @@ SOURCES = [
     # --- Wave 3 via debug/ats_probe.py 2026-09-25 (quasi-GAFAM) ------------
     # Big consumer tech
     {"name": "Airbnb",               "kind": "greenhouse", "slug": "airbnb",               "queries": ["security", "cryptography", "CTO", "VP"]},
-    {"name": "LinkedIn",             "kind": "greenhouse", "slug": "linkedin",             "queries": ["security", "cryptography", "CTO", "VP"]},
+    # LinkedIn: no public ATS; scraped from the guest /jobs/search/ pages.
+    # Pagination doesn't work (verified: &start=N ignored), so we union three
+    # filter variants to widen coverage from 60 → ~110 jobs:
+    #   - strict: f_C=1337 + geoId=US + f_TPR=7d + salary bands
+    #   - medium: same, f_TPR=30d (gets different top-60)
+    #   - loose:  no time/salary filter (the 200-roles headline page)
+    # f_C=1337 = LinkedIn-the-company; geoId=103644278 = United States.
+    # Note: /jobs/search-results/ (logged-in UI) returns a login wall;
+    # /jobs/search/ (guest) renders cards server-side.
+    {"name": "LinkedIn",             "kind": "linkedin",   "slug": "linkedin",             "queries": [],
+     "board": "https://www.linkedin.com/jobs/search/?f_C=1337&geoId=103644278",
+     "urls": [
+         "https://www.linkedin.com/jobs/search/?f_C=1337&geoId=103644278&f_TPR=r604800&f_SAL=f_SA_id_227001%3A278001%2C272003%2C279001%24f_SA_id_226001%3A272015&keywords=jobs",
+         "https://www.linkedin.com/jobs/search/?f_C=1337&geoId=103644278&f_TPR=r2592000&f_SAL=f_SA_id_227001%3A278001%2C272003%2C279001%24f_SA_id_226001%3A272015&keywords=jobs",
+         "https://www.linkedin.com/jobs/search/?f_C=1337&geoId=103644278",
+     ]},
     {"name": "Pinterest",            "kind": "greenhouse", "slug": "pinterest",            "queries": ["security", "cryptography", "CTO", "VP"]},
     {"name": "Discord",              "kind": "greenhouse", "slug": "discord",              "queries": ["security", "cryptography", "CTO", "VP"]},
     {"name": "Roblox",               "kind": "greenhouse", "slug": "roblox",               "queries": ["security", "cryptography", "CTO", "VP"]},
@@ -879,17 +894,21 @@ SOURCES = [
     {"name": "Unity",                "kind": "workday",    "slug": "unity",                "queries": ["security", "cryptography", "CTO", "VP"],
      "board": "https://unitytech.wd1.myworkdayjobs.com/Unity"},
 
-    # Cisco uses Phenom People (same ATS as NVIDIA / Microsoft / Qualcomm /
-    # Dolby / Bose), tenant CISCISGLOBAL. Verified 2026-10-01 from the
-    # rendered dump: scripts load cdn.phenompeople.com/CISCISGLOBAL/....
-    # Unlike other Phenom tenants, Cisco serves job URLs under /global/en
-    # instead of /careers, hence the per-tenant URL template.
-    # Scope: global (all categories), not restricted to any /c/<category> page.
-    {"name": "Cisco",                "kind": "phenom",     "slug": "cisco",                "queries": ["security", "cryptography", "CTO", "VP"],
+    # Cisco uses Phenom People under the hood (tenant CISCISGLOBAL), BUT its
+    # frontend ignores URL query params for search AND exposes a different
+    # DOM shape (<a id="job-link">) + pagination param (?from=N instead of
+    # ?start=N). Dedicated fetch_cisco paginates each category page.
+    # Scope: Product & Engineering + Business Development & Strategy (VP
+    # roles) + Other (catch-all). Remaining 5 categories (sales, business-
+    # ops, supply-chain, etc.) excluded as not relevant to security/crypto/
+    # CTO/VP profile.
+    {"name": "Cisco",                "kind": "cisco",      "slug": "cisco",                "queries": [],
      "board": "https://careers.cisco.com/global/en",
-     "search_url": "https://careers.cisco.com/global/en?query=security&sort_by=relevance",
-     "job_url_tpl": "{origin}/global/en/job/{jid}",
-     "board_total_url": "https://careers.cisco.com/global/en?start=0&sort_by=relevance"},
+     "categories": [
+         "/global/en/c/product-and-engineering-jobs",
+         "/global/en/c/business-development-and-strategy-jobs",
+         "/global/en/c/other-jobs",
+     ]},
 
     # Netflix uses Eightfold.ai with a vanity host. Verified 2026-10-01 via
     # https://explore.jobs.netflix.net/careers?pid=<id>&domain=netflix.com

@@ -1277,6 +1277,187 @@ def fetch_lucca(source):
     return {"jobs": jobs, "spontaneous_url": _pick_spontaneous(jobs)}
 
 
+_CISCO_JOB_CARD_RE = re.compile(
+    # Pull title + href from attributes on the <a id="job-link"> tag directly.
+    # Attribute order on Cisco's rendered DOM is stable: data-ph-at-job-title-text
+    # comes BEFORE href. Grabbing from attributes (not the anchor body) avoids
+    # noise when the title contains inline chips like "<span>12+ Years</span>",
+    # which previously got mis-parsed as the job location.
+    r'<a[^>]+id="job-link"[^>]+data-ph-at-job-title-text="([^"]+)"[^>]+href="(?:https?://[^"/]+)?(/global/en/job/\d+/[^"#?]+)"',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def fetch_cisco(source):
+    """Cisco careers portal (careers.cisco.com/global/en). Phenom-powered but
+    uses a different URL / pagination shape than the generic fetch_phenom.
+    - Job URL: /global/en/job/<id>/<slug>
+    - Pagination: ?from=0, 10, 20, ... (NOT ?start=)
+    - Job anchor id: "job-link" (not "job-card-N-job-list")
+    Scrapes each category page under /c/<category-jobs> and dedupes."""
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright not installed")
+        return {"jobs": [], "spontaneous_url": None}
+    origin = "https://careers.cisco.com"
+    # Base category pages — covers the whole board.
+    categories = source.get("categories") or [
+        "/global/en/c/product-and-engineering-jobs",
+    ]
+    out, seen = [], set()
+    max_pages = int(source.get("max_pages") or 20)   # 20 pages × 10 jobs = 200 jobs/cat
+    p, browser, page = _open_browser()
+    try:
+        for cat in categories:
+            cat_url = f"{origin}{cat}"
+            for pnum in range(max_pages):
+                from_offset = pnum * 10
+                page_url = f"{cat_url}?from={from_offset}&s=1"
+                debug = f"debug/debug-cisco-{slug(cat.rsplit('/',1)[-1])}-{pnum}.html" if pnum < 2 else None
+                try:
+                    text = _render(
+                        page, page_url,
+                        wait_selector='a[id="job-link"]',
+                        debug_path=debug,
+                    )
+                except Exception as e:
+                    err(f"[Cisco] page {pnum} ({page_url}) failed: {e}")
+                    break
+                # NOTE: don't name this variable `matches` — it shadows the
+                # top-level matches(job, queries) helper used below for the
+                # queries filter, which caused "'list' object is not callable".
+                hits = _CISCO_JOB_CARD_RE.findall(text)
+                sys.stdout.write(
+                    f"[Cisco] cat={cat.rsplit('/',1)[-1]} page {pnum+1}/{max_pages} "
+                    f"from={from_offset} matches={len(hits)} total_so_far={len(out)}\n"
+                )
+                sys.stdout.flush()
+                if not hits:
+                    break
+                added = 0
+                for title_attr, path in hits:
+                    jid_m = re.search(r"/job/(\d+)/", path)
+                    jid = jid_m.group(1) if jid_m else path
+                    if jid in seen:
+                        continue
+                    seen.add(jid)
+                    title = html.unescape(title_attr).strip() or f"Cisco job {jid}"
+                    out.append({
+                        "title": title,
+                        "locations": [],
+                        "url": origin + path,
+                        "description": "",
+                        "blob": title,
+                    })
+                    added += 1
+                if added == 0:
+                    sys.stdout.write(
+                        f"[Cisco] no new jobs on page {pnum+1} — stopping pagination\n"
+                    )
+                    break
+    finally:
+        browser.close()
+        p.stop()
+    sys.stdout.write(f"[Cisco] total unique jobs scraped: {len(out)}\n")
+    # Apply per-source queries filter if any (lets the user narrow scope
+    # beyond the category URLs). Empty queries → keep everything.
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
+_LINKEDIN_CARD_RE = re.compile(
+    # One job card = a div with both base-card and job-search-card classes,
+    # carrying data-entity-urn="urn:li:jobPosting:<id>". We grab the card body
+    # (up to the next card or the closing <ul>) so title/loc/link regexes
+    # below only match within a single card.
+    r'<div[^>]*class="[^"]*base-card[^"]*job-search-card[^"]*"[^>]*'
+    r'data-entity-urn="urn:li:jobPosting:(\d+)"[^>]*>'
+    r'(.*?)'
+    r'(?=<div[^>]*class="[^"]*base-card[^"]*job-search-card[^"]*"|</ul>)',
+    re.DOTALL | re.IGNORECASE,
+)
+_LINKEDIN_LINK_RE  = re.compile(r'<a[^>]+class="[^"]*base-card__full-link[^"]*"[^>]+href="([^"]+)"', re.IGNORECASE)
+_LINKEDIN_TITLE_RE = re.compile(r'<h3[^>]*class="[^"]*base-search-card__title[^"]*"[^>]*>(.*?)</h3>', re.DOTALL | re.IGNORECASE)
+_LINKEDIN_LOC_RE   = re.compile(r'<span[^>]*class="[^"]*job-search-card__location[^"]*"[^>]*>(.*?)</span>', re.DOTALL | re.IGNORECASE)
+
+
+def _linkedin_clean(s):
+    """Strip inner tags + collapse whitespace + unescape entities."""
+    if not s:
+        return ""
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", s))).strip()
+
+
+def fetch_linkedin(source):
+    """LinkedIn company jobs via the PUBLIC /jobs/search/ page (no login).
+
+    - /jobs/search-results/ (logged-in UI) hits a login wall; /jobs/search/
+      is the guest-facing variant that renders job cards server-side.
+    - LinkedIn caps the page at ~60 cards and ignores &start=N for pagination
+      (verified empirically — 3 probe pages at start=0/60/120 returned the
+      exact same 60 URNs). So each URL = one 60-job slice.
+    - To widen coverage we accept a LIST of search URLs (`source["urls"]`),
+      typically variations of f_TPR / f_SAL / keywords. Each URL yields a
+      different top-60 slice; we union them and dedupe by job URN.
+      Example: strict (last 7d, salary bands) + medium (last 30d) + loose
+      (no filter) → ~110 unique jobs out of the 200 total LinkedIn posts."""
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright not installed")
+        return {"jobs": [], "spontaneous_url": None}
+    urls = source.get("urls") or ([source["search_url"]] if source.get("search_url") else [])
+    if not urls:
+        err(f"[{source['name']}] no urls configured")
+        return {"jobs": [], "spontaneous_url": None}
+    out, seen = [], set()
+    p, browser, page = _open_browser()
+    try:
+        for i, url in enumerate(urls):
+            try:
+                text = _render(
+                    page, url,
+                    wait_selector='div.base-card.job-search-card',
+                    timeout=20000,
+                    debug_path=f"debug/debug-linkedin-{i}.html" if i < 3 else None,
+                )
+            except Exception as e:
+                err(f"[LinkedIn] url#{i} failed: {e}")
+                continue
+            cards = _LINKEDIN_CARD_RE.findall(text)
+            added = 0
+            for jid, body in cards:
+                if jid in seen:
+                    continue
+                seen.add(jid)
+                link_m = _LINKEDIN_LINK_RE.search(body)
+                title_m = _LINKEDIN_TITLE_RE.search(body)
+                loc_m = _LINKEDIN_LOC_RE.search(body)
+                if not link_m or not title_m:
+                    continue
+                title = _linkedin_clean(title_m.group(1)) or f"LinkedIn job {jid}"
+                loc = _linkedin_clean(loc_m.group(1)) if loc_m else ""
+                # Drop LinkedIn's query-string noise (tracking tokens, pageNum).
+                url_clean = link_m.group(1).split("?")[0]
+                out.append({
+                    "title": title,
+                    "locations": [loc] if loc else [],
+                    "url": url_clean,
+                    "description": "",
+                    "blob": title,
+                })
+                added += 1
+            sys.stdout.write(
+                f"[LinkedIn] url#{i} cards={len(cards)} new={added} total_unique={len(out)}\n"
+            )
+            sys.stdout.flush()
+    finally:
+        browser.close()
+        p.stop()
+    sys.stdout.write(f"[LinkedIn] total unique jobs scraped: {len(out)}\n")
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
 def fetch_pw_generic(source):
     """Generic Playwright link scraper. Requires `search_url`, `link_re`, `origin` on source."""
     if not source.get("search_url") or not source.get("link_re"):
@@ -1532,10 +1713,7 @@ def fetch_meta(source):
 
 
 _PHENOM_JOB_RE = re.compile(
-    # Phenom tenants use two URL shapes:
-    #   /careers/job/<id>                        (NVIDIA, Dolby, Bose, Qualcomm)
-    #   https?://<host>/global/en/job/<id>/<slug> (Cisco — same ATS, custom path)
-    r'href="(?:https?://[^"/]+)?(?:/careers|/global/en)/job/(\d+)[^"]*"[^>]*>(.*?)</a>',
+    r'href="/careers/job/(\d+)"[^>]*>(.*?)</a>',
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -1556,12 +1734,9 @@ def fetch_phenom(source):
     origin = f"{_pu.scheme}://{_pu.netloc}" if _pu and _pu.scheme and _pu.netloc else "https://jobs.example.com"
     total_board = None
     try:
-        # Phenom board-total URL — most tenants expose /careers, Cisco uses
-        # /global/en. Allow override via source config.
-        board_total_url = source.get("board_total_url") or f"{origin}/careers?start=0&sort_by=relevance"
         total_board = _phenom_board_total(
             page, source["name"],
-            board_total_url,
+            f"{origin}/careers?start=0&sort_by=relevance",
             f"debug/debug-{slug(source['name'])}-total.html",
         )
         for q in source["queries"]:
@@ -1592,13 +1767,10 @@ def fetch_phenom(source):
                     title = parts[0] if parts else f"{source['name']} job {jid}"
                     location = parts[1] if len(parts) > 1 else ""
                     seen.add(jid)
-                    # Per-tenant URL template. Default = NVIDIA-style
-                    # /careers/job/<id>. Cisco uses /global/en/job/<id>.
-                    url_tpl = source.get("job_url_tpl") or "{origin}/careers/job/{jid}"
                     out.append({
                         "title": title,
                         "locations": [location] if location else [],
-                        "url": url_tpl.format(origin=origin, jid=jid),
+                        "url": f"{origin}/careers/job/{jid}",
                         "description": "",
                         "blob": title,
                     })
@@ -2207,6 +2379,8 @@ FETCHERS = {
     "microsoft": fetch_microsoft,
     "meta": fetch_meta,
     "phenom": fetch_phenom,
+    "cisco": fetch_cisco,
+    "linkedin": fetch_linkedin,
     "scale": fetch_scale,
     "github": fetch_github,
     "checkmarx": fetch_checkmarx,
