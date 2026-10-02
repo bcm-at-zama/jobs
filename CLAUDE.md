@@ -44,6 +44,13 @@ user has explicitly authorized in the current message.
 - When adding a new board, always start with `queries: []` so we see every
   posting; the user narrows the queries once we've confirmed the scraper
   works end to end.
+- When adding a new big-tech source, also add a `SENIORITY_XP` entry in
+  `config.py` if the company has a public leveling grid (Cisco grades, IBM
+  bands, Google L-levels, Meta E-levels, LinkedIn IC-levels, Microsoft 6x
+  bands, Apple ICT, etc.). Otherwise the generic `SENIORITY_XP_DEFAULT`
+  fallback kicks in (~5y Senior / ~8y Staff / ~12y+ Principal), which is
+  fine for startups but misleading for a big company with atypical bands.
+  Startups: don't invent entries — rely on the fallback.
 
 ## When you need something from me — ask explicitly, and remind
 

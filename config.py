@@ -556,7 +556,63 @@ SENIORITY_XP = {
         "Senior":       "~5y",
         "Staff":        "~8y",
     },
+    # --- Wave 7 (2026-10-02) — big companies with public leveling grids ---
+    "Cisco": {
+        "Senior":       "~4y (G9)",
+        "Lead":         "~7y (G10 Technical Leader)",
+        "Staff":        "~8y (G10-11)",
+        "Principal":    "~12y+ (G11-12)",
+        "Distinguished":"~15y+ (G13)",
+    },
+    "LinkedIn": {
+        "Senior":       "~5y (IC3)",
+        "Staff":        "~8y (IC4)",
+        "Senior Staff": "~11y (IC5)",
+        "Principal":    "~15y+ (IC6)",
+        "Distinguished":"~18y+ (IC7)",
+    },
+    "IBM": {
+        "Senior":       "~5-7y (Band 8)",
+        "Principal":    "~10-12y (STSM, Band 9)",
+        "Distinguished":"~15y+ (Band 10)",
+    },
+    "Palantir": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
+    "Qualcomm": {
+        "Senior":       "~4y",
+        "Staff":        "~7y",
+        "Senior Staff": "~10y",
+        "Principal":    "~14y+",
+    },
+    "CrowdStrike": {
+        "Senior":       "~5y",
+        "Staff":        "~8y",
+        "Principal":    "~12y+",
+    },
 }
+
+# Fallback used when a company isn't listed above (typical startup leveling).
+# Rendered with a slightly different tooltip so the user knows it's generic.
+# Keep this short — it's a last resort for small companies without published
+# grids. Big-tech companies with real leveling grids should always get an
+# explicit entry in SENIORITY_XP above.
+SENIORITY_XP_DEFAULT = {
+    "Senior":    "~5y",
+    "Staff":     "~8y",
+    "Principal": "~12y+",
+}
+
+# NOTE for future maintenance (also in CLAUDE.md):
+# When adding a new source to SOURCES, consider whether its company has a
+# known leveling grid (Cisco grades, IBM bands, Google L-levels, Meta
+# E-levels, LinkedIn IC-levels, etc). If so, add an explicit SENIORITY_XP
+# entry so the 🎓 badge shows the right numbers. Otherwise the generic
+# SENIORITY_XP_DEFAULT fallback kicks in (~5y Senior / ~8y Staff / ~12y+
+# Principal) — fine for startups, misleading for big companies with
+# atypical bands.
 
 # =============================================================================
 # Sources — the boards to fetch

@@ -67,7 +67,8 @@ from config import (  # noqa: E402,F401 — public config surface
     SCORE_BATCH_SIZE, SCORE_DESC_CHARS, SCORE_PARALLEL, SCORE_LONG_ROLES,
     HIGHLIGHTS, TITLE_CASE_OVERRIDES,
     TITLE_BLACKLIST, LOCATION_BLACKLIST,
-    SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES, SENIORITY_XP,
+    SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES,
+    SENIORITY_XP, SENIORITY_XP_DEFAULT,
     SOURCES, SPONTANEOUS_PATTERNS,
     GROUP_ORDER, GROUP_OF, COMPANY_INFO,
 )
@@ -4026,11 +4027,18 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'<span class="badge seniority">{html.escape(seniority)}</span>' if seniority else ""
         )
         # Typical years-of-experience for this (company, seniority) — purple
-        # pill shown just left of the salary. Only rendered when we have a
-        # published grid for the company in config.SENIORITY_XP.
-        xp_txt = SENIORITY_XP.get(name, {}).get(seniority, "") if seniority else ""
+        # pill shown just left of the salary. Prefer the company-specific grid
+        # in SENIORITY_XP; fall back to generic startup leveling in
+        # SENIORITY_XP_DEFAULT when the company isn't listed.
+        xp_specific = SENIORITY_XP.get(name, {}).get(seniority, "") if seniority else ""
+        xp_txt = xp_specific or (SENIORITY_XP_DEFAULT.get(seniority, "") if seniority else "")
+        xp_tooltip = (
+            f"Typical years-of-experience at {name} for {seniority} — from public leveling guide."
+            if xp_specific
+            else f"Generic startup estimate for {seniority} ({name} has no published leveling grid)."
+        ) if xp_txt else ""
         xp_html = (
-            f'<span class="badge xp" title="Typical years-of-experience at {html.escape(name, quote=True)} for {html.escape(seniority, quote=True)} — indicative, from public leveling guides.">🎓 {html.escape(xp_txt)}</span>'
+            f'<span class="badge xp" title="{html.escape(xp_tooltip, quote=True)}">🎓 {html.escape(xp_txt)}</span>'
             if xp_txt else ""
         )
         # Salary extracted by the LLM (verbatim, no conversion). Shown as a
