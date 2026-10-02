@@ -731,12 +731,12 @@ SOURCES = [
      "link_re": r'href="(/en-US/crowdstrikecareers/job/[^"]+)"',
      "origin": "https://crowdstrike.wd5.myworkdayjobs.com",
      "wait_selector": "a[href*='/crowdstrikecareers/job/']"},
-    {"name": "Snyk",       "kind": "pw",         "slug": "snyk",       "queries": [],
-     "board": "https://snyk.io/fr/careers/all-jobs/",
-     "search_url": "https://snyk.io/fr/careers/all-jobs/",
-     "link_re": r'href="(https?://[^"]*greenhouse[^"]*/snyk/jobs/\d+[^"]*|/fr/careers/[^"#?/]+/[^"#?/]+/?)"',
-     "origin": "https://snyk.io",
-     "wait_selector": "a[href*='/jobs/'], a[href*='/careers/']"},
+    # Snyk uses Ashby under the hood (jobs.ashbyhq.com/<workspace-uuid>/…
+    # on snyk.io/careers/all-jobs/). Friendly slug "snyk" works on the Ashby
+    # posting API — verified 2026-10-02 via probe_broken_sources.py (13 jobs
+    # returned). The previous pw-based scraper never matched any href because
+    # Snyk doesn't publish greenhouse URLs nor /fr/careers/<slug> pages.
+    {"name": "Snyk",       "kind": "ashby",      "slug": "snyk",       "queries": []},
     {"name": "Semgrep",    "kind": "pw",         "slug": "semgrep",    "queries": [],
      "board": "https://semgrep.dev/about/careers/",
      "search_url": "https://semgrep.dev/about/careers/",
@@ -836,7 +836,7 @@ SOURCES = [
     {"name": "LlamaIndex",           "kind": "ashby",      "slug": "llamaindex",           "queries": ["security", "manager", "CTO", "VP"]},
     {"name": "Nomic",                "kind": "ashby",      "slug": "nomic",                "queries": ["security", "manager", "CTO", "VP"]},
     {"name": "Weaviate",             "kind": "ashby",      "slug": "weaviate",             "queries": ["security", "manager", "CTO", "VP"]},
-    {"name": "Pinecone",             "kind": "ashby",      "slug": "pinecone",             "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Pinecone",             "kind": "ashby",      "slug": "pinecone",             "queries": []},
     # Voice / audio AI
     {"name": "Deepgram",             "kind": "ashby",      "slug": "deepgram",             "queries": ["security", "manager", "CTO", "VP"]},
     {"name": "AssemblyAI",           "kind": "greenhouse", "slug": "assemblyai",           "queries": ["security", "manager", "CTO", "VP"]},
@@ -856,7 +856,7 @@ SOURCES = [
     {"name": "Doctolib",             "kind": "ashby",      "slug": "doctolib",             "queries": ["security", "manager", "CTO", "VP"]},
     {"name": "Alan",                 "kind": "ashby",      "slug": "alan",                 "queries": ["security", "manager", "CTO", "VP"]},
     {"name": "Qonto",                "kind": "ashby",      "slug": "qonto",                "queries": ["security", "manager", "CTO", "VP"]},
-    {"name": "Dataiku",              "kind": "greenhouse", "slug": "dataiku",              "queries": ["security", "manager", "CTO", "VP"]},
+    {"name": "Dataiku",              "kind": "greenhouse", "slug": "dataiku",              "queries": []},
     {"name": "Owkin",                "kind": "ashby",      "slug": "owkin",                "queries": []},
     # Adjacent
     {"name": "Fastly",               "kind": "greenhouse", "slug": "fastly",               "queries": ["security", "manager", "CTO", "VP"]},
@@ -864,7 +864,7 @@ SOURCES = [
 
     # --- Wave 3 via debug/ats_probe.py 2026-09-25 (quasi-GAFAM) ------------
     # Big consumer tech
-    {"name": "Airbnb",               "kind": "greenhouse", "slug": "airbnb",               "queries": ["security", "cryptography", "CTO", "VP"]},
+    {"name": "Airbnb",               "kind": "greenhouse", "slug": "airbnb",               "queries": []},
     # LinkedIn: no public ATS; scraped from the guest /jobs/search/ pages.
     # Pagination doesn't work (verified: &start=N ignored), so we union three
     # filter variants to widen coverage from 60 → ~110 jobs:
@@ -913,7 +913,7 @@ SOURCES = [
      "board": "https://sonos.wd1.myworkdayjobs.com/Sonos"},
     {"name": "Sennheiser",           "kind": "successfactors", "slug": "sennheiser",       "queries": [],
      "board": "https://jobs.sennheiser.com/search/?q=&locationsearch=&locale=en_US&searchResultView=LIST"},
-    {"name": "Bose",                 "kind": "phenom",     "slug": "bose",                 "queries": ["security", "manager", "CTO", "VP"],
+    {"name": "Bose",                 "kind": "bose",       "slug": "bose",                 "queries": [],
      "board": "https://careers.bose.com/us/en",
      "search_url": "https://careers.bose.com/us/en?query=&sort_by=relevance"},
 
@@ -939,7 +939,7 @@ SOURCES = [
     {"name": "Seymour Duncan",       "kind": "pw",         "slug": "seymour",              "queries": [],
      "board": "https://www.seymourduncan.com/company/join-our-team",
      "search_url": "https://www.seymourduncan.com/company/join-our-team",
-     "link_re": r'href="(https?://yoursmartsource\.hiringthing\.com/job/\d+/[a-z0-9-]+|/[a-z0-9-]+-job-posting)"',
+     "link_re": r'href="(https?://yoursmartsource\.hiringthing\.com/job/\d+/[a-z0-9-]+|https?://(?:www\.)?seymourduncan\.com/[a-z0-9-]+-job-posting|/[a-z0-9-]+-job-posting)"',
      "origin": "https://www.seymourduncan.com"},
     # Direct HTML scrapers with proper regexes
     {"name": "MOTU",                 "kind": "pw",         "slug": "motu",                 "queries": [],

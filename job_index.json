@@ -17204,5 +17204,30 @@
       "San Diego, USA"
     ],
     "source": "Qualcomm"
+  },
+  "https://careers.cisco.com/global/en/job/2023163/Hardware-Engineer": {
+    "title": "Hardware Engineer",
+    "locations": [],
+    "source": "Cisco"
+  },
+  "https://careers.cisco.com/global/en/job/2024583/Software-Engineer-Metadata-Catalog-Splunk": {
+    "title": "Software Engineer, Metadata Catalog - Splunk",
+    "locations": [],
+    "source": "Cisco"
+  },
+  "https://www.linkedin.com/jobs/view/senior-software-engineer-systems-and-infrastructure-at-linkedin-4457022414": {
+    "title": "Senior Software Engineer - Systems and Infrastructure",
+    "locations": [
+      "Mountain View, USA"
+    ],
+    "source": "LinkedIn"
+  },
+  "https://job-boards.eu.greenhouse.io/proton/jobs/4996320101": {
+    "title": "SRE Manager (VPN)",
+    "locations": [
+      "Barcelona, Spain",
+      "Geneva, Switzerland"
+    ],
+    "source": "Proton"
   }
 }

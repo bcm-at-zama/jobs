@@ -19,3 +19,10 @@
 - Hardware Engineer
 - Communications Manager
 - Network Strategy Director
+- Hardware Engineer
+- ASIC Engineering Technical Leader
+- Analog/mixed-signal IC Developer - Acacia (Hybrid)
+- ASIC Engineer- CAD
+- Hardware Engineer- (Power electronics/ Analog design) - BLR , 8 to 15 yrs
+- Mechanical Engineer
+- Software QA Wi-Fi Engineer

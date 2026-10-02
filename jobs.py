@@ -1366,6 +1366,86 @@ def fetch_cisco(source):
             "total_board": len(out)}
 
 
+_BOSE_JOB_CARD_RE = re.compile(
+    # Bose is Phenom-based but uses a different URL layout and attribute order
+    # than Cisco: data-ph-at-job-title-text comes BEFORE href, and the href is
+    # an ABSOLUTE URL under careers.bose.com/us/en/job/<id>/<slug> where <id>
+    # is alphanumeric (e.g. R28789), not pure digits. Grab from attributes so
+    # inline chips in the anchor body don't pollute the title.
+    r'<a[^>]+id="job-link"[^>]+data-ph-at-job-title-text="([^"]+)"[^>]+'
+    r'href="(?:https?://[^"/]+)?(/us/en/job/[A-Za-z0-9]+/[^"#?]+)"',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def fetch_bose(source):
+    """Bose careers portal (careers.bose.com/us/en). Phenom-powered but with
+    a different URL layout than Cisco or generic Phenom:
+    - Job URL: /us/en/job/<alnum-id>/<slug>  (NOT /careers/job/<digits>)
+    - Pagination: ?start=0, 20, 40 (same as generic Phenom)
+    - Job anchor id: "job-link"; title in data-ph-at-job-title-text attribute.
+    Board is small (~3 jobs as of 2026-10) so one pass per query suffices."""
+    if not HAS_PLAYWRIGHT:
+        err(f"[{source['name']}] Playwright not installed")
+        return {"jobs": [], "spontaneous_url": None}
+    origin = "https://careers.bose.com"
+    base = source.get("search_url") or f"{origin}/us/en?query=&sort_by=relevance"
+    out, seen = [], set()
+    p, browser, page = _open_browser()
+    try:
+        # Single pass (no per-query loop): Bose's query= param doesn't filter
+        # server-side (verified from debug-bose-*-0.html — all queries returned
+        # the same 3 jobs). One fetch of the board page is enough; the queries
+        # filter is applied client-side via matches().
+        for pnum in range(10):
+            start = pnum * 20
+            sep = "&" if "?" in base else "?"
+            page_url = f"{base}{sep}start={start}"
+            debug = f"debug/debug-bose-page-{pnum}.html" if pnum < 2 else None
+            try:
+                text = _render(
+                    page, page_url,
+                    wait_selector='a[id="job-link"]',
+                    debug_path=debug,
+                )
+            except Exception as e:
+                err(f"[Bose] page {pnum} ({page_url}) failed: {e}")
+                break
+            hits = _BOSE_JOB_CARD_RE.findall(text)
+            sys.stdout.write(
+                f"[Bose] page {pnum+1} start={start} matches={len(hits)} "
+                f"total_so_far={len(out)}\n"
+            )
+            sys.stdout.flush()
+            if not hits:
+                break
+            added = 0
+            for title_attr, path in hits:
+                jid_m = re.search(r"/job/([A-Za-z0-9]+)/", path)
+                jid = jid_m.group(1) if jid_m else path
+                if jid in seen:
+                    continue
+                seen.add(jid)
+                title = html.unescape(title_attr).strip() or f"Bose job {jid}"
+                out.append({
+                    "title": title,
+                    "locations": [],
+                    "url": origin + path,
+                    "description": "",
+                    "blob": title,
+                })
+                added += 1
+            if added == 0:
+                break
+    finally:
+        browser.close()
+        p.stop()
+    sys.stdout.write(f"[Bose] total unique jobs scraped: {len(out)}\n")
+    matched = [j for j in out if matches(j, source["queries"])]
+    return {"jobs": matched, "spontaneous_url": _pick_spontaneous(out),
+            "total_board": len(out)}
+
+
 _LINKEDIN_CARD_RE = re.compile(
     # One job card = a div with both base-card and job-search-card classes,
     # carrying data-entity-urn="urn:li:jobPosting:<id>". We grab the card body
@@ -2271,6 +2351,13 @@ def fetch_workday(source):
     for p in all_jobs:
         title = p.get("title", "")
         loc = p.get("locationsText") or p.get("bulletFields", [""])[0] or ""
+        # Some Workday tenants (notably Intel) encode remote as "Virtual, <X>".
+        # Normalize to "Remote (<X>)" so it isn't mistaken for a city.
+        m_virt = re.match(r'^\s*Virtual\s*,\s*(.+?)\s*$', loc, re.IGNORECASE)
+        if m_virt:
+            loc = f"Remote ({m_virt.group(1)})"
+        elif loc.strip().lower() == "virtual":
+            loc = "Remote"
         external_path = p.get("externalPath") or ""
         # Workday job URLs need the board_id prefix: /en-US/<board>/job/...
         # externalPath is /job/<location>/<slug>. Include a locale for full
@@ -2496,6 +2583,7 @@ FETCHERS = {
     "meta": fetch_meta,
     "phenom": fetch_phenom,
     "cisco": fetch_cisco,
+    "bose": fetch_bose,
     "linkedin": fetch_linkedin,
     "ibm": fetch_ibm,
     "scale": fetch_scale,
