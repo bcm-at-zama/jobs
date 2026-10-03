@@ -13,6 +13,8 @@ git add NEXT.md
 git add TOREVIEW.md
 git add config_blurbs.py
 git add business
+git add planning
+git add user_config.example.py
 git add Makefile tests/*.py
 
 git commit -am "Update"
