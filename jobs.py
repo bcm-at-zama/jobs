@@ -152,6 +152,11 @@ def _load_set(path):
 
 
 def _save_set(path, s):
+    # Ensure the parent directory exists — state lives in `data/` now,
+    # which may not have been created yet on a fresh clone.
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(sorted(s), f, indent=2)
 

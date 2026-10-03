@@ -10,7 +10,8 @@
       "Bash(grep -oiE 'totalpages[^,}]{0,50}|current-page[^,}]{0,50}|filter-header[^<]{0,80}' /workspace/debug/debug-apple-security-1.html)",
       "Bash(grep -oE '.{30}\\(matched|match|Match\\).{30}|.{30}[0-9,]+ jobs.{30}|.{30}found[^<>]{0,30}' /workspace/debug/debug-google-codemender-1.html)",
       "Bash(grep -oE '.{25}[0-9,]{3,7}[^<>]{0,20}\\(jobs|results|matches|positions|found|available\\)' /workspace/debug/debug-microsoft-security-0.html)",
-      "Bash(git -C /workspace diff HEAD -- jobs.py config.py)"
+      "Bash(git -C /workspace diff HEAD -- jobs.py config.py)",
+      "Bash(make test *)"
     ]
   }
 }

@@ -10,33 +10,45 @@ the engine reads whatever is in *this* file.
 """
 
 # =============================================================================
-# Storage locations (one file per concern; edit only if the defaults collide)
+# Storage locations
+#
+# The engine code (jobs.py) and all per-user state are now separated:
+#   - Engine → repository code (jobs.py, config.py, tests/, …)
+#   - State  → the `data/` directory, created automatically on first run
+#
+# To relocate your state (e.g. to a Dropbox-synced folder), set
+# JOBS_DATA_DIR in your environment to an absolute path.
 # =============================================================================
+import os as _os
 
-OUTPUT_HTML         = "jobs.html"
-REJECTED_DB         = "rejected.json"
-LIKED_DB            = "liked.json"
-TO_APPLY_DB         = "to_apply.json"
-APPLIED_DB          = "applied.json"
+DATA_DIR            = _os.environ.get("JOBS_DATA_DIR", "data")
+# Ensure data/ exists so writers never fail on a fresh clone. idempotent.
+_os.makedirs(DATA_DIR, exist_ok=True)
+
+OUTPUT_HTML         = _os.path.join(DATA_DIR, "jobs.html")
+REJECTED_DB         = _os.path.join(DATA_DIR, "rejected.json")
+LIKED_DB            = _os.path.join(DATA_DIR, "liked.json")
+TO_APPLY_DB         = _os.path.join(DATA_DIR, "to_apply.json")
+APPLIED_DB          = _os.path.join(DATA_DIR, "applied.json")
 # {url: {reason, feedback, ts}} — jobs where I applied and the company
 # rejected me. Kept even after the job is removed from the board.
-APP_REJECTED_DB     = "app_rejected.json"
+APP_REJECTED_DB     = _os.path.join(DATA_DIR, "app_rejected.json")
 # History: jobs you want to remember even though you're not applying and
 # not rejecting them. Typically clicked via the K button once you've read
 # the description and want to archive it out of the main list.
-HISTORY_DB          = "history.json"
-SEEN_DB             = "seen.json"
+HISTORY_DB          = _os.path.join(DATA_DIR, "history.json")
+SEEN_DB             = _os.path.join(DATA_DIR, "seen.json")
 # {url: {title, locations, source}} — used to render orphans (jobs the user
 # +1'd / marked but no longer returned by the source board).
-JOB_INDEX_DB        = "job_index.json"
-SCORE_CACHE         = "llm_cache.json"
-DESC_CACHE          = "desc_cache.json"
+JOB_INDEX_DB        = _os.path.join(DATA_DIR, "job_index.json")
+SCORE_CACHE         = _os.path.join(DATA_DIR, "llm_cache.json")
+DESC_CACHE          = _os.path.join(DATA_DIR, "desc_cache.json")
 # {url: {score: int 0-10, reason: str, ts: ISO}} — Claude fit scores from
 # the "C" button. Keyed by URL. Written per-URL as scoring progresses so
 # interrupted runs don't lose work.
-CLAUDE_FIT_CACHE    = "claude_fit_cache.json"
+CLAUDE_FIT_CACHE    = _os.path.join(DATA_DIR, "claude_fit_cache.json")
 RAW_LOCATIONS_FILE  = "debug/raw_locations.txt"
-LIST_CACHE_DIR      = "list_cache"
+LIST_CACHE_DIR      = _os.path.join(DATA_DIR, "list_cache")
 
 # TTL for the per-source list cache. On a re-run within this window we skip
 # Playwright entirely for that source (huge speed-up when descriptions and
