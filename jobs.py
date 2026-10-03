@@ -8575,7 +8575,7 @@ def main():
     timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s")
 
     print("=" * 70, file=sys.stdout)
-    print("Step 2 — score: send visible jobs to the LLM (per PROFILE.md rubric),", file=sys.stdout)
+    print("Step 2 — score: send visible jobs to the LLM (per the user's profile),", file=sys.stdout)
     print("               batched with cache-hits reused from score_cache.json", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
     t_score_start = time.perf_counter()
