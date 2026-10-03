@@ -6262,6 +6262,18 @@ function applyFilters() {
     }
     li.classList.toggle('hidden', hide);
   });
+  // Also honour the state toggles for spontaneous rows that carry a state.
+  // Without this, hiding "Show Liked" still leaves a liked ✉ Spontaneous
+  // visible, which the user has flagged as surprising. Rows WITHOUT any
+  // state class are left to the body.hide-spontaneous CSS rule.
+  document.querySelectorAll('.spontaneous-row').forEach(row => {
+    const state = row.classList.contains('app-rejected') ? 'app-rejected'
+                : row.classList.contains('applied')      ? 'applied'
+                : row.classList.contains('toapply')      ? 'toapply'
+                : row.classList.contains('liked')        ? 'liked'
+                : null;
+    if (state) row.classList.toggle('hidden', !stateShow[state]);
+  });
   let total = 0;
   document.querySelectorAll('ul[data-section]').forEach(ul => {
     const sid = ul.dataset.section;
@@ -6271,8 +6283,11 @@ function applyFilters() {
     // as +1 for this section so the nav pill turns green, the counter
     // increments, and hide-empty-sections keeps the section on screen.
     const section = ul.closest('.company-section');
+    // Only count the spontaneous row if its state is actually visible —
+    // otherwise toggling off "Show Liked" would still count a hidden
+    // liked ✉ Spontaneous and leave the section with an inflated counter.
     const spontStateful = section?.querySelector(
-      '.spontaneous-row.liked, .spontaneous-row.toapply, .spontaneous-row.applied, .spontaneous-row.app-rejected'
+      '.spontaneous-row.liked:not(.hidden), .spontaneous-row.toapply:not(.hidden), .spontaneous-row.applied:not(.hidden), .spontaneous-row.app-rejected:not(.hidden)'
     ) ? 1 : 0;
     const visible = jobsVisible + spontStateful;
     total += visible;

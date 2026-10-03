@@ -1707,7 +1707,7 @@
     "source": "Scale AI"
   },
   "https://scale.com/careers/4660340005": {
-    "title": "Machine Learning Fellow - Human Frontier Collective (US)",
+    "title": "Machine Learning Fellow - Human Frontier Collective",
     "locations": [
       "USA"
     ],
@@ -2001,7 +2001,7 @@
     "source": "Scale AI"
   },
   "https://scale.com/careers/4554440005": {
-    "title": "Solutions Engineer, Enterprise",
+    "title": "Solutions Architect, Enterprise",
     "locations": [
       "San Francisco, USA"
     ],
@@ -2057,7 +2057,7 @@
     "source": "Scale AI"
   },
   "https://scale.com/careers/4689909005": {
-    "title": "Staff Solutions Engineer, Enterprise",
+    "title": "Staff Solutions Architect, Enterprise",
     "locations": [
       "New York, USA"
     ],
@@ -2078,7 +2078,7 @@
     "source": "Scale AI"
   },
   "https://scale.com/careers/4574113005": {
-    "title": "STEM Fellow - Human Frontier Collective (US)",
+    "title": "STEM Fellow - Human Frontier Collective",
     "locations": [
       "USA"
     ],
@@ -9727,7 +9727,7 @@
     "source": "Datadog"
   },
   "https://careers.datadoghq.com/detail/8174661/?gh_jid=8174661": {
-    "title": "Field Enablement Manager - Amsterdam",
+    "title": "Field Enablement Manager (EMEA)",
     "locations": [
       "Munich, Germany"
     ],
@@ -12280,7 +12280,8 @@
     "locations": [
       "Remote Friendly",
       "Europe, EMEA",
-      "UK"
+      "UK",
+      "USA"
     ],
     "source": "Nebius"
   },
@@ -14513,10 +14514,8 @@
     "source": "PayPal"
   },
   "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/Austin-Texas-United-States-of-America/Director--Product-Management_R0138046": {
-    "title": "Director, Product Management",
-    "locations": [
-      "Austin, USA"
-    ],
+    "title": "Director, Product Management -Agentic AI platform",
+    "locations": [],
     "source": "PayPal"
   },
   "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/New-York-City-New-York-United-States-of-America/Director--Merchant-and-eComm-Experience_R0137480": {
@@ -17888,5 +17887,192 @@
       "Remote Friendly"
     ],
     "source": "Chainguard"
+  },
+  "https://careers.airbnb.com/positions/7755758?gh_jid=7755758": {
+    "title": " Senior Machine Learning Engineer, Payments",
+    "locations": [
+      "USA"
+    ],
+    "source": "Airbnb"
+  },
+  "https://jobs.apple.com/en-us/details/200687004-3211/us-creative-pro": {
+    "title": "Us Creative Pro",
+    "locations": [],
+    "source": "Apple"
+  },
+  "https://www.linkedin.com/jobs/view/accountants-and-auditors-paid-consultant-accounts-payable-at-linkedin-4470704568": {
+    "title": "Accountants and Auditors Paid Consultant - Accounts Payable",
+    "locations": [
+      "USA"
+    ],
+    "source": "LinkedIn"
+  },
+  "https://explore.jobs.netflix.net/careers?pid=790317701711&domain=netflix.com&sort_by=relevance": {
+    "title": "Support Solutions Engineer (L5) - Security, Privacy and Assurance",
+    "locations": [
+      "USA"
+    ],
+    "source": "Netflix"
+  },
+  "https://careers.qualcomm.com/careers/job/446718569023": {
+    "title": "VP, Software Product Management - Mobile Handset",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://jobs.sap.com/en/jobs/744000153220909/platform-engineer/": {
+    "title": "Platform Engineer",
+    "locations": [],
+    "source": "SAP"
+  },
+  "https://jobs.ashbyhq.com/hcompany/ae3d36dc-4058-4f88-8690-46647b279ac9": {
+    "title": "Senior Software Engineer - London",
+    "locations": [
+      "London, UK",
+      "Paris, France"
+    ],
+    "source": "H"
+  },
+  "https://jobs.ashbyhq.com/hcompany/3ba24410-c856-439e-8551-b361c8fa819e": {
+    "title": "Senior Software Engineer - Paris",
+    "locations": [
+      "Paris, France"
+    ],
+    "source": "H"
+  },
+  "https://job-boards.greenhouse.io/chainguard/jobs/4718566006": {
+    "title": "Engineering Manager, AI CICD",
+    "locations": [
+      "UK",
+      "USA",
+      "Remote Friendly"
+    ],
+    "source": "Chainguard"
+  },
+  "https://careers.qualcomm.com/careers/job/446720708944": {
+    "title": "Product Security Engineer, Staff",
+    "locations": [
+      "Washington Remote"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://coreweave.com/careers/job?4717946006&board=coreweave&gh_jid=4717946006": {
+    "title": "North America EHS Senior Manager",
+    "locations": [
+      "Livingston, USA"
+    ],
+    "source": "Coreweave"
+  },
+  "https://careers.airbnb.com/positions/8249626?gh_jid=8249626": {
+    "title": "Senior Software Engineer Guest & Host",
+    "locations": [
+      "USA"
+    ],
+    "source": "Airbnb"
+  },
+  "https://www.linkedin.com/jobs/view/cybersecurity-code-red-team-ai-trainer-%2465-%2475-hour-at-linkedin-4470709244": {
+    "title": "Cybersecurity/Code Red-Team AI Trainer, $65-$75/hour",
+    "locations": [
+      "USA"
+    ],
+    "source": "LinkedIn"
+  },
+  "https://www.linkedin.com/jobs/view/mechanical-engineers-paid-consultant-product-design-at-linkedin-4470025819": {
+    "title": "Mechanical Engineers Paid Consultant - Product Design",
+    "locations": [
+      "USA"
+    ],
+    "source": "LinkedIn"
+  },
+  "https://www.linkedin.com/jobs/view/red-team-content-safety-vlm-ai-trainer-%2460-%2470-hour-at-linkedin-4473369548": {
+    "title": "Red Team Content Safety VLM AI Trainer, $60-$70/hour",
+    "locations": [
+      "USA"
+    ],
+    "source": "LinkedIn"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557021834": {
+    "title": "Business Architect for Security Usage Strategy",
+    "locations": [
+      "USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557022501": {
+    "title": "Security Researcher",
+    "locations": [
+      "Redmond, USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://careers.qualcomm.com/careers/job/446721264518": {
+    "title": "Director, Product Management - Networking CPU Platforms",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446721018785": {
+    "title": "Staff Chip Security Architect, AI Accelerators",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://careers.qualcomm.com/careers/job/446720724336": {
+    "title": "Staff Machine Learning Engineer \u2013 Automotive Cybersecurity",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/California---San-Francisco/Director--Software-Engineering_JR362202": {
+    "title": "Director, Software Engineering",
+    "locations": [
+      "San Francisco, USA"
+    ],
+    "source": "Salesforce"
+  },
+  "https://scale.com/careers/4740039005": {
+    "title": "Product Operations Lead, Generative AI",
+    "locations": [
+      "San Francisco, USA"
+    ],
+    "source": "Scale AI"
+  },
+  "https://jobs.ashbyhq.com/1password/e6aa6244-fe74-4b4b-b925-3a353400e6ca": {
+    "title": "Senior Technical SEO Analyst",
+    "locations": [
+      "(United States"
+    ],
+    "source": "1Password"
+  },
+  "https://job-boards.greenhouse.io/yubico/jobs/4425577009": {
+    "title": "Sr Demand and Supply Planning Analyst",
+    "locations": [
+      "Santa Clara, USA"
+    ],
+    "source": "Yubico"
+  },
+  "https://job-boards.greenhouse.io/gitlab/jobs/8645879002": {
+    "title": "Senior Renewal Operations Manager",
+    "locations": [
+      "USA"
+    ],
+    "source": "GitLab"
+  },
+  "https://careers.cisco.com/global/en/job/2024574/Test-Chip-Administrator": {
+    "title": "Test Chip Administrator",
+    "locations": [],
+    "source": "Cisco"
+  },
+  "https://boards.greenhouse.io/cloudflare/jobs/8245503?gh_jid=8245503": {
+    "title": "Vulnerability Defense Software Engineer, Cloudforce One",
+    "locations": [
+      "Austin, USA",
+      "Washington, USA"
+    ],
+    "source": "Cloudflare"
   }
 }
