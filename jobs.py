@@ -9,7 +9,7 @@ Pipeline
 --------
 Step 1 — Load state
     Read `rejected.json`, `liked.json`, `score_cache.json`, `desc_cache.json`,
-    `PROFILE.md`. Parse env-var knobs (JOBS_ONLY / JOBS_SKIP /
+    `data/profile.md` (optional). Parse env-var knobs (JOBS_ONLY / JOBS_SKIP /
     JOBS_SKIP_PLAYWRIGHT / JOBS_SKIP_LLM) to decide which sources run.
 
 Step 2 — Fetch (parallel across sources)
@@ -29,7 +29,7 @@ Step 3 — Normalize per job
     - Dedupe city variants (`NYC`, `New York, NY`, `New York City` → one).
     Then apply TITLE_BLACKLIST and LOCATION_BLACKLIST filters.
 
-Step 4 — Score against PROFILE.md
+Step 4 — Score against the user's profile (data/profile.md, if present)
     All non-rejected jobs are batched (SCORE_BATCH_SIZE) and sent to the LLM
     (Ollama local by default, or Anthropic Claude). Results cached to
     `score_cache.json`. Failed batches split recursively down to size 1.
@@ -59,7 +59,7 @@ Step 6 — Serve
 # The engine below imports it wholesale. If you want to fork this for a
 # different profile, keep this file untouched and duplicate `config.py`.
 from config import (  # noqa: E402,F401 — public config surface
-    OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, APP_REJECTED_DB, HISTORY_DB, SEEN_DB, JOB_INDEX_DB, PROFILE_FILE,
+    OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, APP_REJECTED_DB, HISTORY_DB, SEEN_DB, JOB_INDEX_DB,
     SCORE_CACHE, DESC_CACHE, CLAUDE_FIT_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
@@ -2658,11 +2658,16 @@ SCORING_SYSTEM = _scoring_system()
 
 
 def _load_profile():
-    try:
-        with open(PROFILE_FILE, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return ""
+    """Return the user's job-search profile as a string. The profile is
+    now optional and read from `data/profile.md` (if the user chose to
+    keep one). Returns "" when absent — the LLM scorer then skips."""
+    for candidate in ("data/profile.md", "profile.md"):
+        try:
+            with open(candidate, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            continue
+    return ""
 
 
 def _load_score_cache():
@@ -2932,7 +2937,7 @@ def score_jobs(jobs):
         return
     profile = _load_profile()
     if not profile:
-        sys.stdout.write(f"[score] no {PROFILE_FILE} — skipping\n")
+        sys.stdout.write("[score] no profile (data/profile.md) — skipping\n")
         return
     cache = _load_score_cache()
     # Rescore jobs that don't yet have the `salary` field. Legacy entries
@@ -3189,7 +3194,7 @@ def claude_fit_scores(urls, force=False):
         raise ClaudeFitError("ANTHROPIC_API_KEY not set in environment")
     profile = _load_profile()
     if not profile:
-        raise ClaudeFitError(f"{PROFILE_FILE} is empty or missing")
+        raise ClaudeFitError("profile is empty or missing (expected data/profile.md)")
     cache = _load_claude_fit_cache()
     desc_cache = _load_desc_cache()
     score_cache = _load_score_cache()

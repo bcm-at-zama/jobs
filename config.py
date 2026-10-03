@@ -29,7 +29,6 @@ SEEN_DB             = "seen.json"
 # {url: {title, locations, source}} — used to render orphans (jobs the user
 # +1'd / marked but no longer returned by the source board).
 JOB_INDEX_DB        = "job_index.json"
-PROFILE_FILE        = "PROFILE.md"
 SCORE_CACHE         = "llm_cache.json"
 DESC_CACHE          = "desc_cache.json"
 # {url: {score: int 0-10, reason: str, ts: ISO}} — Claude fit scores from
@@ -49,7 +48,8 @@ SERVE_HOST = "127.0.0.1"
 SERVE_PORT = 8765
 
 # =============================================================================
-# Scoring backend — how each job is rated against PROFILE.md
+# Scoring backend — how each job is rated. If no profile is provided
+# (via the LLM scorer's prompt), scoring is silently skipped.
 # =============================================================================
 #   "claude" — Anthropic API (needs ANTHROPIC_API_KEY env var, `pip install anthropic`).
 #   "ollama" — local Ollama server at OLLAMA_URL.
