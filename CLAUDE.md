@@ -2,12 +2,16 @@
 
 ## Run `make test` after every edit, and grow the suite
 
-**This is non-negotiable.** After any edit to `jobs.py`, `config.py`, or
-anything the tests depend on, run:
+**This is non-negotiable, and pre-authorized.** After any edit to
+`jobs.py`, `config.py`, or anything the tests depend on, run:
 
 ```
 make test
 ```
+
+Do NOT ask for permission to run `make test` — it is pre-authorized,
+read-only (no state changes outside `debug/`), and finishes in ~40ms.
+Just run it.
 
 If it fails, the edit is not done — fix the breakage before claiming the
 task is complete. If the failure is a stale test expectation (the edit was

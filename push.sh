@@ -16,6 +16,7 @@ git add history.json
 git add claude_fit_cache.json
 git add TOREVIEW.md
 git add config_blurbs.py
+git add Makefile tests/*.py
 git commit -am "Update"
 git push
 git status
