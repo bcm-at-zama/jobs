@@ -12,6 +12,7 @@ git add TODO.txt
 git add NEXT.md
 git add TOREVIEW.md
 git add config_blurbs.py
+git add business
 git add Makefile tests/*.py
 
 git commit -am "Update"
