@@ -6793,13 +6793,23 @@ function _applyClaudeFitsToDOM() {
   });
 }
 // Merge server-side scores into localStorage so hydration + per-tab state
-// stay consistent. Server wins when both have an entry (fresher by run).
+// stay consistent. When both sides have an entry we keep the FRESHER one
+// (compared on `ts`, an ISO 8601 string so lexicographic order works).
+// Rationale: re-scoring the same job via the paste bar updates localStorage
+// but NOT claude_fit_cache.json. On refresh the server was blindly winning
+// and reverting the just-pasted new score. Timestamp comparison fixes that
+// without needing a server round-trip from the paste bar.
 (function _mergeServerClaudeFits() {
   if (!CLAUDE_FITS_SERVER || typeof CLAUDE_FITS_SERVER !== 'object') return;
   const map = _loadClaudeFits();
   let changed = false;
   for (const [url, entry] of Object.entries(CLAUDE_FITS_SERVER)) {
     if (!entry || typeof entry.score !== 'number') continue;
+    const local = map[url];
+    if (local && typeof local.ts === 'string' && typeof entry.ts === 'string'
+        && local.ts > entry.ts) {
+      continue;   // localStorage entry is newer — keep it
+    }
     map[url] = entry;
     changed = true;
   }
@@ -6866,6 +6876,16 @@ function _collectVisibleJobUrls() {
 // stale/incomplete so forcing Claude to go to the source is preferred.
 function _buildClaudeScoringPrompt(urls) {
   const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
+  if (_getClaudeLang() === 'fr') {
+    return (
+      "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
+      "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, red flags).\\n\\n" +
+      "FORMAT STRICT de la réponse — une ligne par job (pas de saut de ligne dans la justification), EXACTEMENT :\\n" +
+      "N. X/10 — <justification 2-3 phrases sur une seule ligne>\\n\\n" +
+      "Jobs :\\n" +
+      numbered
+    );
+  }
   return (
     "Rate the fit of each of these " + urls.length + " jobs against my profile (I'll share my profile on request).\\n" +
     "For each job, fetch the description from the site, then give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, red flags).\\n\\n" +
@@ -6950,6 +6970,21 @@ function _openClaudePasteBar(urls, promptMode) {
         l.querySelector('button.like, button.reject')?.dataset.url === url);
       if (li) _renderClaudeFitOnLi(li, entry.score, entry.reason);
     }
+    // Also persist to the server so claude_fit_cache.json gets the new
+    // score + reason. Without this, a refresh would reinject the stale
+    // server-side entry and the user's new score would disappear.
+    (async () => {
+      try {
+        const base = location.protocol === 'file:' ? SERVER_URL : '';
+        await fetch(base + '/claude-fit-paste', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({scores: parsed}),
+        });
+      } catch (e) {
+        dlog('claude-fit-paste persist failed', e);
+      }
+    })();
     status.textContent = '✓ ' + n + ' score' + (n>1?'s':'') + ' saved';
     bar.classList.add('done');
     setTimeout(close, 1500);
@@ -7342,7 +7377,15 @@ document.querySelectorAll('button.salary-edit').forEach(btn => {
 // back to them by index in its reply.
 function buildClaudePromptForUrls(urls) {
   if (!urls || !urls.length) return '';
+  const lang = _getClaudeLang();
   if (urls.length === 1) {
+    if (lang === 'fr') {
+      return (
+        "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
+        "Donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags).\\n\\n" +
+        urls[0]
+      );
+    }
     return (
       "Is this job a good match for my profile? I'll share my profile on request.\\n" +
       "Give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n\\n" +
@@ -7350,6 +7393,14 @@ function buildClaudePromptForUrls(urls) {
     );
   }
   const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
+  if (lang === 'fr') {
+    return (
+      "Est-ce que ces " + urls.length + " jobs sont bons pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
+      "Pour chaque job, donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags).\\n" +
+      "Reprends les numéros ci-dessous (1 à " + urls.length + ") pour que je puisse faire le lien.\\n\\n" +
+      numbered
+    );
+  }
   return (
     "Are these " + urls.length + " jobs a good match for my profile? I'll share my profile on request.\\n" +
     "For each job, give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n" +
@@ -7400,22 +7451,83 @@ function _setPinnedClaudeChatUrl(url) {
   const btn = document.getElementById('claude-chat-url-setup');
   if (btn) btn.classList.toggle('has-url', !!url);
 }
+// Claude response language — "en" (default) or "fr". Affects prompt copy
+// only (scores + justifications come back in that language). Does NOT
+// translate the UI.
+const CLAUDE_LANG_KEY = 'jobs:claude-lang:v1';
+function _getClaudeLang() {
+  try {
+    const v = (localStorage.getItem(CLAUDE_LANG_KEY) || '').trim().toLowerCase();
+    return v === 'fr' ? 'fr' : 'en';
+  } catch (e) { return 'en'; }
+}
+function _setClaudeLang(lang) {
+  try { localStorage.setItem(CLAUDE_LANG_KEY, lang === 'fr' ? 'fr' : 'en'); }
+  catch (e) {}
+}
 // Hydrate the gear's visual state on load.
 (function _syncPinnedChatBtn() {
   const btn = document.getElementById('claude-chat-url-setup');
   if (btn && _getPinnedClaudeChatUrl()) btn.classList.add('has-url');
 })();
 
-document.getElementById('claude-chat-url-setup')?.addEventListener('click', () => {
-  const current = _getPinnedClaudeChatUrl();
-  const val = window.prompt(
-    'Pinned Claude.ai conversation URL (leave empty to clear).\\n' +
-    'When set, the C button opens THAT chat instead of a new one — so permissions you granted there carry over. The prompt is copied to clipboard for you to paste.',
-    current
-  );
-  if (val === null) return;
-  const trimmed = val.trim();
-  _setPinnedClaudeChatUrl(trimmed);
+function openClaudeSettingsModal() {
+  return new Promise((resolve) => {
+    let modal = document.getElementById('claude-settings-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'claude-settings-modal';
+      modal.className = 'modal-backdrop';
+      modal.innerHTML =
+        '<div class="modal">' +
+        '  <h3>Claude settings</h3>' +
+        '  <label>Pinned Claude.ai conversation URL (leave empty to clear)<br>' +
+        '    <input type="text" id="cs-url" placeholder="https://claude.ai/chat/…" style="width:100%">' +
+        '  </label>' +
+        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
+        '    When set, the C button opens THAT chat instead of a new one — so permissions you granted carry over. The prompt is copied to clipboard.' +
+        '  </div>' +
+        '  <label>Response language<br>' +
+        '    <label style="font-weight:normal; display:inline-block; margin-right:1rem"><input type="radio" name="cs-lang" value="en"> English</label>' +
+        '    <label style="font-weight:normal; display:inline-block"><input type="radio" name="cs-lang" value="fr"> French</label>' +
+        '  </label>' +
+        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
+        '    Affects the notes + summaries Claude writes back. UI stays in English.' +
+        '  </div>' +
+        '  <div class="modal-actions">' +
+        '    <button type="button" id="cs-cancel">Cancel</button>' +
+        '    <button type="button" id="cs-save" class="primary">Save</button>' +
+        '  </div>' +
+        '</div>';
+      document.body.appendChild(modal);
+    }
+    const urlInput = modal.querySelector('#cs-url');
+    urlInput.value = _getPinnedClaudeChatUrl();
+    const lang = _getClaudeLang();
+    modal.querySelectorAll('input[name="cs-lang"]').forEach(r => {
+      r.checked = (r.value === lang);
+    });
+    modal.classList.add('visible');
+    setTimeout(() => urlInput.focus(), 50);
+    const cleanup = (result) => {
+      modal.classList.remove('visible');
+      modal.querySelector('#cs-cancel').onclick = null;
+      modal.querySelector('#cs-save').onclick = null;
+      resolve(result);
+    };
+    modal.querySelector('#cs-cancel').onclick = () => cleanup(null);
+    modal.querySelector('#cs-save').onclick = () => {
+      const chosenLang = (modal.querySelector('input[name="cs-lang"]:checked')?.value) || 'en';
+      cleanup({url: urlInput.value.trim(), lang: chosenLang});
+    };
+  });
+}
+
+document.getElementById('claude-chat-url-setup')?.addEventListener('click', async () => {
+  const answers = await openClaudeSettingsModal();
+  if (!answers) return;
+  _setPinnedClaudeChatUrl(answers.url);
+  _setClaudeLang(answers.lang);
 });
 
 // Open claude.ai with the prompt pre-filled when it fits in the URL,
@@ -7474,11 +7586,17 @@ document.querySelectorAll('button.ask-claude').forEach(btn => {
     const url = btn.dataset.url || '';
     if (!url) return;
     // URL-only — Claude fetches the page itself (fresh / complete info).
-    const prompt = (
-      "Is this job a good match for my profile? I'll share my profile on request.\\n" +
-      "Fetch the description from the site, then give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n\\n" +
-      url
-    );
+    const prompt = (_getClaudeLang() === 'fr')
+      ? (
+        "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
+        "Va chercher la description sur le site, puis donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags).\\n\\n" +
+        url
+      )
+      : (
+        "Is this job a good match for my profile? I'll share my profile on request.\\n" +
+        "Fetch the description from the site, then give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n\\n" +
+        url
+      );
     // Bypass any pinned chat URL — a one-shot per-job question works
     // better in a fresh conversation where ?q= pre-fills the prompt.
     openClaudeWithPrompt(prompt, null, {forceFreshChat: true});
@@ -7902,12 +8020,21 @@ document.querySelectorAll('.restore').forEach(btn => {
       }
       if (remaining === 0 && block) block.remove();
       if (sid) updateCounters(sid, +1, -1);
-      // Auto-trigger the yellow ⟳ refresh button so the job comes back into
-      // the main list without a manual step. A plain location.reload() would
-      // just re-serve the STATIC jobs.html — which was rendered BEFORE the
-      // /unreject POST, so the job would still appear as rejected.
-      const rb = document.getElementById('refresh-btn');
-      if (rb && !rb.disabled) rb.click();
+      // Auto-trigger a RE-RENDER so the job comes back into the main list.
+      // Use /rescore (not /refresh): rescore keeps the list_cache so this
+      // completes in ~5s instead of ~200s. The URL was just removed from
+      // rejected.json, so the next render will promote it to the main list.
+      // A plain location.reload() wouldn't help — it would just re-serve
+      // the STATIC jobs.html rendered BEFORE the /unreject POST.
+      const rb = document.getElementById('rescore-btn');
+      if (rb && !rb.disabled) {
+        rb.click();
+      } else if (rb && rb.disabled) {
+        // A rescore / refresh is already running; just wait for it to
+        // finish and reload. Status bar already shows progress.
+        const status = document.getElementById('dump-status');
+        if (status) status.textContent = 'Restored — waiting for current refresh to finish…';
+      }
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
@@ -8006,7 +8133,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/history", "/unhistory",
             "/to-review",
             "/refresh", "/refresh-status", "/rescore",
-            "/claude-fit",
+            "/claude-fit", "/claude-fit-paste",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -8099,6 +8226,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
             except Exception as e:
                 err(f"/claude-fit crashed: {e}")
+                body = json.dumps({"error": str(e)[:300]}).encode()
+                self.send_response(500)
+            self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/claude-fit-paste":
+            # Persist scores parsed from the Claude paste bar into
+            # claude_fit_cache.json so a refresh (or another browser) sees
+            # the new score + reason, not whatever the API or an earlier
+            # paste wrote. Payload: {"scores": {url: {score, reason, ts}}}.
+            scores = payload.get("scores") or {}
+            if not isinstance(scores, dict) or not scores:
+                self.send_response(400); self._cors(); self.end_headers(); return
+            try:
+                cache = _load_claude_fit_cache()
+                saved = 0
+                for url, entry in scores.items():
+                    if not isinstance(entry, dict):
+                        continue
+                    try:
+                        n = int(entry.get("score"))
+                    except (TypeError, ValueError):
+                        continue
+                    if not (0 <= n <= 10):
+                        continue
+                    cache[url] = {
+                        "score": n,
+                        "reason": str(entry.get("reason", ""))[:1000],
+                        "ts": str(entry.get("ts") or ""),
+                    }
+                    saved += 1
+                _save_claude_fit_cache(cache)
+                body = json.dumps({"saved": saved}).encode()
+                self.send_response(200)
+            except Exception as e:
+                err(f"/claude-fit-paste crashed: {e}")
                 body = json.dumps({"error": str(e)[:300]}).encode()
                 self.send_response(500)
             self._cors()

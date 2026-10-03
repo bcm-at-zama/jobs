@@ -1,5 +1,37 @@
 # CLAUDE.md — house rules for this repo
 
+## Run `make test` after every edit, and grow the suite
+
+**This is non-negotiable.** After any edit to `jobs.py`, `config.py`, or
+anything the tests depend on, run:
+
+```
+make test
+```
+
+If it fails, the edit is not done — fix the breakage before claiming the
+task is complete. If the failure is a stale test expectation (the edit was
+intentional and the test should be updated), update the test with a clear
+reason. Never silently delete or skip a test to make the suite green.
+
+**Add a test for every bug fix or new behavior.** The test suite in
+`tests/` is organized by concern (`test_locations.py`, `test_scrapers.py`,
+`test_seniority.py`, `test_blacklist.py`, `test_spontaneous.py`,
+`test_config.py`, `test_scoring.py`). When fixing a regression, add the
+case that reproduces it before applying the fix — this both proves the
+fix works and prevents the same regression from reappearing.
+
+Pattern to follow:
+- New blacklist entry? → `tests/test_blacklist.py`
+- New location shape (e.g. "<country> - <city>")? → `tests/test_locations.py`
+- New scraper or regex change? → `tests/test_scrapers.py`, assert against
+  the existing `debug/debug-*.html` dump
+- New big-tech `SENIORITY_XP` / `IC_LEVEL_XP` entry? → `tests/test_seniority.py`
+- New spontaneous pattern? → `tests/test_spontaneous.py`
+
+The suite uses stdlib `unittest` only (no pip install), runs in ~40ms,
+and currently has 50+ tests. There is no excuse to skip it.
+
 ## Test before shipping
 
 **Do not guess at regex, selectors, or URL patterns.** If I'm about to add or
