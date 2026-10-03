@@ -26,3 +26,19 @@
 - Hardware Engineer- (Power electronics/ Analog design) - BLR , 8 to 15 yrs
 - Mechanical Engineer
 - Software QA Wi-Fi Engineer
+- Complex Claims Manager
+- Customer Service Partner Operations Manager, Mandarin Speaking (Manila Based)
+- Policy Manager, Consults and Escalations
+- Senior Market Manager
+- Strategic Sourcing, Manager - Engineering & Infrastructure
+- Staff UX Writer (Host)
+- Disaster Response Coordinator
+- Gestionnaire des réclamations complexes
+- Global Initiatives Curator
+- QA Engineer - Networking L2/L3 Testing | 4 - 8 yrs
+- Red Team Content Safety VLM AI Trainer, $60-$70/hour
+- Contract Manager
+- Senior Technical Success Manager
+- People Business Partner
+- Complex Claims Manager
+- Policy Manager, Consults and Escalations

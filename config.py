@@ -352,6 +352,7 @@ LOCATION_BLACKLIST = [
     "South America", "Latin America", "LATAM",
     "Vietnam", "Ho Chi Minh",
     "Philippines", "Manila",
+    "Thailand", "Bangkok",
 ]
 
 # =============================================================================

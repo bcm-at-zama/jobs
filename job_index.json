@@ -1459,7 +1459,7 @@
     "source": "OpenAI"
   },
   "https://jobs.ashbyhq.com/openai/d1c6cb87-a44d-4d04-92a8-dc40eccd090e": {
-    "title": "Software Engineer, Codex \u2014 User Activation",
+    "title": "Full Stack Engineer, Enterprise Expansions",
     "locations": [
       "San Francisco, USA"
     ],
@@ -14538,7 +14538,7 @@
     "source": "PayPal"
   },
   "https://paypal.wd1.myworkdayjobs.com/en-US/jobs/job/San-Jose-California-United-States-of-America/Director--TE-FP-A_R0138003": {
-    "title": "Director, TE FP&A",
+    "title": "Director, Transaction Expense FP&A",
     "locations": [
       "San Jose, USA"
     ],
@@ -18074,5 +18074,85 @@
       "Washington, USA"
     ],
     "source": "Cloudflare"
+  },
+  "https://careers.cisco.com/global/en/job/2025052/QA-Engineer-Networking-L2-L3-Testing-4-8-yrs": {
+    "title": "QA Engineer - Networking L2/L3 Testing | 4 - 8 yrs",
+    "locations": [],
+    "source": "Cisco"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557022445": {
+    "title": "Security Engineer - Red Team",
+    "locations": [
+      "Redmond, USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557022500": {
+    "title": "Security Research Engineer - Project Perception",
+    "locations": [
+      "USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://apply.careers.microsoft.com/careers/job/1970393557019158": {
+    "title": "Senior Security Research Engineer",
+    "locations": [
+      "Redmond, USA"
+    ],
+    "source": "Microsoft"
+  },
+  "https://jobs.nvidia.com/careers/job/893396714204": {
+    "title": "Senior Manager, AI Safety and Security Engineering",
+    "locations": [],
+    "source": "NVIDIA"
+  },
+  "https://jobs.nvidia.com/careers/job/893397974694": {
+    "title": "Senior Solutions Architect, Agentic AI \u2014 Safety and Security",
+    "locations": [],
+    "source": "NVIDIA"
+  },
+  "https://careers.qualcomm.com/careers/job/446721033949": {
+    "title": "Principal / Dir / Sr. Director - Mobile Handset Products",
+    "locations": [
+      "San Diego, USA"
+    ],
+    "source": "Qualcomm"
+  },
+  "https://jobs.ashbyhq.com/openai/88164d12-c8ed-4b62-ae26-dcb6f1cc8482": {
+    "title": "Software Engineer, Enterprise Controls",
+    "locations": [
+      "San Francisco, USA"
+    ],
+    "source": "OpenAI"
+  },
+  "https://jobs.ashbyhq.com/openai/b94099f6-8418-48b0-82b5-5953a27d636f": {
+    "title": "Software Engineer, OpenAI Presence",
+    "locations": [
+      "San Francisco, USA"
+    ],
+    "source": "OpenAI"
+  },
+  "https://jobs.ashbyhq.com/matx/83be3fec-c2e1-4d22-9caf-6466efa6495e": {
+    "title": "Contract Manager",
+    "locations": [
+      "Mountain View (HQ), USA"
+    ],
+    "source": "MatX"
+  },
+  "https://job-boards.eu.greenhouse.io/proton/jobs/4953086101": {
+    "title": "Backend Engineer (VPN)",
+    "locations": [
+      "Geneva, Switzerland",
+      "Barcelona, Spain"
+    ],
+    "source": "Proton"
+  },
+  "https://job-boards.eu.greenhouse.io/proton/jobs/4845404101": {
+    "title": "Senior Backend Engineer (Payments)",
+    "locations": [
+      "Barcelona, Spain",
+      "London, UK"
+    ],
+    "source": "Proton"
   }
 }

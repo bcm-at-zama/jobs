@@ -6867,11 +6867,11 @@ function _collectVisibleJobUrls() {
 function _buildClaudeScoringPrompt(urls) {
   const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
   return (
-    "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
-    "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification courte.\\n\\n" +
-    "FORMAT STRICT de la réponse — une ligne par job, EXACTEMENT :\\n" +
-    "N. X/10 — <justification en une phrase>\\n\\n" +
-    "Jobs :\\n" +
+    "Rate the fit of each of these " + urls.length + " jobs against my profile (I'll share my profile on request).\\n" +
+    "For each job, fetch the description from the site, then give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, red flags).\\n\\n" +
+    "STRICT RESPONSE FORMAT — one line per job (no line breaks inside the justification), EXACTLY:\\n" +
+    "N. X/10 — <2-3 sentence justification on a single line>\\n\\n" +
+    "Jobs:\\n" +
     numbered
   );
 }
@@ -7205,6 +7205,15 @@ function wireStateButton(btn, cls) {
     const container = li || spontRow;
     const isSpontaneous = !li && !!spontRow;
     const on = btn.dataset.state === 'on';
+    // Removing a job from Applied should be a conscious decision — once
+    // you've marked something as Applied, you almost never want to un-apply.
+    // Ask for explicit confirmation so a stray click doesn't silently
+    // undo the state.
+    if (on && cls === 'applied') {
+      if (!confirm("Really remove this job from 'Applied'? Normally you don't go back once you've applied.")) {
+        return;
+      }
+    }
     btn.disabled = true;
     try {
       await apiPost(on ? endpoints[1] : endpoints[0], url);
@@ -7335,16 +7344,16 @@ function buildClaudePromptForUrls(urls) {
   if (!urls || !urls.length) return '';
   if (urls.length === 1) {
     return (
-      "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-      "Donne-moi un score de fit sur 10 et une brève justification.\\n\\n" +
+      "Is this job a good match for my profile? I'll share my profile on request.\\n" +
+      "Give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n\\n" +
       urls[0]
     );
   }
   const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
   return (
-    "Est-ce que ces " + urls.length + " jobs sont bons pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-    "Pour chaque job, donne-moi un score de fit sur 10 et une brève justification.\\n" +
-    "Réponds en reprenant les numéros ci-dessous (1 à " + urls.length + ") pour que je puisse faire le lien.\\n\\n" +
+    "Are these " + urls.length + " jobs a good match for my profile? I'll share my profile on request.\\n" +
+    "For each job, give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n" +
+    "Please reuse the numbers below (1 to " + urls.length + ") so I can map responses back to jobs.\\n\\n" +
     numbered
   );
 }
@@ -7466,8 +7475,8 @@ document.querySelectorAll('button.ask-claude').forEach(btn => {
     if (!url) return;
     // URL-only — Claude fetches the page itself (fresh / complete info).
     const prompt = (
-      "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-      "Va chercher la description sur le site, puis donne-moi un score de fit sur 10 et une brève justification.\\n\\n" +
+      "Is this job a good match for my profile? I'll share my profile on request.\\n" +
+      "Fetch the description from the site, then give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n\\n" +
       url
     );
     // Bypass any pinned chat URL — a one-shot per-job question works
@@ -7525,10 +7534,18 @@ async function toggleAppRejected(btn) {
   const li = btn.closest('li');
   const spontRow = btn.closest('.spontaneous-row');
   const on = btn.dataset.state === 'on';
+  // Removing a job from Rejected (application rejected by the company)
+  // should also be a conscious decision. A rejection is factual history —
+  // guard against stray clicks silently rewriting it.
+  if (on) {
+    if (!confirm("Really remove this job from 'Rejected'? A rejected application is a historical fact — you rarely take it back.")) {
+      return;
+    }
+  }
   btn.disabled = true;
   try {
     if (on) {
-      // Un-reject: no dialog, straight to POST.
+      // Un-reject: confirmation already handled above.
       const base = location.protocol === 'file:' ? SERVER_URL : '';
       const res = await fetch(base + '/un-app-rejected', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
