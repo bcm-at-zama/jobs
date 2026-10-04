@@ -4365,28 +4365,22 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         review_btn = (
             f'<button class="review" data-url="{url_esc}" data-title="{title_attr}" '
             f'title="Queue title for review (writes to TOREVIEW.md) and remove">R</button>'
-            if url and not (is_liked or is_toapply or is_applied or is_app_rejected) else ""
+            if url else ""
         )
-        # "Keep in history" button: light-touch archive. Only shown once the
-        # user has already engaged with the job (+1/TA/✓). Moves the row into
-        # the per-section History block (below Rejected). Doesn't mark the
-        # URL as rejected — you're just remembering the job. Sits at the far
-        # right of the state-button chain.
+        # TA / ✓ / R / K are always rendered (greyed out via CSS when
+        # data-state="off") so every job row has the same horizontal
+        # button layout — titles line up across rows regardless of state.
         keep_btn = (
             f'<button class="keep" data-url="{url_esc}" '
             f'title="Keep in history (archive without rejecting)">K</button>'
-            if url and (is_liked or is_toapply or is_applied) else ""
+            if url else ""
         )
-        # "To apply" button: only shown when the job is +1 or already in a
-        # later state. Click toggles the to-apply flag. Applied jobs still
-        # show it (in case user wants to demote back).
         toapply_state = "on" if is_toapply else "off"
         toapply_btn = (
             f'<button class="toapply" data-url="{url_esc}" data-state="{toapply_state}" '
             f'title="Mark as To apply">TA</button>'
-            if url and (is_liked or is_toapply or is_applied) else ""
+            if url else ""
         )
-        # "Applied" button: only shown once the job is at least in To apply.
         applied_state = "on" if is_applied else "off"
         applied_meta = applied.get(url, {}) if isinstance(applied, dict) and is_applied else {}
         applied_tooltip = (
@@ -4395,11 +4389,9 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         )
         applied_btn = (
             f'<button class="applied" data-url="{url_esc}" data-state="{applied_state}" '
-            f'title="{html.escape(applied_tooltip, quote=True)}">✓</button>'
-            if url and (is_toapply or is_applied) else ""
+            f'title="{html.escape(applied_tooltip, quote=True)}">\u2713</button>'
+            if url else ""
         )
-        # "Rejected by company" button: shown once the job is Applied.
-        # Clicking it opens a dialog asking for reason + feedback.
         app_rej_state = "on" if is_app_rejected else "off"
         app_rej_meta = app_rejected.get(url, {}) if is_app_rejected else {}
         # Full tooltip: timestamp, reason, feedback (each on its own line).
@@ -4417,7 +4409,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         app_rej_btn = (
             f'<button class="app-rejected-btn" data-url="{url_esc}" data-state="{app_rej_state}" '
             f'title="{app_rej_tooltip}">R</button>'
-            if url and (is_applied or is_app_rejected) else ""
+            if url else ""
         )
         app_rej_panel_html = ""
         open_link = (
@@ -4674,6 +4666,35 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
     )
 
 
+TABS = [
+    ("all",         "All"),
+    ("liked",       "Liked"),
+    ("toapply",     "To Apply"),
+    ("pipeline",    "Pipeline"),
+    ("topfit",      "\U0001F3C6 Top fit"),
+    ("ranked",      "\U0001F947 Ranked"),
+    ("spontaneous", "\u2709 Spontaneous"),
+    ("new",         "\U0001F195 New"),
+]
+
+
+def render_html_tabs():
+    """Primary view-mode tabs. Each tab is a preset that drives the per-state
+    Show toggles + an optional body class for extra client-side filtering.
+    The JS side (TAB_PRESETS, activateTab) owns the semantics; this just
+    emits the buttons. The active class is applied by JS after reading the
+    last-used tab from localStorage."""
+    buttons = "\n".join(
+        f'    <button type="button" class="tab" data-tab="{tid}">{html.escape(label)}</button>'
+        for tid, label in TABS
+    )
+    return (
+        '  <nav class="tabs" id="tabs">\n'
+        + buttons + "\n"
+        + '  </nav>'
+    )
+
+
 def render_html_nav(entries):
     """Groups nav buttons per GROUP_ORDER, with a labelled row per group.
 
@@ -4853,15 +4874,6 @@ def render_html_filters(seniority_labels, all_locations=None):
         '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-spontaneous-toggle"> Hide Spontaneous which are not liked</label>\n'
         '    </div>\n'
-        '    <div class="filter-group">\n'
-        '      <button type="button" class="show-all-btn" id="show-all-states">Show All</button>\n'
-        '      <button type="button" class="show-all-btn" id="unshow-all-states">Unshow All</button>\n'
-        '      <label class="filter-check"><input type="checkbox" id="show-liked-toggle" checked> Show Liked</label>\n'
-        '      <label class="filter-check"><input type="checkbox" id="show-toapply-toggle" checked> Show To Apply</label>\n'
-        '      <label class="filter-check"><input type="checkbox" id="show-applied-toggle" checked> Show Applied</label>\n'
-        '      <label class="filter-check"><input type="checkbox" id="show-app-rejected-toggle" checked> Show Rejected</label>\n'
-        '      <label class="filter-check"><input type="checkbox" id="show-others-toggle" checked> Show Others</label>\n'
-        '    </div>\n'
         '  </section>'
     )
 
@@ -5006,6 +5018,108 @@ HTML_TEMPLATE = """<!doctype html>
       background: #a44215;
       border-color: #a44215;
       text-decoration: none;
+    }
+
+    /* --- Primary tabs (All / Liked / To Apply / Pipeline / Top fit /
+       Spontaneous / New). Driven by JS: activateTab() sets the active
+       class and the per-tab body class, then calls applyFilters(). */
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin: 0.8rem 0 0.6rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      padding: 0.45rem 1rem;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--fg);
+    }
+    .tab:hover:not(.active) {
+      background: var(--bg-inset);
+      border-color: var(--fg-subtle);
+    }
+    .tab.active {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent-emphasis);
+    }
+    /* Per-state color accents on the tab labels — keeps the same palette
+       the old top-bar Liked / To Apply / Applied / Rejected buttons used
+       so the Pipeline/Liked/To Apply tabs are recognizable at a glance.
+       The accent is applied as a left border + text color in the inactive
+       state. When .active, the active-tab fill wins over these. */
+    .tab[data-tab="liked"]       { color: var(--success); border-left: 4px solid var(--success); }
+    .tab[data-tab="toapply"]     { color: var(--danger);  border-left: 4px solid var(--danger); }
+    .tab[data-tab="pipeline"]    { color: #8250df;        border-left: 4px solid #8250df; }
+    .tab[data-tab="topfit"]      { color: var(--attention); border-left: 4px solid var(--attention); }
+    .tab[data-tab="ranked"]      { color: #0969da;        border-left: 4px solid #0969da; }
+    .tab[data-tab="spontaneous"] { color: var(--severe);  border-left: 4px solid var(--severe); }
+    .tab[data-tab="new"]         { color: var(--danger-emphasis); border-left: 4px solid var(--danger-emphasis); }
+    .tab[data-tab="liked"].active       { background: var(--success);        border-color: var(--success-emphasis); }
+    .tab[data-tab="toapply"].active     { background: var(--danger);         border-color: var(--danger-emphasis); }
+    .tab[data-tab="pipeline"].active    { background: #8250df;               border-color: #6639ba; }
+    .tab[data-tab="topfit"].active      { background: var(--attention);      border-color: #7f5500; }
+    .tab[data-tab="ranked"].active      { background: #0969da;               border-color: var(--accent-emphasis); }
+    .tab[data-tab="spontaneous"].active { background: var(--severe);         border-color: #a44215; }
+    .tab[data-tab="new"].active         { background: var(--danger-emphasis); border-color: #7a0e1f; }
+    .tab.active { color: #ffffff; }
+    /* ---- Shared per-tab visibility rules ------------------------------
+       All, Ranked, Spontaneous, Top fit, New each already drive <li.job>
+       display via body.tab-X rules below. The 3 state-specific tabs
+       (Liked / To Apply / Pipeline) do the same so we no longer need
+       the Show-X checkboxes or applyFilters stateShow logic. */
+    body.tab-liked li.job:not(.liked),
+    body.tab-liked .spontaneous-row:not(.liked) { display: none; }
+    body.tab-toapply li.job:not(.toapply),
+    body.tab-toapply .spontaneous-row:not(.toapply) { display: none; }
+    body.tab-pipeline li.job:not(.applied):not(.app-rejected),
+    body.tab-pipeline .spontaneous-row:not(.applied):not(.app-rejected) { display: none; }
+
+    /* Filters UI, problems banners and the per-company nav row are only
+       meaningful on the All tab. Every other tab is a preset view that
+       the user selected — showing filters there would be noise. */
+    body:not(.tab-all) .filters,
+    body:not(.tab-all) .problems-banner,
+    body:not(.tab-all) .nav { display: none; }
+
+    /* Top fit tab: show only rows marked .fit-high (Claude fit >= 8).
+       The .fit-high class is set by _renderClaudeFitOnLi when the score
+       is 8/10 or above. */
+    body.tab-topfit li.job:not(.fit-high),
+    body.tab-topfit .spontaneous-row:not(.fit-high) {
+      display: none;
+    }
+    /* Spontaneous tab: hide every regular job row — only the ✉
+       Spontaneous rows remain. The preset sets hideSpont=false so the
+       body.hide-spontaneous rule above does not kick in and every
+       source's spontaneous row shows regardless of state. */
+    body.tab-spontaneous li.job { display: none; }
+    /* New tab: show only rows whose summary has a .new-badge
+       (first-seen in current run). Spontaneous rows have no NEW badge
+       so they are hidden too. */
+    body.tab-new li.job:not(:has(.badge.new-badge)) { display: none; }
+    body.tab-new .spontaneous-row { display: none; }
+
+    /* Ranked tab: flat cross-company list sorted by Claude fit DESC.
+       JS moves every <li.job> into #ranked-list; CSS hides the company
+       sections so the user only sees the flat ranked view. */
+    .ranked-list { list-style: none; padding: 0; margin: 1rem 0 2rem; }
+    body:not(.tab-ranked) #ranked-list { display: none; }
+    body.tab-ranked .company-section,
+    body.tab-ranked .nav,
+    body.tab-ranked .spontaneous-row { display: none; }
+    body.tab-ranked #ranked-list { display: block; }
+    .ranked-list .company-prefix {
+      color: var(--fg-muted);
+      font-weight: 500;
+      margin-right: 0.3em;
     }
 
     .nav {
@@ -5530,7 +5644,7 @@ HTML_TEMPLATE = """<!doctype html>
       padding: 0.2rem 0.4rem;
       border-radius: 4px;
     }
-    li.liked .reject { display: none; }
+    li.liked .reject { visibility: hidden; }
 
     /* To apply — red pill, "TA" glyph. Scoped to button so the same class
        name on <li> (li.toapply, used for row highlight) doesn't inherit
@@ -5557,7 +5671,7 @@ HTML_TEMPLATE = """<!doctype html>
       padding: 0.2rem 0.4rem;
       border-radius: 4px;
     }
-    li.toapply .reject { display: none; }
+    li.toapply .reject { visibility: hidden; }
 
     /* Applied — purple pill, "✓" glyph. Scoped to button (same reasoning
        as button.toapply above). */
@@ -5583,7 +5697,7 @@ HTML_TEMPLATE = """<!doctype html>
       padding: 0.2rem 0.4rem;
       border-radius: 4px;
     }
-    li.applied .reject { display: none; }
+    li.applied .reject { visibility: hidden; }
 
     /* Application rejected by company — much darker grey. */
     button.app-rejected-btn {
@@ -5602,6 +5716,34 @@ HTML_TEMPLATE = """<!doctype html>
     }
     button.app-rejected-btn:hover { background: #1c1f24; color: #ffffff; border-color: #000; }
     button.app-rejected-btn[data-state="on"] { background: #1c1f24; color: #ffffff; }
+    /* State buttons are always rendered server-side so every job row has
+       the same button chain, keeping titles vertically aligned. When
+       `data-state="off"` the button sits in a muted grey resting state,
+       hover restores its state color (via the specific :hover rules
+       above). */
+    button.toapply[data-state="off"],
+    button.applied[data-state="off"],
+    button.app-rejected-btn[data-state="off"] {
+      opacity: 0.35;
+      border-color: var(--border);
+      color: var(--fg-muted);
+    }
+    button.toapply[data-state="off"]:hover,
+    button.applied[data-state="off"]:hover,
+    button.app-rejected-btn[data-state="off"]:hover {
+      opacity: 1;
+    }
+    /* The .review (R → write-to-TOREVIEW) and .app-rejected-btn (R → mark
+       application rejected) share one slot: on a bare row the Review
+       button is the "R" shown, on any state row the app-rejected one is.
+       We render BOTH server-side and swap their visibility so the row
+       keeps the same width across state transitions. */
+    li.job:is(.liked, .toapply, .applied, .app-rejected) .review {
+      visibility: hidden;
+    }
+    li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected) .app-rejected-btn {
+      visibility: hidden;
+    }
     li.app-rejected {
       background: rgba(28, 31, 36, 0.35);
       border-left: 3px solid #1c1f24;
@@ -5609,7 +5751,7 @@ HTML_TEMPLATE = """<!doctype html>
       border-radius: 4px;
       opacity: 0.85;
     }
-    li.app-rejected .reject { display: none; }
+    li.app-rejected .reject { visibility: hidden; }
     /* Feedback / reason panel injected under the summary when applicable. */
     .app-reject-panel {
       flex-basis: 100%;
@@ -6139,9 +6281,6 @@ const STORAGE_KEY = 'jobs:filters:v1';
 
 function saveFilters() {
   const state = {
-    seniorityOff: [...document.querySelectorAll('.seniority-toggle')]
-      .filter(cb => !cb.checked)
-      .map(cb => cb.dataset.seniority),
     locChecks: [...document.querySelectorAll('.loc-cb:checked')]
       .map(cb => cb.dataset.value),
     loc:   (document.getElementById('loc-filter')?.value)   || '',
@@ -6152,11 +6291,6 @@ function saveFilters() {
     roleSummary: document.getElementById('role-summary-toggle')?.checked ?? true,
     hideEmpty: document.getElementById('hide-empty-toggle')?.checked ?? false,
     hideSpontaneous: document.getElementById('hide-spontaneous-toggle')?.checked ?? false,
-    showLiked:       document.getElementById('show-liked-toggle')?.checked ?? true,
-    showToapply:     document.getElementById('show-toapply-toggle')?.checked ?? true,
-    showApplied:     document.getElementById('show-applied-toggle')?.checked ?? true,
-    showAppRejected: document.getElementById('show-app-rejected-toggle')?.checked ?? true,
-    showOthers:      document.getElementById('show-others-toggle')?.checked ?? true,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
@@ -6165,10 +6299,6 @@ function loadFilters() {
   let s;
   try { s = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) { s = null; }
   if (!s) return;
-  const off = new Set(s.seniorityOff || []);
-  document.querySelectorAll('.seniority-toggle').forEach(cb => {
-    cb.checked = !off.has(cb.dataset.seniority);
-  });
   const loc = new Set(s.locChecks || []);
   document.querySelectorAll('.loc-cb').forEach(cb => {
     cb.checked = loc.has(cb.dataset.value);
@@ -6201,18 +6331,6 @@ function loadFilters() {
     hs.checked = true;
     document.body.classList.add('hide-spontaneous');
   }
-  // Per-state show toggles. Missing key (older saved state) → default true.
-  const stateToggles = [
-    ['show-liked-toggle',        'showLiked'],
-    ['show-toapply-toggle',      'showToapply'],
-    ['show-applied-toggle',      'showApplied'],
-    ['show-app-rejected-toggle', 'showAppRejected'],
-    ['show-others-toggle',       'showOthers'],
-  ];
-  for (const [id, key] of stateToggles) {
-    const cb = document.getElementById(id);
-    if (cb && s[key] === false) cb.checked = false;
-  }
 }
 
 /* --- Filters: seniority toggle + location/title/text search ------------- */
@@ -6230,59 +6348,28 @@ function matchQuery(haystack, groups) {
   return groups.some(andTerms => andTerms.every(t => haystack.includes(t)));
 }
 function applyFilters() {
-  const seniorityOff = new Set();
-  document.querySelectorAll('.seniority-toggle').forEach(cb => {
-    if (!cb.checked) seniorityOff.add(cb.dataset.seniority.toLowerCase());
-  });
+  // On every tab EXCEPT All we skip the location/title/text search filters.
+  // The tab IS the filter. Clear any .hidden left over from a prior All
+  // pass so switching back to Liked / Pipeline / etc. doesn't inherit a
+  // stale location search.
+  const isAll = document.body.classList.contains('tab-all');
+  if (!isAll) {
+    document.querySelectorAll('li.hidden, .spontaneous-row.hidden')
+      .forEach(el => el.classList.remove('hidden'));
+    refreshStateCounts();
+    if (typeof _updateTabCounts === 'function') _updateTabCounts();
+    return;
+  }
   const locQ   = parseQuery('loc-filter');
   const titleQ = parseQuery('title-filter');
   const textQ  = parseQuery('text-filter');
-  // Per-state show toggles. Each `li.job` carries at most one of these
-  // classes (see refreshLiState — mutually exclusive). Rows with none of
-  // them are "others" (no state set yet).
-  const stateShow = {
-    'liked':        document.getElementById('show-liked-toggle')?.checked        ?? true,
-    'toapply':      document.getElementById('show-toapply-toggle')?.checked      ?? true,
-    'applied':      document.getElementById('show-applied-toggle')?.checked      ?? true,
-    'app-rejected': document.getElementById('show-app-rejected-toggle')?.checked ?? true,
-    'other':        document.getElementById('show-others-toggle')?.checked       ?? true,
-  };
 
   document.querySelectorAll('li[data-seniority]').forEach(li => {
     let hide = false;
-    const sen = (li.dataset.seniority || '').trim().toLowerCase();
-    // Jobs without a detected seniority never get hidden by seniority filters.
-    if (sen && seniorityOff.has(sen)) hide = true;
-    if (!hide && locQ.length) {
-      if (!matchQuery((li.dataset.locations || '').toLowerCase(), locQ)) hide = true;
-    }
-    if (!hide && titleQ.length) {
-      if (!matchQuery((li.querySelector('.title')?.textContent || '').toLowerCase(), titleQ)) hide = true;
-    }
-    if (!hide && textQ.length) {
-      if (!matchQuery((li.querySelector('.desc-body')?.textContent || '').toLowerCase(), textQ)) hide = true;
-    }
-    if (!hide) {
-      const state = li.classList.contains('app-rejected') ? 'app-rejected'
-                  : li.classList.contains('applied')      ? 'applied'
-                  : li.classList.contains('toapply')      ? 'toapply'
-                  : li.classList.contains('liked')        ? 'liked'
-                  : 'other';
-      if (!stateShow[state]) hide = true;
-    }
+    if (locQ.length && !matchQuery((li.dataset.locations || '').toLowerCase(), locQ)) hide = true;
+    if (!hide && titleQ.length && !matchQuery((li.querySelector('.title')?.textContent || '').toLowerCase(), titleQ)) hide = true;
+    if (!hide && textQ.length && !matchQuery((li.querySelector('.desc-body')?.textContent || '').toLowerCase(), textQ)) hide = true;
     li.classList.toggle('hidden', hide);
-  });
-  // Also honour the state toggles for spontaneous rows that carry a state.
-  // Without this, hiding "Show Liked" still leaves a liked ✉ Spontaneous
-  // visible, which the user has flagged as surprising. Rows WITHOUT any
-  // state class are left to the body.hide-spontaneous CSS rule.
-  document.querySelectorAll('.spontaneous-row').forEach(row => {
-    const state = row.classList.contains('app-rejected') ? 'app-rejected'
-                : row.classList.contains('applied')      ? 'applied'
-                : row.classList.contains('toapply')      ? 'toapply'
-                : row.classList.contains('liked')        ? 'liked'
-                : null;
-    if (state) row.classList.toggle('hidden', !stateShow[state]);
   });
   let total = 0;
   document.querySelectorAll('ul[data-section]').forEach(ul => {
@@ -6339,6 +6426,7 @@ function applyFilters() {
     row.classList.toggle('empty', btns.length > 0 && !anyHit);
   });
   refreshGroupHeadings();
+  if (typeof _updateTabCounts === 'function') _updateTabCounts();
   saveFilters();
 }
 
@@ -6365,30 +6453,11 @@ function refreshGroupHeadings() {
 
 // Count visible <li> in each terminal state (applied excludes toapply/liked,
 // toapply excludes liked). Kept as a function so we can call it after every
-// state-button toggle without re-running the full filter pass.
+// state-button toggle without re-running the full filter pass. The
+// per-state counts now live on the tab labels — delegate to the tab
+// counter so every caller (there are several) refreshes both at once.
 function refreshStateCounts() {
-  let applied = document.querySelectorAll('li.job.applied:not(.hidden)').length;
-  let toapply = document.querySelectorAll('li.job.toapply:not(.hidden)').length;
-  let liked   = document.querySelectorAll('li.job.liked:not(.hidden)').length;
-  let appRej  = document.querySelectorAll('li.job.app-rejected:not(.hidden)').length;
-  // A ✉ Spontaneous row can carry any of the four state classes now. Count
-  // each state on rows whose parent section is still visible so the top-bar
-  // buckets stay accurate.
-  const bumpFromSpontaneous = (stateClass, incr) => {
-    document.querySelectorAll('.spontaneous-row.' + stateClass).forEach(row => {
-      const section = row.closest('.company-section');
-      if (section && getComputedStyle(section).display !== 'none') incr();
-    });
-  };
-  bumpFromSpontaneous('liked',        () => { liked += 1; });
-  bumpFromSpontaneous('toapply',      () => { toapply += 1; });
-  bumpFromSpontaneous('applied',      () => { applied += 1; });
-  bumpFromSpontaneous('app-rejected', () => { appRej += 1; });
-  const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
-  set('liked-count', liked);
-  set('toapply-count', toapply);
-  set('applied-count', applied);
-  set('app-rejected-count', appRej);
+  if (typeof _updateTabCounts === 'function') _updateTabCounts();
 }
 
 loadFilters();
@@ -6685,10 +6754,9 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     })();
   });
 }
-wireOpenButton('open-liked',        'li.job.liked:not(.hidden), .spontaneous-row.liked',                'open_liked.sh',        'No Liked jobs visible.',              'Liked');
-wireOpenButton('open-toapply',      'li.job.toapply:not(.hidden), .spontaneous-row.toapply',            'open_toapply.sh',      'No To apply jobs visible.',           'To apply');
-wireOpenButton('open-applied',      'li.job.applied:not(.hidden), .spontaneous-row.applied',            'open_applied.sh',      'No Applied jobs visible.',            'Applied');
-wireOpenButton('open-app-rejected', 'li.job.app-rejected:not(.hidden), .spontaneous-row.app-rejected',  'open_app_rejected.sh', 'No Rejected-by-company jobs visible.', 'Rejected');
+// The old top-bar #open-liked / #open-toapply / #open-applied /
+// #open-app-rejected buttons were removed; the ⌘/⌥/⇧-click shortcuts live
+// on the tab buttons now (see _handleTabShortcut in the Primary tabs block).
 
 /* --- Refresh / Rescore: POST /refresh|/rescore, poll /refresh-status ------
    Both use the same server-side state machine (only one can run at a time),
@@ -6760,26 +6828,36 @@ function _loadClaudeFits() {
 function _saveClaudeFits(m) {
   try { localStorage.setItem(CLAUDE_FIT_KEY, JSON.stringify(m)); } catch (e) {}
 }
-// Insert / update the fit badge on a single <li.job>. If score is nullish,
-// removes any existing badge.
-function _renderClaudeFitOnLi(li, score, reason) {
-  const summary = li?.querySelector('summary');
-  if (!summary) return;
-  let badge = summary.querySelector('.badge.claude-fit');
+// Insert / update the fit badge on a single <li.job> or <.spontaneous-row>.
+// If score is nullish, removes any existing badge.
+function _renderClaudeFitOnLi(row, score, reason) {
+  if (!row) return;
+  const isSpont = row.classList && row.classList.contains('spontaneous-row');
+  const scope = isSpont ? row : row.querySelector('summary');
+  if (!scope) return;
+  let badge = scope.querySelector('.badge.claude-fit');
   // Clean up any legacy inline reason span from the previous iteration.
-  const stale = summary.querySelector('.claude-fit-reason');
+  const stale = scope.querySelector('.claude-fit-reason');
   if (stale) stale.remove();
   if (!score) {
     if (badge) badge.remove();
+    row.classList.remove('fit-high');
     return;
   }
+  // .fit-high powers the Top fit tab (body.tab-topfit hides rows without it).
+  row.classList.toggle('fit-high', parseInt(score, 10) >= 8);
   if (!badge) {
     badge = document.createElement('span');
     badge.className = 'badge claude-fit';
-    const anchor = summary.querySelector('.badge.xp')
-                || summary.querySelector('.badge.seniority')
-                || summary.querySelector('.title');
-    if (anchor) anchor.after(badge); else summary.appendChild(badge);
+    let anchor;
+    if (isSpont) {
+      anchor = scope.querySelector('.spontaneous-link');
+    } else {
+      anchor = scope.querySelector('.badge.xp')
+            || scope.querySelector('.badge.seniority')
+            || scope.querySelector('.title');
+    }
+    if (anchor) anchor.after(badge); else scope.appendChild(badge);
   }
   const n = parseInt(score, 10);
   // Custom tooltip via data-tooltip (instant on hover — the native title
@@ -6792,6 +6870,12 @@ function _renderClaudeFitOnLi(li, score, reason) {
     delete badge.dataset.tooltip;
   }
   badge.textContent = 'Score: ' + n + '/10';
+  // Keep the Ranked tab in order if it is active while scores change.
+  // Guarded on tab-ranked so this is a no-op in every other view.
+  if (!isSpont && document.body.classList.contains('tab-ranked')
+      && typeof _buildRankedView === 'function') {
+    _buildRankedView();
+  }
 }
 function _applyClaudeFitsToDOM() {
   const map = _loadClaudeFits();
@@ -6800,6 +6884,12 @@ function _applyClaudeFitsToDOM() {
     if (!url) return;
     const entry = map[url];
     if (entry) _renderClaudeFitOnLi(li, entry.score, entry.reason);
+  });
+  document.querySelectorAll('.spontaneous-row').forEach(row => {
+    const url = row.querySelector('button.spontaneous-like')?.dataset.url;
+    if (!url) return;
+    const entry = map[url];
+    if (entry) _renderClaudeFitOnLi(row, entry.score, entry.reason);
   });
 }
 // Merge server-side scores into localStorage so hydration + per-tab state
@@ -6875,6 +6965,14 @@ function _collectVisibleJobUrls() {
   const seen = new Set();
   document.querySelectorAll('li.job:not(.hidden)').forEach(li => {
     const url = li.querySelector('button.like, button.reject')?.dataset.url;
+    if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
+  });
+  // Also include ✉ Spontaneous rows (one per source) so the C button scores
+  // the company-level "introduce yourself" / "general application" link.
+  // Skip rows hidden by body.hide-spontaneous (display:none → offsetParent null).
+  document.querySelectorAll('.spontaneous-row').forEach(row => {
+    if (row.offsetParent === null) return;
+    const url = row.querySelector('button.spontaneous-like')?.dataset.url;
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   });
   return urls;
@@ -6976,9 +7074,13 @@ function _openClaudePasteBar(urls, promptMode) {
     Object.assign(map, parsed);
     _saveClaudeFits(map);
     for (const [url, entry] of Object.entries(parsed)) {
-      const li = [...document.querySelectorAll('li.job')].find(l =>
+      let row = [...document.querySelectorAll('li.job')].find(l =>
         l.querySelector('button.like, button.reject')?.dataset.url === url);
-      if (li) _renderClaudeFitOnLi(li, entry.score, entry.reason);
+      if (!row) {
+        row = [...document.querySelectorAll('.spontaneous-row')].find(r =>
+          r.querySelector('button.spontaneous-like')?.dataset.url === url);
+      }
+      if (row) _renderClaudeFitOnLi(row, entry.score, entry.reason);
     }
     // Also persist to the server so claude_fit_cache.json gets the new
     // score + reason. Without this, a refresh would reinject the stale
@@ -7109,28 +7211,240 @@ if (hsToggle) {
   });
 }
 
-// Per-state show/hide toggles. Each one is a pure client-side filter that
-// re-runs applyFilters (which also refreshes counts + saves state).
-const SHOW_STATE_TOGGLE_IDS = [
-  'show-liked-toggle', 'show-toapply-toggle', 'show-applied-toggle',
-  'show-app-rejected-toggle', 'show-others-toggle',
-];
-SHOW_STATE_TOGGLE_IDS.forEach(id => {
-  const cb = document.getElementById(id);
-  if (cb) cb.addEventListener('change', () => { applyFilters(); });
-});
-// Show All / Unshow All: bulk-flip every Show-state checkbox at once.
-function _setAllShowStates(value) {
-  SHOW_STATE_TOGGLE_IDS.forEach(id => {
-    const cb = document.getElementById(id);
-    if (cb) cb.checked = value;
-  });
-  applyFilters();
+/* --- Primary tabs ------------------------------------------------------- */
+// Each preset drives the Show-state checkboxes, the hide-spontaneous toggle,
+// and an optional body class (tab-topfit / tab-spontaneous / tab-new) for
+// extra CSS filters. The active tab is persisted in localStorage so the
+// user lands on their last-used view on next page load.
+const TAB_STORAGE_KEY = 'jobs:active-tab';
+// Each tab adds a `tab-<name>` body class. Row visibility per state is now
+// driven entirely by CSS (body.tab-liked li.job:not(.liked) {display:none}
+// etc.), so the preset no longer carries per-state flags — only the body
+// class. hide-spontaneous is only a knob on the All tab (user checkbox);
+// every other tab manages its own spontaneous-row visibility via CSS.
+const TAB_PRESETS = {
+  all:         'tab-all',
+  liked:       'tab-liked',
+  toapply:     'tab-toapply',
+  pipeline:    'tab-pipeline',
+  topfit:      'tab-topfit',
+  ranked:      'tab-ranked',
+  spontaneous: 'tab-spontaneous',
+  new:         'tab-new',
+};
+const _TAB_BODY_CLASSES = Object.values(TAB_PRESETS);
+// Which rows each tab's ⌘/Alt/Shift-click shortcuts should act on.
+// Mirrors the per-tab CSS visibility so "open all liked URLs" collects
+// exactly what the user sees in the Liked tab.
+const TAB_URL_SELECTORS = {
+  all:         'li.job:not(.hidden), .spontaneous-row.liked, .spontaneous-row.toapply, .spontaneous-row.applied, .spontaneous-row.app-rejected',
+  liked:       'li.job.liked, .spontaneous-row.liked',
+  toapply:     'li.job.toapply, .spontaneous-row.toapply',
+  pipeline:    'li.job.applied, li.job.app-rejected, .spontaneous-row.applied, .spontaneous-row.app-rejected',
+  topfit:      'li.job.fit-high, .spontaneous-row.fit-high',
+  ranked:      'li.job',
+  spontaneous: '.spontaneous-row',
+  new:         'li.job:has(.badge.new-badge)',
+};
+
+// Ranked view: pull every <li.job> out of its section into #ranked-list
+// (sorted by Claude fit DESC), and prefix each title with the company
+// name. The move preserves event listeners (unlike cloning), so like /
+// toapply / applied / reject keep working. On deactivation each li is
+// restored to its original parent + sibling position.
+function _rankedFitScore(li) {
+  const badge = li.querySelector('.badge.claude-fit');
+  if (!badge) return -1;
+  const m = /(\\d+)\\s*\\/\\s*10/.exec(badge.textContent || '');
+  return m ? parseInt(m[1], 10) : -1;
 }
-document.getElementById('show-all-states')?.addEventListener('click',
-  () => _setAllShowStates(true));
-document.getElementById('unshow-all-states')?.addEventListener('click',
-  () => _setAllShowStates(false));
+function _buildRankedView() {
+  const list = document.getElementById('ranked-list');
+  if (!list) return;
+  const jobs = [...document.querySelectorAll('li.job')];
+  for (const li of jobs) {
+    // Already in the ranked list? Just need to re-sort (score may have
+    // changed via C). Keep its _origParent / _origNext untouched.
+    if (li.parentElement === list) continue;
+    li._origParent = li.parentElement;
+    li._origNext = li.nextElementSibling;
+    // Prefix title with company name. The ask-claude button carries
+    // data-company (populated server-side) — read from there.
+    const company = li.querySelector('button.ask-claude')?.dataset.company
+                 || li.closest('.company-section')?.querySelector('h1')?.textContent?.trim()?.split(' ')[0]
+                 || '';
+    const title = li.querySelector('summary .title');
+    if (company && title && !li._companyPrefix) {
+      const span = document.createElement('span');
+      span.className = 'company-prefix';
+      span.textContent = company + ' — ';
+      title.before(span);
+      li._companyPrefix = span;
+    }
+    list.appendChild(li);
+  }
+  // Sort by Claude fit DESC, no-score at the bottom. Preserve DOM order
+  // among equal scores (stable sort).
+  const sorted = [...list.querySelectorAll(':scope > li.job')]
+    .map((li, i) => ({li, score: _rankedFitScore(li), i}))
+    .sort((a, b) => (b.score - a.score) || (a.i - b.i));
+  for (const {li} of sorted) list.appendChild(li);
+}
+function _restoreRankedView() {
+  const list = document.getElementById('ranked-list');
+  if (!list) return;
+  const jobs = [...list.querySelectorAll(':scope > li.job')];
+  for (const li of jobs) {
+    if (li._companyPrefix) {
+      li._companyPrefix.remove();
+      delete li._companyPrefix;
+    }
+    const parent = li._origParent;
+    const next = li._origNext;
+    if (parent) {
+      if (next && next.parentElement === parent) parent.insertBefore(li, next);
+      else parent.appendChild(li);
+    }
+    delete li._origParent;
+    delete li._origNext;
+  }
+}
+function activateTab(name) {
+  const resolved = TAB_PRESETS[name] ? name : 'all';
+  const cls = TAB_PRESETS[resolved];
+  // hide-spontaneous is a user checkbox on the All tab only. On any other
+  // tab we force it off so the tab's own CSS (which decides whether to
+  // show spontaneous rows for that view) wins without specificity fights.
+  if (resolved === 'all') {
+    const hs = document.getElementById('hide-spontaneous-toggle');
+    document.body.classList.toggle('hide-spontaneous', !!hs?.checked);
+  } else {
+    document.body.classList.remove('hide-spontaneous');
+  }
+  // Ranked view requires DOM moves — tear down any prior build before
+  // switching, then rebuild if the target is Ranked. Restore BEFORE
+  // flipping body classes so the sections are visible when we put the
+  // li.job back.
+  const wasRanked = document.body.classList.contains('tab-ranked');
+  if (wasRanked && resolved !== 'ranked') _restoreRankedView();
+  for (const c of _TAB_BODY_CLASSES) document.body.classList.remove(c);
+  document.body.classList.add(cls);
+  if (resolved === 'ranked') _buildRankedView();
+  document.querySelectorAll('.tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === resolved);
+  });
+  try { localStorage.setItem(TAB_STORAGE_KEY, resolved); } catch (e) {}
+  // applyFilters is a no-op on non-All tabs (it clears .hidden and refreshes
+  // counts). On All it re-runs the location/title/text search filters.
+  applyFilters();
+  _updateTabCounts();
+}
+
+// Tab click: bare click switches tab; ⌘/Ctrl / ⌥/Alt / ⇧ shortcuts act on
+// the URLs in that tab's selector without switching. Mirrors the behavior
+// the old #open-liked / #open-toapply / etc. top-bar buttons had.
+function _handleTabShortcut(ev, name) {
+  const openMode = ev.metaKey || ev.ctrlKey;
+  const copyMode = ev.altKey;
+  const askMode  = ev.shiftKey;
+  if (!openMode && !copyMode && !askMode) return false;
+  ev.preventDefault();
+  const selector = TAB_URL_SELECTORS[name] || TAB_URL_SELECTORS.all;
+  const urls = collectUrls(selector);
+  const status = document.getElementById('dump-status');
+  if (!urls.length) {
+    if (status) {
+      status.textContent = 'No URLs for this tab.';
+      setTimeout(() => { if (status.textContent.startsWith('No URLs')) status.textContent = ''; }, 3000);
+    }
+    return true;
+  }
+  if (askMode) {
+    openClaudeWithPrompt(buildClaudePromptForUrls(urls), status);
+    if (status) status.textContent = 'Asking Claude about ' + urls.length + ' job' + (urls.length>1?'s':'') + '…';
+    return true;
+  }
+  if (copyMode) {
+    copyToClipboard(urls.join('\\n') + '\\n', status, urls.length + ' links copied to clipboard');
+    return true;
+  }
+  // ⌘-click: open each URL in a new tab (sync so popup blockers behave).
+  let opened = 0;
+  for (const u of urls) {
+    const win = window.open(u, '_blank', 'noopener,noreferrer');
+    if (win) opened++;
+  }
+  if (status) {
+    status.textContent = 'Opening ' + opened + '/' + urls.length + ' URLs…';
+    if (opened < urls.length) status.textContent += ' (browser blocked some popups)';
+    setTimeout(() => { if (status.textContent.startsWith('Opening')) status.textContent = ''; }, 4000);
+  }
+  // Fire-and-forget save of a .sh script so the user can re-open the same
+  // batch later from a shell.
+  const script = buildOpenSelectedScript(urls);
+  (async () => {
+    try {
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      await fetch(base + '/save-open-selected', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({script, filename: 'open_' + name + '.sh'}),
+      });
+    } catch (e) { /* silent — this is a convenience */ }
+  })();
+  return true;
+}
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', (ev) => {
+    const name = btn.dataset.tab;
+    if (_handleTabShortcut(ev, name)) return;
+    activateTab(name);
+  });
+});
+
+// Per-tab job counters shown as "Liked (12)" in the tab label. Reads
+// counts from the DOM so it stays accurate as the user likes/rejects
+// without a server round-trip. Called on page init, after state changes
+// (refreshStateCounts), and after Claude fit updates.
+const TAB_LABELS = {};
+function _computeTabCounts() {
+  const q = (s) => document.querySelectorAll(s).length;
+  return {
+    all:         q('li.job'),
+    liked:       q('li.job.liked') + q('.spontaneous-row.liked'),
+    toapply:     q('li.job.toapply') + q('.spontaneous-row.toapply'),
+    pipeline:    q('li.job.applied, li.job.app-rejected')
+                 + q('.spontaneous-row.applied, .spontaneous-row.app-rejected'),
+    topfit:      q('li.job.fit-high'),
+    ranked:      q('li.job'),
+    spontaneous: q('.spontaneous-row'),
+    new:         q('li.job:has(.badge.new-badge)'),
+  };
+}
+function _updateTabCounts() {
+  const counts = _computeTabCounts();
+  document.querySelectorAll('.tab').forEach(btn => {
+    const id = btn.dataset.tab;
+    if (!(id in counts)) return;
+    if (!TAB_LABELS[id]) TAB_LABELS[id] = btn.textContent.replace(/\\s*\\(\\d+\\)\\s*$/, '').trim();
+    btn.textContent = TAB_LABELS[id] + ' (' + counts[id] + ')';
+  });
+  // #total-count mirrors the current tab's visible count — on the All tab
+  // applyFilters sets it based on filtered rows, elsewhere we take the raw
+  // per-tab count.
+  if (!document.body.classList.contains('tab-all')) {
+    const active = [...document.querySelectorAll('.tab.active')][0]?.dataset.tab || 'all';
+    const el = document.getElementById('total-count');
+    if (el) el.textContent = counts[active] ?? counts.all;
+  }
+}
+// Init: restore last-used tab (defaults to 'all' on first load). Runs AFTER
+// loadFilters so the tab preset wins over any stale saved checkbox state.
+(() => {
+  let last = null;
+  try { last = localStorage.getItem(TAB_STORAGE_KEY); } catch (e) {}
+  activateTab(last || 'all');
+})();
 
 /* --- Like -------------------------------------------------------------- */
 async function apiPost(path, url) {
@@ -8874,22 +9188,13 @@ def main():
     # An applied+rejected job counts as Rejected, NOT Applied — mutually exclusive.
     n_applied      = len((applied_keys & visible_urls) - app_rej_keys)
     n_app_rejected = len(app_rej_keys & visible_urls)
-    shortcuts_legend = (
-        '  <div class="shortcuts-legend">\n'
-        '    <strong>Shortcuts on Liked / To Apply / Applied / Rejected buttons:</strong> '
-        '<kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click open URLs · '
-        '<kbd>⌥</kbd>/<kbd>Alt</kbd>-click copy URLs · '
-        '<kbd>⇧</kbd>-click ask Claude about them.\n'
-        '  </div>\n'
-    )
+    # Liked / To Apply / Applied / Rejected counters now live on the tab
+    # buttons themselves (see render_html_tabs + _updateTabCounts). The
+    # ⌘-click / ⌥-click / ⇧-click shortcuts were moved onto the tabs too.
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <button type="button" class="dump-btn total-btn" id="total-jobs" title="Total number of jobs currently visible (updates with filters)">Total jobs: <span id="total-count">{total}</span></button>\n'
         f'    <button type="button" class="dump-btn total-new-btn" id="total-new" title="Number of NEW jobs currently visible (first-seen this run — updates with filters)">Total New: <span id="total-new-count">{total_new}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-liked"   id="open-liked"   title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">Liked: <span id="liked-count">{n_liked}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-toapply" id="open-toapply" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">To Apply: <span id="toapply-count">{n_toapply}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-applied" id="open-applied" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">Applied: <span id="applied-count">{n_applied}</span></button>\n'
-        f'    <button type="button" class="dump-btn open-btn-app-rejected" id="open-app-rejected" title="Click does nothing. Use ⌘/Ctrl-click to open URLs · ⌥/Alt-click to copy · ⇧-click to ask Claude.">Rejected: <span id="app-rejected-count">{n_app_rejected}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
         f'<span class="refresh-icon" aria-hidden="true">R</span></button>\n'
@@ -8899,7 +9204,7 @@ def main():
         f'<span aria-hidden="true">C</span></button>\n'
         f'    <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" title="Set a reusable Claude.ai conversation URL. If set, the C button opens THAT chat (so previous permissions carry over) and copies the prompt to clipboard. Click to set / change / clear." aria-label="Set Claude chat URL">'
         f'<span aria-hidden="true">⚙</span></button>\n'
-        f'  </div>\n' + shortcuts_legend
+        f'  </div>\n'
     )
     # Build a "sources with problems" banner so you can see at a glance
     # which scrapers crashed or returned nothing this run. Broken (red) →
@@ -9019,11 +9324,18 @@ def main():
             '  </details>\n'
         )
     html_body = (
-        total_bar + "\n"
+        # Tabs sit at the top so switching views is one glance away. Every
+        # other section below reacts to the active body.tab-{name} class.
+        render_html_tabs() + "\n"
+        + total_bar + "\n"
         + problems_banner
         + never_matched_banner
         + render_html_nav(nav_entries) + "\n"
         + render_html_filters(seniority_labels, all_locations) + "\n"
+        # Ranked tab destination — JS moves every <li.job> here on tab
+        # activation (sorted by Claude fit DESC), and restores them to their
+        # original company section on deactivation.
+        + '  <ul id="ranked-list" class="ranked-list"></ul>\n'
         + "\n".join(html_sections)
     )
     # Inline the Claude fit cache so badges hydrate on page load without
