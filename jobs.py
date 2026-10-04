@@ -4668,12 +4668,12 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
 
 TABS = [
     ("all",         "All"),
+    ("new",         "New"),
+    ("ranked",      "Ranked"),
+    ("spontaneous", "Spontaneous"),
     ("liked",       "Liked"),
     ("toapply",     "To Apply"),
     ("pipeline",    "Pipeline"),
-    ("ranked",      "\U0001F947 Ranked"),
-    ("spontaneous", "\u2709 Spontaneous"),
-    ("new",         "\U0001F195 New"),
 ]
 
 
@@ -4682,14 +4682,35 @@ def render_html_tabs():
     Show toggles + an optional body class for extra client-side filtering.
     The JS side (TAB_PRESETS, activateTab) owns the semantics; this just
     emits the buttons. The active class is applied by JS after reading the
-    last-used tab from localStorage."""
+    last-used tab from localStorage.
+
+    The R / AI / C / ⚙ action buttons live inside the tabs nav (pushed to
+    the right via .tab-actions) so they stay on the same visual row as
+    the tabs — matches the user's layout expectation."""
     buttons = "\n".join(
         f'    <button type="button" class="tab" data-tab="{tid}">{html.escape(label)}</button>'
         for tid, label in TABS
     )
+    actions = (
+        '    <div class="tab-actions">\n'
+        '      <button type="button" class="refresh-btn" id="refresh-btn" '
+        'title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
+        '<span class="refresh-icon" aria-hidden="true">R</span></button>\n'
+        '      <button type="button" class="refresh-btn rescore-btn" id="rescore-btn" '
+        'title="Run the LLM scorer for jobs missing from score_cache (typically the NEW ones), then reload. Does not re-fetch." aria-label="Rescore">'
+        '<span class="rescore-icon" aria-hidden="true">AI</span></button>\n'
+        '      <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" '
+        'title="Ask Claude to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="Claude fit scores">'
+        '<span aria-hidden="true">C</span></button>\n'
+        '      <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" '
+        'title="Set a reusable Claude.ai conversation URL. If set, the C button opens THAT chat (so previous permissions carry over) and copies the prompt to clipboard. Click to set / change / clear." aria-label="Set Claude chat URL">'
+        '<span aria-hidden="true">\u2699</span></button>\n'
+        '    </div>'
+    )
     return (
         '  <nav class="tabs" id="tabs">\n'
         + buttons + "\n"
+        + actions + "\n"
         + '  </nav>'
     )
 
@@ -5025,10 +5046,18 @@ HTML_TEMPLATE = """<!doctype html>
     .tabs {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 0.3rem;
       margin: 0.8rem 0 0.6rem;
       padding-bottom: 0.4rem;
       border-bottom: 1px solid var(--border);
+    }
+    /* R / AI / C / ⚙ action buttons live at the right end of the tabs
+       row — margin-left: auto pushes them to the far right. */
+    .tab-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 0.3rem;
     }
     .tab {
       background: var(--bg-subtle);
@@ -5086,15 +5115,18 @@ HTML_TEMPLATE = """<!doctype html>
     body.tab-toapply .company-section:not(:has(li.job.toapply, .spontaneous-row.toapply)) { display: none; }
     body.tab-pipeline .company-section:not(:has(li.job.applied, li.job.app-rejected, .spontaneous-row.applied, .spontaneous-row.app-rejected)) { display: none; }
 
-    /* Filters UI, problems banners, the per-company nav row and the
-       Total jobs / Total New counters are only meaningful on the All tab.
-       Every other tab is a preset view with its own count in the tab
-       label itself — showing the top-bar totals would duplicate info. */
+    /* Filters UI, problems banners and the per-company nav row are only
+       meaningful on the All tab. Every other tab is a preset view with
+       its own count in the tab label — showing those extras would just
+       duplicate info. */
     body:not(.tab-all) .filters,
     body:not(.tab-all) .problems-banner,
-    body:not(.tab-all) .nav,
-    body:not(.tab-all) #total-jobs,
-    body:not(.tab-all) #total-new { display: none; }
+    body:not(.tab-all) .nav { display: none; }
+    /* Category headings ("Big Tech", "AI Startups", …) disappear on
+       non-All tabs when every section in that category is hidden by the
+       tab's CSS. refreshGroupHeadings adds the .empty class after
+       walking the siblings; getComputedStyle makes it CSS-aware. */
+    body:not(.tab-all) h2.group-heading.empty { display: none; }
 
     /* Spontaneous tab: hide every regular job row — only the ✉
        Spontaneous rows remain. The preset sets hideSpont=false so the
@@ -6362,6 +6394,10 @@ function applyFilters() {
   if (!isAll) {
     document.querySelectorAll('li.hidden, .spontaneous-row.hidden')
       .forEach(el => el.classList.remove('hidden'));
+    // Re-compute group-heading emptiness so category labels (e.g.
+    // "Big Tech") disappear when all their sections are hidden by the
+    // tab's CSS. On Ranked that's every section → every heading hides.
+    refreshGroupHeadings();
     refreshStateCounts();
     if (typeof _updateTabCounts === 'function') _updateTabCounts();
     return;
@@ -6443,11 +6479,18 @@ function applyFilters() {
 // itself .empty. The CSS rule that hides .empty headings only fires when
 // both hide toggles are on, matching the sections' own hide condition.
 function refreshGroupHeadings() {
+  // Walk each category heading's following siblings up to the next
+  // heading. The heading is "empty" when every .company-section in that
+  // range is actually hidden — on the All tab that's driven by the
+  // .empty class applyFilters sets, on every other tab it's driven by
+  // the body.tab-X CSS rules. getComputedStyle covers both cases.
   document.querySelectorAll('h2.group-heading').forEach(h => {
     let anyVisible = false;
     let el = h.nextElementSibling;
     while (el && !el.matches('h2.group-heading')) {
-      if (el.matches('.company-section') && !el.classList.contains('empty')) {
+      if (el.matches('.company-section')
+          && !el.classList.contains('empty')
+          && getComputedStyle(el).display !== 'none') {
         anyVisible = true;
         break;
       }
@@ -9196,22 +9239,12 @@ def main():
     # An applied+rejected job counts as Rejected, NOT Applied — mutually exclusive.
     n_applied      = len((applied_keys & visible_urls) - app_rej_keys)
     n_app_rejected = len(app_rej_keys & visible_urls)
-    # Liked / To Apply / Applied / Rejected counters now live on the tab
-    # buttons themselves (see render_html_tabs + _updateTabCounts). The
-    # ⌘-click / ⌥-click / ⇧-click shortcuts were moved onto the tabs too.
+    # All counts live on the tab labels; the R / AI / C / ⚙ actions live
+    # inside the tabs nav. The top bar is just a status line for
+    # async-action feedback (open-URLs toast, Claude paste etc.).
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
-        f'    <button type="button" class="dump-btn total-btn" id="total-jobs" title="Total number of jobs currently visible (updates with filters)">Total jobs: <span id="total-count">{total}</span></button>\n'
-        f'    <button type="button" class="dump-btn total-new-btn" id="total-new" title="Number of NEW jobs currently visible (first-seen this run — updates with filters)">Total New: <span id="total-new-count">{total_new}</span></button>\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
-        f'    <button type="button" class="refresh-btn" id="refresh-btn" title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
-        f'<span class="refresh-icon" aria-hidden="true">R</span></button>\n'
-        f'    <button type="button" class="refresh-btn rescore-btn" id="rescore-btn" title="Run the LLM scorer for jobs missing from score_cache (typically the NEW ones), then reload. Does not re-fetch." aria-label="Rescore">'
-        f'<span class="rescore-icon" aria-hidden="true">AI</span></button>\n'
-        f'    <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" title="Ask Claude to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="Claude fit scores">'
-        f'<span aria-hidden="true">C</span></button>\n'
-        f'    <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" title="Set a reusable Claude.ai conversation URL. If set, the C button opens THAT chat (so previous permissions carry over) and copies the prompt to clipboard. Click to set / change / clear." aria-label="Set Claude chat URL">'
-        f'<span aria-hidden="true">⚙</span></button>\n'
         f'  </div>\n'
     )
     # Build a "sources with problems" banner so you can see at a glance

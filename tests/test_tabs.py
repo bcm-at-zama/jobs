@@ -14,8 +14,8 @@ import jobs
 
 class TestRenderHtmlTabs(unittest.TestCase):
 
-    EXPECTED_IDS = ["all", "liked", "toapply", "pipeline",
-                    "ranked", "spontaneous", "new"]
+    EXPECTED_IDS = ["all", "new", "ranked", "spontaneous",
+                    "liked", "toapply", "pipeline"]
 
     def test_all_tab_ids_present(self):
         out = jobs.render_html_tabs()
