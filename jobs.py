@@ -3114,7 +3114,7 @@ def _save_claude_fit_cache(cache):
 
 
 def _make_fit_prompt(batch):
-    """`batch` is a list of {url, title, company, locations, description}."""
+    """`batch` is a list of {url, title, company, locations, salary, description}."""
     lines = [
         "Rate the fit of these " + str(len(batch)) + " jobs against the profile in the system prompt.",
         "Return the JSON array now, nothing else.",
@@ -3125,6 +3125,9 @@ def _make_fit_prompt(batch):
         if j.get("locations"):
             head += " · " + ", ".join(j["locations"][:3])
         lines.append(head)
+        salary = (j.get("salary") or "").strip()
+        if salary:
+            lines.append(f"Salary: {salary}")
         desc = (j.get("description") or "").strip()
         if desc:
             # Keep it tight — the profile is in the cached system prompt.
@@ -3223,6 +3226,7 @@ def claude_fit_scores(urls, force=False):
             "title": meta.get("title", ""),
             "company": meta.get("source", ""),
             "locations": meta.get("locations") or [],
+            "salary": (score_cache.get(u, {}).get("salary") or "").strip(),
             "description": clean or (score_cache.get(u, {}).get("role_long") or ""),
         })
     if not todo:
@@ -7033,7 +7037,7 @@ function _buildClaudeScoringPrompt(urls) {
   if (_getClaudeLang() === 'fr') {
     return (
       "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
-      "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, red flags).\\n\\n" +
+      "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, salaire, red flags).\\n\\n" +
       "FORMAT STRICT de la réponse — une ligne par job (pas de saut de ligne dans la justification), EXACTEMENT :\\n" +
       "N. X/10 — <justification 2-3 phrases sur une seule ligne>\\n\\n" +
       "Jobs :\\n" +
@@ -7042,7 +7046,7 @@ function _buildClaudeScoringPrompt(urls) {
   }
   return (
     "Rate the fit of each of these " + urls.length + " jobs against my profile (I'll share my profile on request).\\n" +
-    "For each job, fetch the description from the site, then give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, red flags).\\n\\n" +
+    "For each job, fetch the description from the site, then give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, salary, red flags).\\n\\n" +
     "STRICT RESPONSE FORMAT — one line per job (no line breaks inside the justification), EXACTLY:\\n" +
     "N. X/10 — <2-3 sentence justification on a single line>\\n\\n" +
     "Jobs:\\n" +
