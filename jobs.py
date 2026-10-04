@@ -4671,7 +4671,6 @@ TABS = [
     ("liked",       "Liked"),
     ("toapply",     "To Apply"),
     ("pipeline",    "Pipeline"),
-    ("topfit",      "\U0001F3C6 Top fit"),
     ("ranked",      "\U0001F947 Ranked"),
     ("spontaneous", "\u2709 Spontaneous"),
     ("new",         "\U0001F195 New"),
@@ -5058,14 +5057,12 @@ HTML_TEMPLATE = """<!doctype html>
     .tab[data-tab="liked"]       { color: var(--success); border-left: 4px solid var(--success); }
     .tab[data-tab="toapply"]     { color: var(--danger);  border-left: 4px solid var(--danger); }
     .tab[data-tab="pipeline"]    { color: #8250df;        border-left: 4px solid #8250df; }
-    .tab[data-tab="topfit"]      { color: var(--attention); border-left: 4px solid var(--attention); }
     .tab[data-tab="ranked"]      { color: #0969da;        border-left: 4px solid #0969da; }
     .tab[data-tab="spontaneous"] { color: var(--severe);  border-left: 4px solid var(--severe); }
     .tab[data-tab="new"]         { color: var(--danger-emphasis); border-left: 4px solid var(--danger-emphasis); }
     .tab[data-tab="liked"].active       { background: var(--success);        border-color: var(--success-emphasis); }
     .tab[data-tab="toapply"].active     { background: var(--danger);         border-color: var(--danger-emphasis); }
     .tab[data-tab="pipeline"].active    { background: #8250df;               border-color: #6639ba; }
-    .tab[data-tab="topfit"].active      { background: var(--attention);      border-color: #7f5500; }
     .tab[data-tab="ranked"].active      { background: #0969da;               border-color: var(--accent-emphasis); }
     .tab[data-tab="spontaneous"].active { background: var(--severe);         border-color: #a44215; }
     .tab[data-tab="new"].active         { background: var(--danger-emphasis); border-color: #7a0e1f; }
@@ -5081,31 +5078,40 @@ HTML_TEMPLATE = """<!doctype html>
     body.tab-toapply .spontaneous-row:not(.toapply) { display: none; }
     body.tab-pipeline li.job:not(.applied):not(.app-rejected),
     body.tab-pipeline .spontaneous-row:not(.applied):not(.app-rejected) { display: none; }
+    /* Hide sections that have no matching row for the current tab so the
+       user is not scrolling through empty company headers. The :has()
+       selector matches the section only when it contains at least one
+       row that passes the tab's filter. */
+    body.tab-liked .company-section:not(:has(li.job.liked, .spontaneous-row.liked)) { display: none; }
+    body.tab-toapply .company-section:not(:has(li.job.toapply, .spontaneous-row.toapply)) { display: none; }
+    body.tab-pipeline .company-section:not(:has(li.job.applied, li.job.app-rejected, .spontaneous-row.applied, .spontaneous-row.app-rejected)) { display: none; }
 
-    /* Filters UI, problems banners and the per-company nav row are only
-       meaningful on the All tab. Every other tab is a preset view that
-       the user selected — showing filters there would be noise. */
+    /* Filters UI, problems banners, the per-company nav row and the
+       Total jobs / Total New counters are only meaningful on the All tab.
+       Every other tab is a preset view with its own count in the tab
+       label itself — showing the top-bar totals would duplicate info. */
     body:not(.tab-all) .filters,
     body:not(.tab-all) .problems-banner,
-    body:not(.tab-all) .nav { display: none; }
+    body:not(.tab-all) .nav,
+    body:not(.tab-all) #total-jobs,
+    body:not(.tab-all) #total-new { display: none; }
 
-    /* Top fit tab: show only rows marked .fit-high (Claude fit >= 8).
-       The .fit-high class is set by _renderClaudeFitOnLi when the score
-       is 8/10 or above. */
-    body.tab-topfit li.job:not(.fit-high),
-    body.tab-topfit .spontaneous-row:not(.fit-high) {
-      display: none;
-    }
     /* Spontaneous tab: hide every regular job row — only the ✉
        Spontaneous rows remain. The preset sets hideSpont=false so the
        body.hide-spontaneous rule above does not kick in and every
-       source's spontaneous row shows regardless of state. */
+       source's spontaneous row shows regardless of state. Sections
+       without a spontaneous row are hidden entirely so the user is not
+       scrolling through empty company headers. */
     body.tab-spontaneous li.job { display: none; }
+    body.tab-spontaneous .company-section:not(:has(.spontaneous-row)) { display: none; }
     /* New tab: show only rows whose summary has a .new-badge
        (first-seen in current run). Spontaneous rows have no NEW badge
-       so they are hidden too. */
+       so they are hidden too. Sections that contain no NEW job at all
+       are hidden entirely so the user is not scrolling through empty
+       company headers. */
     body.tab-new li.job:not(:has(.badge.new-badge)) { display: none; }
     body.tab-new .spontaneous-row { display: none; }
+    body.tab-new .company-section:not(:has(li.job .badge.new-badge)) { display: none; }
 
     /* Ranked tab: flat cross-company list sorted by Claude fit DESC.
        JS moves every <li.job> into #ranked-list; CSS hides the company
@@ -6841,11 +6847,8 @@ function _renderClaudeFitOnLi(row, score, reason) {
   if (stale) stale.remove();
   if (!score) {
     if (badge) badge.remove();
-    row.classList.remove('fit-high');
     return;
   }
-  // .fit-high powers the Top fit tab (body.tab-topfit hides rows without it).
-  row.classList.toggle('fit-high', parseInt(score, 10) >= 8);
   if (!badge) {
     badge = document.createElement('span');
     badge.className = 'badge claude-fit';
@@ -7227,7 +7230,6 @@ const TAB_PRESETS = {
   liked:       'tab-liked',
   toapply:     'tab-toapply',
   pipeline:    'tab-pipeline',
-  topfit:      'tab-topfit',
   ranked:      'tab-ranked',
   spontaneous: 'tab-spontaneous',
   new:         'tab-new',
@@ -7241,7 +7243,6 @@ const TAB_URL_SELECTORS = {
   liked:       'li.job.liked, .spontaneous-row.liked',
   toapply:     'li.job.toapply, .spontaneous-row.toapply',
   pipeline:    'li.job.applied, li.job.app-rejected, .spontaneous-row.applied, .spontaneous-row.app-rejected',
-  topfit:      'li.job.fit-high, .spontaneous-row.fit-high',
   ranked:      'li.job',
   spontaneous: '.spontaneous-row',
   new:         'li.job:has(.badge.new-badge)',
@@ -7404,18 +7405,24 @@ document.querySelectorAll('.tab').forEach(btn => {
 
 // Per-tab job counters shown as "Liked (12)" in the tab label. Reads
 // counts from the DOM so it stays accurate as the user likes/rejects
-// without a server round-trip. Called on page init, after state changes
-// (refreshStateCounts), and after Claude fit updates.
-const TAB_LABELS = {};
+// without a server round-trip. Called on page init (via applyFilters →
+// refreshStateCounts), after state changes, and after Claude fit updates.
+// No module-level cache because applyFilters() fires early during script
+// execution — any `const` referenced by this function would still be in
+// its temporal dead zone and throw a ReferenceError, which would silently
+// kill every event handler further down the script (tab clicks included).
 function _computeTabCounts() {
   const q = (s) => document.querySelectorAll(s).length;
+  // Stateful spontaneous rows (✉ with a liked/toapply/applied/rejected
+  // class) are counted alongside li.job so the tab total matches the
+  // top-bar "Total jobs:" formula from applyFilters.
+  const statefulSpont = 'liked, .spontaneous-row.toapply, .spontaneous-row.applied, .spontaneous-row.app-rejected';
   return {
-    all:         q('li.job'),
+    all:         q('li.job') + q('.spontaneous-row.' + statefulSpont),
     liked:       q('li.job.liked') + q('.spontaneous-row.liked'),
     toapply:     q('li.job.toapply') + q('.spontaneous-row.toapply'),
     pipeline:    q('li.job.applied, li.job.app-rejected')
                  + q('.spontaneous-row.applied, .spontaneous-row.app-rejected'),
-    topfit:      q('li.job.fit-high'),
     ranked:      q('li.job'),
     spontaneous: q('.spontaneous-row'),
     new:         q('li.job:has(.badge.new-badge)'),
@@ -7426,8 +7433,9 @@ function _updateTabCounts() {
   document.querySelectorAll('.tab').forEach(btn => {
     const id = btn.dataset.tab;
     if (!(id in counts)) return;
-    if (!TAB_LABELS[id]) TAB_LABELS[id] = btn.textContent.replace(/\\s*\\(\\d+\\)\\s*$/, '').trim();
-    btn.textContent = TAB_LABELS[id] + ' (' + counts[id] + ')';
+    // Strip any existing " (N)" suffix before re-appending the fresh one.
+    const label = btn.textContent.replace(/\\s*\\(\\d+\\)\\s*$/, '').trim();
+    btn.textContent = label + ' (' + counts[id] + ')';
   });
   // #total-count mirrors the current tab's visible count — on the All tab
   // applyFilters sets it based on filtered rows, elsewhere we take the raw
