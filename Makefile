@@ -10,23 +10,33 @@ test-verbose:
 	python3 -m unittest discover tests -v
 
 # ---------------------------------------------------------------------------
-# business/analysis.md → PDF via Sphinx → LaTeX → pdflatex.
-# Prerequisites (install once on a Mac):
-#   brew install basictex           # pdflatex
-#   python3 -m pip install sphinx myst-parser
+# business/analysis.md → PDF via Sphinx + latexmk.
+#
+# Prerequisites (install once; run from the activated venv-macos):
+#   python3 -m pip install sphinx myst-parser sphinx-rtd-theme
+#   brew install basictex                 # provides latexmk + pdflatex
 #
 # Run `make pdf` from the repo root OR from inside business/ — a thin
 # forwarding Makefile in business/ makes the latter work.
+# Uses `sphinx-build` directly (NOT `python3 -m sphinx`) so the venv's
+# installation is picked up even if `python3` resolves elsewhere.
 # ---------------------------------------------------------------------------
 
+SPHINXBUILD   ?= sphinx-build
+SPHINX_SRC    = business
+SPHINX_BUILD  = business/_build
+SPHINX_PDF    = $(SPHINX_BUILD)/latex/jobsmarketanalysis.pdf
+
 pdf:
-	python3 -m sphinx -b latex business business/_build/latex
-	cd business/_build/latex && pdflatex -interaction=nonstopmode analysis.tex
-	@echo "PDF ready at business/_build/latex/analysis.pdf"
+	@$(SPHINXBUILD) -M latexpdf $(SPHINX_SRC) $(SPHINX_BUILD)
+	@cp "$(SPHINX_PDF)" "business/analysis.pdf" 2>/dev/null \
+	    || cp $(SPHINX_BUILD)/latex/*.pdf business/analysis.pdf
+	@echo "  PDF: business/analysis.pdf"
+	@-if [ "$$(uname)" = "Darwin" ]; then open business/analysis.pdf; fi
 
 html:
-	python3 -m sphinx -b html business business/_build/html
-	@echo "HTML ready at business/_build/html/index.html"
+	@$(SPHINXBUILD) -M html $(SPHINX_SRC) $(SPHINX_BUILD)
+	@echo "  HTML: $(SPHINX_BUILD)/html/index.html"
 
 clean-pdf:
-	rm -rf business/_build
+	rm -rf $(SPHINX_BUILD) business/analysis.pdf

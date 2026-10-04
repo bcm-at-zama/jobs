@@ -9,24 +9,25 @@ are for Benoit.
 The source is Markdown (`analysis.md`), compiled through Sphinx + MyST
 to PDF via LaTeX.
 
-**One-time setup on a Mac:**
+**One-time setup on a Mac (inside the activated venv-macos):**
 
 ```sh
-brew install basictex           # pdflatex (~100 MB)
-python3 -m pip install sphinx myst-parser
+python3 -m pip install sphinx myst-parser sphinx-rtd-theme
+brew install basictex           # pdflatex + latexmk (~100 MB)
 ```
 
 **Build:**
 
 ```sh
-make business-pdf               # from the repo root
+make pdf                        # from the repo root OR from inside business/
 ```
 
-The output lands at `business/_build/latex/analysis.pdf`.
+The output lands at `business/analysis.pdf` (also opens in Preview on
+macOS automatically).
 
-**Alternative: HTML preview (no LaTeX needed)**
+**HTML preview (no LaTeX needed, same source):**
 
 ```sh
-make business-html
+make html
 open business/_build/html/index.html
 ```
