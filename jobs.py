@@ -5158,6 +5158,17 @@ HTML_TEMPLATE = """<!doctype html>
     body.tab-ranked .nav,
     body.tab-ranked .spontaneous-row { display: none; }
     body.tab-ranked #ranked-list { display: block; }
+    /* Scored spontaneous rows are moved into #ranked-list by
+       _buildRankedView — override the hide-all rule above so they
+       actually render in the ranked view. */
+    body.tab-ranked #ranked-list .spontaneous-row { display: flex; }
+    /* li.job carries R + K + ▶ (details marker) between the state
+       buttons and the title; spontaneous rows don't. Push the company
+       prefix right by their combined width so "Aisle — ✉" lines up
+       with where "Anthropic — Senior Engineer…" starts on li.job. */
+    body.tab-ranked #ranked-list .spontaneous-row .company-prefix {
+      margin-left: 5.5rem;
+    }
     .ranked-list .company-prefix {
       color: var(--fg-muted);
       font-weight: 500;
@@ -7017,11 +7028,12 @@ function _collectVisibleJobUrls() {
     const url = li.querySelector('button.like, button.reject')?.dataset.url;
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   });
-  // Also include ✉ Spontaneous rows (one per source) so the C button scores
-  // the company-level "introduce yourself" / "general application" link.
-  // Skip rows hidden by body.hide-spontaneous (display:none → offsetParent null).
+  // Include EVERY ✉ Spontaneous row (one per source) so the C button
+  // can score the company-level "introduce yourself" / "general
+  // application" link, regardless of the current tab or hide-spontaneous
+  // state. Spontaneous rows are a small fixed set (one per source) so
+  // this doesn't balloon the batch.
   document.querySelectorAll('.spontaneous-row').forEach(row => {
-    if (row.offsetParent === null) return;
     const url = row.querySelector('button.spontaneous-like')?.dataset.url;
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   });
@@ -7309,52 +7321,60 @@ function _rankedFitScore(li) {
 function _buildRankedView() {
   const list = document.getElementById('ranked-list');
   if (!list) return;
-  const jobs = [...document.querySelectorAll('li.job')];
-  for (const li of jobs) {
+  // Jobs: every li.job. Spontaneous: only rows that already carry a
+  // Claude fit badge (otherwise we'd append 50+ unscored "✉ Spontaneous"
+  // entries at the bottom, which is just noise).
+  const rows = [
+    ...document.querySelectorAll('li.job'),
+    ...document.querySelectorAll('.spontaneous-row:has(.badge.claude-fit)'),
+  ];
+  for (const row of rows) {
     // Already in the ranked list? Just need to re-sort (score may have
     // changed via C). Keep its _origParent / _origNext untouched.
-    if (li.parentElement === list) continue;
-    li._origParent = li.parentElement;
-    li._origNext = li.nextElementSibling;
-    // Prefix title with company name. The ask-claude button carries
-    // data-company (populated server-side) — read from there.
-    const company = li.querySelector('button.ask-claude')?.dataset.company
-                 || li.closest('.company-section')?.querySelector('h1')?.textContent?.trim()?.split(' ')[0]
+    if (row.parentElement === list) continue;
+    row._origParent = row.parentElement;
+    row._origNext = row.nextElementSibling;
+    // Company name — li.job carries it on button.ask-claude[data-company],
+    // spontaneous rows get it from the parent section's .board-link.
+    const company = row.querySelector('button.ask-claude')?.dataset.company
+                 || row.closest('.company-section')?.querySelector('.board-link')?.textContent?.trim()
                  || '';
-    const title = li.querySelector('summary .title');
-    if (company && title && !li._companyPrefix) {
+    // Prefix target: .title span for li.job, .spontaneous-link for ✉ rows.
+    const target = row.querySelector('summary .title')
+                || row.querySelector('.spontaneous-link');
+    if (company && target && !row._companyPrefix) {
       const span = document.createElement('span');
       span.className = 'company-prefix';
       span.textContent = company + ' — ';
-      title.before(span);
-      li._companyPrefix = span;
+      target.before(span);
+      row._companyPrefix = span;
     }
-    list.appendChild(li);
+    list.appendChild(row);
   }
   // Sort by Claude fit DESC, no-score at the bottom. Preserve DOM order
   // among equal scores (stable sort).
-  const sorted = [...list.querySelectorAll(':scope > li.job')]
-    .map((li, i) => ({li, score: _rankedFitScore(li), i}))
+  const sorted = [...list.querySelectorAll(':scope > li.job, :scope > .spontaneous-row')]
+    .map((el, i) => ({el, score: _rankedFitScore(el), i}))
     .sort((a, b) => (b.score - a.score) || (a.i - b.i));
-  for (const {li} of sorted) list.appendChild(li);
+  for (const {el} of sorted) list.appendChild(el);
 }
 function _restoreRankedView() {
   const list = document.getElementById('ranked-list');
   if (!list) return;
-  const jobs = [...list.querySelectorAll(':scope > li.job')];
-  for (const li of jobs) {
-    if (li._companyPrefix) {
-      li._companyPrefix.remove();
-      delete li._companyPrefix;
+  const rows = [...list.querySelectorAll(':scope > li.job, :scope > .spontaneous-row')];
+  for (const row of rows) {
+    if (row._companyPrefix) {
+      row._companyPrefix.remove();
+      delete row._companyPrefix;
     }
-    const parent = li._origParent;
-    const next = li._origNext;
+    const parent = row._origParent;
+    const next = row._origNext;
     if (parent) {
-      if (next && next.parentElement === parent) parent.insertBefore(li, next);
-      else parent.appendChild(li);
+      if (next && next.parentElement === parent) parent.insertBefore(row, next);
+      else parent.appendChild(row);
     }
-    delete li._origParent;
-    delete li._origNext;
+    delete row._origParent;
+    delete row._origNext;
   }
 }
 function activateTab(name) {
@@ -7470,7 +7490,7 @@ function _computeTabCounts() {
     toapply:     q('li.job.toapply') + q('.spontaneous-row.toapply'),
     pipeline:    q('li.job.applied, li.job.app-rejected')
                  + q('.spontaneous-row.applied, .spontaneous-row.app-rejected'),
-    ranked:      q('li.job'),
+    ranked:      q('li.job') + q('.spontaneous-row:has(.badge.claude-fit)'),
     spontaneous: q('.spontaneous-row'),
     new:         q('li.job:has(.badge.new-badge)'),
   };
