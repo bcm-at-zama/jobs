@@ -5162,12 +5162,19 @@ HTML_TEMPLATE = """<!doctype html>
        _buildRankedView — override the hide-all rule above so they
        actually render in the ranked view. */
     body.tab-ranked #ranked-list .spontaneous-row { display: flex; }
-    /* li.job carries R + K + ▶ (details marker) between the state
-       buttons and the title; spontaneous rows don't. Push the company
-       prefix right by their combined width so "Aisle — ✉" lines up
-       with where "Anthropic — Senior Engineer…" starts on li.job. */
-    body.tab-ranked #ranked-list .spontaneous-row .company-prefix {
-      margin-left: 5.5rem;
+    /* Alignment of spontaneous rows with li.job rows in Ranked view is
+       handled by invisible placeholder buttons that _injectRankedSpacers
+       prepends/inserts to match li.job's extra Review + Reject + Keep +
+       ▶ marker slots. visibility:hidden preserves layout while hiding
+       the pixels; the existing flex gap handles spacing automatically. */
+    .ranked-spacer {
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .ranked-spacer.ranked-marker {
+      display: inline-block;
+      width: 0.9rem;
+      height: 1rem;
     }
     .ranked-list .company-prefix {
       color: var(--fg-muted);
@@ -7049,18 +7056,18 @@ function _buildClaudeScoringPrompt(urls) {
   if (_getClaudeLang() === 'fr') {
     return (
       "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
-      "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, salaire, red flags).\\n\\n" +
+      "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, salaire, red flags). Extrait aussi le salaire verbatim de la description (par exemple « $150k-$200k USD » ou « 70k€ base + equity »), ou « none » s'il n'est pas publié.\\n\\n" +
       "FORMAT STRICT de la réponse — une ligne par job (pas de saut de ligne dans la justification), EXACTEMENT :\\n" +
-      "N. X/10 — <justification 2-3 phrases sur une seule ligne>\\n\\n" +
+      "N. X/10 — <justification 2-3 phrases sur une seule ligne> — SAL: <salaire verbatim ou none>\\n\\n" +
       "Jobs :\\n" +
       numbered
     );
   }
   return (
     "Rate the fit of each of these " + urls.length + " jobs against my profile (I'll share my profile on request).\\n" +
-    "For each job, fetch the description from the site, then give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, salary, red flags).\\n\\n" +
+    "For each job, fetch the description from the site, then give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, salary, red flags). Also extract the salary verbatim from the description (e.g. \\"$150k-$200k USD\\" or \\"£80k-£120k + equity\\"), or \\"none\\" if not published.\\n\\n" +
     "STRICT RESPONSE FORMAT — one line per job (no line breaks inside the justification), EXACTLY:\\n" +
-    "N. X/10 — <2-3 sentence justification on a single line>\\n\\n" +
+    "N. X/10 — <2-3 sentence justification on a single line> — SAL: <verbatim salary or none>\\n\\n" +
     "Jobs:\\n" +
     numbered
   );
@@ -7068,7 +7075,10 @@ function _buildClaudeScoringPrompt(urls) {
 
 // Parser tolerant to common markdown variants:
 //   "1. 8/10 — fit raison" / "1) 8/10 - fit raison" / "**1.** 8/10 ..."
+// Optional "— SAL: <value>" suffix carries the salary Claude extracted from
+// the job page, which we strip from the reason and surface as a badge.
 const _CLAUDE_FIT_LINE_RE = /^[*\\s>-]*(\\d+)[.)]\\s*(\\d+)\\s*\\/\\s*10\\s*[—\\-–:]+\\s*(.*)$/gm;
+const _CLAUDE_FIT_SAL_RE  = /\\s*[—\\-–]\\s*SAL\\s*:\\s*(.+?)\\s*$/i;
 function _parseClaudeFits(text, urls) {
   const out = {};
   if (!text || !urls || !urls.length) return out;
@@ -7077,9 +7087,20 @@ function _parseClaudeFits(text, urls) {
   while ((m = _CLAUDE_FIT_LINE_RE.exec(text)) !== null) {
     const idx = parseInt(m[1], 10);
     const score = parseInt(m[2], 10);
-    const reason = (m[3] || '').trim();
+    let reason = (m[3] || '').trim();
+    // Peel the "— SAL: <value>" suffix if present. "none" / "N/A" / empty
+    // all collapse to an empty salary (nothing to display).
+    let salary = '';
+    const salMatch = _CLAUDE_FIT_SAL_RE.exec(reason);
+    if (salMatch) {
+      reason = reason.slice(0, salMatch.index).trim();
+      const raw = salMatch[1].trim().replace(/^["']|["']$/g, '');
+      if (raw && !/^(none|n\\/?a|unknown|not\\s+(?:disclosed|published|listed|specified))$/i.test(raw)) {
+        salary = raw;
+      }
+    }
     if (idx >= 1 && idx <= urls.length && score >= 0 && score <= 10) {
-      out[urls[idx - 1]] = { score, reason, ts: new Date().toISOString() };
+      out[urls[idx - 1]] = { score, reason, salary, ts: new Date().toISOString() };
     }
   }
   return out;
@@ -7135,6 +7156,8 @@ function _openClaudePasteBar(urls, promptMode) {
     const map = _loadClaudeFits();
     Object.assign(map, parsed);
     _saveClaudeFits(map);
+    const manualSalaries = (typeof loadManualSalaries === 'function')
+      ? loadManualSalaries() : {};
     for (const [url, entry] of Object.entries(parsed)) {
       let row = [...document.querySelectorAll('li.job')].find(l =>
         l.querySelector('button.like, button.reject')?.dataset.url === url);
@@ -7142,7 +7165,15 @@ function _openClaudePasteBar(urls, promptMode) {
         row = [...document.querySelectorAll('.spontaneous-row')].find(r =>
           r.querySelector('button.spontaneous-like')?.dataset.url === url);
       }
-      if (row) _renderClaudeFitOnLi(row, entry.score, entry.reason);
+      if (row) {
+        _renderClaudeFitOnLi(row, entry.score, entry.reason);
+        // Salary came back from Claude — refresh the badge unless the
+        // user has set a manual override (which always wins).
+        if (entry.salary && !manualSalaries[url]
+            && row.matches('li.job') && typeof renderSalaryOnLi === 'function') {
+          renderSalaryOnLi(row, entry.salary, false);
+        }
+      }
     }
     // Also persist to the server so claude_fit_cache.json gets the new
     // score + reason. Without this, a refresh would reinject the stale
@@ -7318,6 +7349,54 @@ function _rankedFitScore(li) {
   const m = /(\\d+)\\s*\\/\\s*10/.exec(badge.textContent || '');
   return m ? parseInt(m[1], 10) : -1;
 }
+// For spontaneous rows in Ranked view we inject invisible placeholders
+// that occupy exactly the slots li.job has but spont does NOT:
+//   - Review (R)  — circle 1.3rem        → front of row
+//   - Reject (×)  — circle 1.3rem        → front of row
+//   - Keep (K)    — circle 1.3rem        → after state buttons
+//   - Details ▶   — ~0.9rem marker       → after Keep
+// Using real-looking buttons with visibility:hidden lets the existing
+// flex layout + gap handle the alignment math — no fragile pixel offsets.
+function _injectRankedSpacers(row) {
+  if (row._rankedSpacers) return;
+  const mk = (cls) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls + ' ranked-spacer';
+    b.setAttribute('aria-hidden', 'true');
+    b.tabIndex = -1;
+    return b;
+  };
+  const mkMarker = () => {
+    const s = document.createElement('span');
+    s.className = 'ranked-spacer ranked-marker';
+    s.setAttribute('aria-hidden', 'true');
+    return s;
+  };
+  // Front spacers: review + reject
+  const frontReview = mk('review');
+  const frontReject = mk('reject');
+  row.prepend(frontReject);
+  row.prepend(frontReview);
+  // Tail spacers (keep + ▶ marker), inserted right before the prefix /
+  // spontaneous link so the title column lines up.
+  const tailKeep = mk('keep');
+  const tailMarker = mkMarker();
+  const anchor = row.querySelector('.company-prefix') || row.querySelector('.spontaneous-link');
+  if (anchor) {
+    anchor.before(tailKeep);
+    anchor.before(tailMarker);
+  } else {
+    row.appendChild(tailKeep);
+    row.appendChild(tailMarker);
+  }
+  row._rankedSpacers = [frontReview, frontReject, tailKeep, tailMarker];
+}
+function _removeRankedSpacers(row) {
+  if (!row._rankedSpacers) return;
+  for (const el of row._rankedSpacers) el.remove();
+  delete row._rankedSpacers;
+}
 function _buildRankedView() {
   const list = document.getElementById('ranked-list');
   if (!list) return;
@@ -7349,6 +7428,10 @@ function _buildRankedView() {
       target.before(span);
       row._companyPrefix = span;
     }
+    // Spontaneous rows get placeholder slots for the buttons li.job has
+    // but they don't — Review / Reject / Keep / ▶ marker — so the flex
+    // layout naturally lines up the state-button chain and the title.
+    if (row.classList.contains('spontaneous-row')) _injectRankedSpacers(row);
     list.appendChild(row);
   }
   // Sort by Claude fit DESC, no-score at the bottom. Preserve DOM order
@@ -7363,6 +7446,7 @@ function _restoreRankedView() {
   if (!list) return;
   const rows = [...list.querySelectorAll(':scope > li.job, :scope > .spontaneous-row')];
   for (const row of rows) {
+    _removeRankedSpacers(row);
     if (row._companyPrefix) {
       row._companyPrefix.remove();
       delete row._companyPrefix;
@@ -8635,13 +8719,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # Persist scores parsed from the Claude paste bar into
             # claude_fit_cache.json so a refresh (or another browser) sees
             # the new score + reason, not whatever the API or an earlier
-            # paste wrote. Payload: {"scores": {url: {score, reason, ts}}}.
+            # paste wrote. Payload: {"scores": {url: {score, reason, salary, ts}}}.
+            # When Claude also returned a `salary`, write it into
+            # score_cache.json so the badge survives a refresh / rescore.
             scores = payload.get("scores") or {}
             if not isinstance(scores, dict) or not scores:
                 self.send_response(400); self._cors(); self.end_headers(); return
             try:
                 cache = _load_claude_fit_cache()
+                score_cache = _load_score_cache()
                 saved = 0
+                salaries_saved = 0
                 for url, entry in scores.items():
                     if not isinstance(entry, dict):
                         continue
@@ -8657,8 +8745,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "ts": str(entry.get("ts") or ""),
                     }
                     saved += 1
+                    sal = str(entry.get("salary") or "").strip()[:100]
+                    if sal:
+                        prev = score_cache.get(url) or {}
+                        prev["salary"] = sal
+                        score_cache[url] = prev
+                        salaries_saved += 1
                 _save_claude_fit_cache(cache)
-                body = json.dumps({"saved": saved}).encode()
+                if salaries_saved:
+                    _save_score_cache(score_cache)
+                body = json.dumps({"saved": saved, "salaries": salaries_saved}).encode()
                 self.send_response(200)
             except Exception as e:
                 err(f"/claude-fit-paste crashed: {e}")
