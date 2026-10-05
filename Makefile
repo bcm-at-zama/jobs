@@ -47,30 +47,12 @@ install:
 	@echo "  Installed into ./$(VENV)/"
 	@echo "  Next: run  make onboarding  to create your data/user_config.py."
 
-# `make onboarding` — copy src/user_config.example.py → data/user_config.py
-# so the user has a template to edit. Idempotent: never overwrites an
-# existing file. Also drops an empty data/profile.md if missing — the
-# Claude "C" button in the UI needs it to score jobs against your profile.
+# `make onboarding` — interactive wizard that writes data/user_config.py.
+# Prompts group-by-group through the catalog of ~150 companies, backs up
+# any existing config before overwriting. Honours $JOBS_DATA_DIR so you
+# can test with  JOBS_DATA_DIR=/tmp/sandbox make onboarding.
 onboarding:
-	@mkdir -p data
-	@if [ -f data/user_config.py ]; then \
-	    echo "  data/user_config.py already exists — not overwriting."; \
-	else \
-	    cp src/user_config.example.py data/user_config.py; \
-	    echo "  Created data/user_config.py — open it and edit SOURCES / BLACKLIST / HIGHLIGHTS."; \
-	fi
-	@if [ -f data/profile.md ]; then \
-	    echo "  data/profile.md already exists — leaving it alone."; \
-	else \
-	    echo "# Your profile" > data/profile.md; \
-	    echo "" >> data/profile.md; \
-	    echo "<!-- 1-2 paragraphs describing the role you want: seniority, domain," >> data/profile.md; \
-	    echo "     geography, dealbreakers, salary floor. The Claude \"C\" button in the UI" >> data/profile.md; \
-	    echo "     reads this to score jobs against your profile. -->" >> data/profile.md; \
-	    echo "  Created data/profile.md — write 1-2 paragraphs about the role you want."; \
-	fi
-	@echo ""
-	@echo "  Then: run  make run  to fetch and open the browser."
+	PYTHONPATH=src $(PYTHON) src/jobs.py --onboard
 
 test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover tests

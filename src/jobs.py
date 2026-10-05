@@ -9,7 +9,7 @@ Pipeline
 --------
 Step 1 — Load state
     Read `rejected.json`, `liked.json`, `score_cache.json`, `desc_cache.json`,
-    `data/profile.md` (optional). Parse env-var knobs (JOBS_ONLY / JOBS_SKIP /
+    (optional). Parse env-var knobs (JOBS_ONLY / JOBS_SKIP /
     JOBS_SKIP_PLAYWRIGHT / JOBS_SKIP_LLM) to decide which sources run.
 
 Step 2 — Fetch (parallel across sources)
@@ -2616,19 +2616,6 @@ def board_url_for(source):
         return "https://jobs.apple.com/en-us/search"
     if kind == "google":
         return "https://www.google.com/about/careers/applications/jobs/results/"
-    return ""
-
-
-def _load_profile():
-    """Return the user's job-search profile as a string. The profile is
-    now optional and read from `data/profile.md` (if the user chose to
-    keep one). Returns "" when absent — the LLM scorer then skips."""
-    for candidate in ("data/profile.md", "profile.md"):
-        try:
-            with open(candidate, "r", encoding="utf-8") as f:
-                return f.read()
-        except FileNotFoundError:
-            continue
     return ""
 
 
@@ -8527,11 +8514,19 @@ def _parse_cli():
                          "regenerate the file without fighting for port 8765.")
     ap.add_argument("--list", action="store_true",
                     help="Print every configured board name (comma-separated) and exit.")
+    ap.add_argument("--onboard", action="store_true",
+                    help="Launch the interactive onboarding wizard that writes "
+                         "data/user_config.py from a catalog of ~150 companies. "
+                         "Honours $JOBS_DATA_DIR for sandbox testing.")
     return ap.parse_args()
 
 
 def main():
     args = _parse_cli()
+    if args.onboard:
+        # Lazy import so a plain run doesn't pull in the catalog.
+        import onboarding
+        sys.exit(onboarding.run_wizard(os.environ.get("JOBS_DATA_DIR", "data")))
 
     if args.clear_cache:
         # Accept singular / plural / minor typos.

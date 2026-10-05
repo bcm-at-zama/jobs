@@ -112,19 +112,19 @@ finishes in under a minute even for 150 jobs.
 
 **First time:**
 
-1. Open `data/profile.md` and write 1-2 paragraphs about the role you
-   want: seniority, domain, geography, dealbreakers, salary floor. The
-   LLM uses this to rate each posting.
-2. Open `data/user_config.py` and make sure your `SOURCES` list is
+1. Open `data/user_config.py` and make sure your `SOURCES` list is
    reasonable — the fewer irrelevant companies, the shorter the batched
-   prompt.
-3. Optional: click **⚙** (top right) once to pin the chat URL of your
+   prompt. Have a short profile description ready (1-2 paragraphs on
+   seniority, domain, geography, dealbreakers, salary floor) — the LLM
+   will ask for it on the first scoring request.
+2. Optional: click **⚙** (top right) once to pin the chat URL of your
    preferred LLM — e.g. `https://chatgpt.com/c/<id>` or
    `https://claude.ai/chat/<id>`. Subsequent `AI` clicks open THAT same
    conversation, which (a) keeps whatever fetch / search permissions
    the model has already received and (b) lets the model carry context
-   from previous scoring rounds. Without a pinned URL `AI` just opens
-   `https://claude.ai/new`.
+   from previous scoring rounds (including your profile — share it once
+   and the model remembers for subsequent runs). Without a pinned URL
+   `AI` just opens `https://claude.ai/new`.
 
 **Every time you want to score:**
 
