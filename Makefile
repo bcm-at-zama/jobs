@@ -1,13 +1,62 @@
-# Minimal Makefile — `make test` runs the whole suite.
-# Uses stdlib unittest so no pip install needed.
+# Default target: show what's available.
+.DEFAULT_GOAL := help
 
-.PHONY: test test-verbose commit pdf html clean-pdf
+.PHONY: help install test test-verbose run commit pdf html clean-pdf
+
+# Virtualenv lives at ./venv-macos. If it exists, use its python3; else
+# fall back to system python3. Lets `make test` / `make run` work both
+# pre- and post-install without extra flags.
+VENV   := venv-macos
+PYTHON := $(shell test -x $(VENV)/bin/python3 && echo $(VENV)/bin/python3 || echo python3)
+PIP    := $(VENV)/bin/pip
+
+help:
+	@echo "jobs — Makefile targets:"
+	@echo ""
+	@echo "  make install    Create ./$(VENV) and pip-install requirements.txt."
+	@echo "                  Also installs Playwright's Chromium (needed for"
+	@echo "                  kind: \"pw\" sources). Run once after cloning."
+	@echo ""
+	@echo "  make run        Full pipeline: fetch every source, score, render"
+	@echo "                  the HTML, open the browser, keep serving."
+	@echo "                  Pass extra flags via ARGS, e.g.:"
+	@echo "                    make run ARGS=\"--skip-llm --only Anthropic\""
+	@echo ""
+	@echo "  make test       Run the full unittest suite (~75 tests, ~50 ms)."
+	@echo "  make test-verbose   Same, verbose."
+	@echo ""
+	@echo "  make commit     git add + commit + push (via script/push.sh)."
+	@echo ""
+	@echo "  make pdf        Build business/analysis.pdf via Sphinx + latexmk."
+	@echo "  make html       Build business/_build/html via Sphinx."
+	@echo "  make clean-pdf  Remove the Sphinx build output."
+	@echo ""
+	@echo "  make help       This message."
+
+# `make install` — create venv-macos, install runtime deps + Playwright
+# Chromium. Idempotent: safe to re-run to pick up requirements.txt
+# changes. Uses --upgrade so pin bumps apply.
+install:
+	@test -d $(VENV) || python3 -m venv $(VENV)
+	@$(VENV)/bin/pip install --upgrade pip
+	@$(VENV)/bin/pip install --upgrade -r requirements.txt
+	@$(VENV)/bin/playwright install chromium
+	@echo ""
+	@echo "  Installed into ./$(VENV)/"
+	@echo "  Activate with:  source $(VENV)/bin/activate"
+	@echo "  Or just use:    make run / make test  (both auto-detect the venv)"
 
 test:
-	PYTHONPATH=src python3 -m unittest discover tests
+	PYTHONPATH=src $(PYTHON) -m unittest discover tests
 
 test-verbose:
-	PYTHONPATH=src python3 -m unittest discover tests -v
+	PYTHONPATH=src $(PYTHON) -m unittest discover tests -v
+
+# `make run` → full pipeline: fetch every source, score, render HTML,
+# open the browser, keep serving. Extra flags can be passed through:
+#   make run ARGS="--skip-llm --only Anthropic,OpenAI"
+run:
+	PYTHONPATH=src $(PYTHON) src/jobs.py $(ARGS)
 
 # `make commit` → forwards to script/push.sh (git add + commit + push).
 commit:

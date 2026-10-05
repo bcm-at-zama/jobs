@@ -30,9 +30,9 @@ Step 3 — Normalize per job
     Then apply TITLE_BLACKLIST and LOCATION_BLACKLIST filters.
 
 Step 4 — Score against the user's profile (data/profile.md, if present)
-    All non-rejected jobs are batched (SCORE_BATCH_SIZE) and sent to the LLM
-    (Ollama local by default, or Anthropic Claude). Results cached to
-    `score_cache.json`. Failed batches split recursively down to size 1.
+    All non-rejected jobs are batched (SCORE_BATCH_SIZE) and sent to
+    Claude (Anthropic API). Results cached to `score_cache.json`. Failed
+    batches split recursively down to size 1.
 
 Step 5 — Render HTML
     Per source: an <h1> with the board name (linking to the public board),
@@ -63,7 +63,7 @@ from config import (  # noqa: E402,F401 — public config surface
     SCORE_CACHE, DESC_CACHE, CLAUDE_FIT_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
-    SCORER, CLAUDE_MODEL, OLLAMA_URL, OLLAMA_MODEL,
+    SCORER, CLAUDE_MODEL,
     SCORE_BATCH_SIZE, SCORE_DESC_CHARS, SCORE_PARALLEL, SCORE_LONG_ROLES,
     HIGHLIGHTS, TITLE_CASE_OVERRIDES,
     TITLE_BLACKLIST, LOCATION_BLACKLIST,
@@ -2844,24 +2844,6 @@ _LONG_ROLE_SECTIONS = [
 ]
 
 
-def _ollama_json_schema():
-    """Strict JSON schema for the salary-only extractor. Ollama honours this
-    via structured outputs (v0.5+) so the model is FORCED to emit both fields
-    on every job even when the answer is an empty string."""
-    return {
-        "type": "array",
-        "minItems": 1,
-        "items": {
-            "type": "object",
-            "properties": {
-                "i":      {"type": "integer"},
-                "salary": {"type": "string", "maxLength": 100},
-            },
-            "required": ["i", "salary"],
-        },
-    }
-
-
 _SECTION_LABELS = {
     "missions":            "Missions",
     "key_responsibilities":"Key responsibilities",
@@ -2893,46 +2875,6 @@ def _role_long_to_markdown(role_long_value):
         label = _SECTION_LABELS.get(key, key.replace("_", " ").title())
         parts.append(f"**{label}:**\n" + "\n".join(f"- {b}" for b in clean))
     return "\n\n".join(parts)
-
-
-def _score_batch_ollama(batch, profile_text):
-    payload = {
-        "model": OLLAMA_MODEL,
-        "stream": False,
-        "messages": [
-            {"role": "system", "content": SCORING_SYSTEM + "\n\n" + profile_text},
-            {"role": "user", "content": _make_batch_prompt(batch)},
-        ],
-        # Use a JSON schema (Ollama structured outputs) instead of "json"
-        # so the model MUST fill in every required field, not just "score".
-        "format": _ollama_json_schema(),
-        "options": {
-            # Curb "token repeat limit reached" 500s from Ollama when the model
-            # falls into a repetition loop generating long role_long payloads.
-            # 1.35 is aggressive but this repo has seen the LLM emit the same
-            # JSON object 4+ times in a row until num_predict runs out (see
-            # debug/debug-score-response-*.txt). A stronger penalty over a
-            # longer lookback breaks the loop before it wastes the whole budget.
-            "repeat_penalty": 1.35,
-            "repeat_last_n": 512,
-            # Cap the number of tokens generated per response.
-            "num_predict": 500,
-        },
-    }
-    req = urllib.request.Request(
-        OLLAMA_URL, data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    # Long-role prompts generate ~2x more tokens; give the LLM more headroom.
-    ollama_timeout = 120
-    try:
-        with urllib.request.urlopen(req, timeout=ollama_timeout) as resp:
-            data = json.load(resp)
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")[:500]
-        raise RuntimeError(f"HTTP {e.code}: {body}") from None
-    text = data.get("message", {}).get("content", "") or data.get("response", "")
-    return _parse_score_response(text, batch)
 
 
 def score_jobs(jobs):
@@ -2986,8 +2928,6 @@ def score_jobs(jobs):
     def _score(batch):
         if SCORER == "claude":
             return _score_batch_claude(batch, profile, client)
-        if SCORER == "ollama":
-            return _score_batch_ollama(batch, profile)
         return {}
 
     def _score_safely(batch):
@@ -3069,8 +3009,9 @@ def score_jobs(jobs):
             if new_entries and completed[0] % max(1, SCORE_PARALLEL) == 0:
                 _save_score_cache(cache)
 
-    # Long-role responses need ~2x more compute per request; halve the
-    # concurrency to avoid Ollama backpressure and per-request timeouts.
+    # Claude handles the full configured parallelism (SCORE_PARALLEL)
+    # without backpressure; prompt caching makes the per-request cost
+    # negligible after the first batch.
     parallel = SCORE_PARALLEL
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as ex:

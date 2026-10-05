@@ -9,12 +9,11 @@ puts every opening you care about in one browser tab.
 `jobs` runs on your laptop, fetches postings from the career pages of
 the companies YOU care about (dozens of ATS types supported out of the
 box — Greenhouse, Lever, Ashby, Workday, Phenom, BambooHR, Pinpoint,
-Umantis, SuccessFactors, Eightfold, SmartRecruiters, custom
-Playwright), scores each opening with Ollama or Claude against the
-profile you write in Markdown, and renders everything as a static HTML
-page you drive from your browser. State (liked, to apply, applied,
-rejected) is persisted as local JSON files — nothing leaves your
-machine.
+Umantis, SuccessFactors, Eightfold, SmartRecruiters, custom Playwright),
+scores each opening with Claude against the profile you write in
+Markdown, and renders everything as a static HTML page you drive from
+your browser. State (liked, to apply, applied, rejected) is persisted
+as local JSON files — nothing leaves your machine.
 
 **What you get:**
 
@@ -83,15 +82,19 @@ describing the role you want (seniority, domain, geography, dealbreakers,
 salary floor). The LLM scorer reads this to generate a fit score per
 job.
 
-### 3. Pick a scorer (optional)
+### 3. Set your Anthropic API key
 
-The engine runs fine without any LLM — you just lose the fit score
-column. Two backends supported:
+Scoring uses Claude. Create an API key at
+[console.anthropic.com](https://console.anthropic.com/) and export it:
 
-- **Ollama (local, free):** `brew install ollama && ollama pull qwen2.5:7b`.
-  Set `SCORER = "ollama"` in your config.
-- **Claude (API, paid):** set `ANTHROPIC_API_KEY` in your environment,
-  then `SCORER = "claude"` in your config.
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+If `ANTHROPIC_API_KEY` is unset or the `anthropic` SDK is missing,
+scoring is silently skipped — the engine still runs, you just don't
+get the fit-score column. You can also set `SCORER = "none"` in your
+config to opt out explicitly.
 
 ### 4. Run
 
@@ -119,7 +122,7 @@ The script writes `data/jobs.html` and opens it in your browser.
 
 - Python 3.11+ (stdlib only for the core engine).
 - Playwright + Chromium — only for `kind: "pw"` sources.
-- Ollama OR an `ANTHROPIC_API_KEY` — only if you want LLM scoring.
+- `ANTHROPIC_API_KEY` env var — only if you want LLM scoring.
 - No database. All state is JSON files under `data/`.
 
 ## Project layout

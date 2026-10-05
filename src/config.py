@@ -63,23 +63,20 @@ SERVE_HOST = "127.0.0.1"
 SERVE_PORT = 8765
 
 # =============================================================================
-# Scoring backend — how each job is rated. If no profile is provided
-# (via the LLM scorer's prompt), scoring is silently skipped.
+# Scoring backend — Claude (Anthropic API) rates each job against your
+# profile. Needs ANTHROPIC_API_KEY in the environment + `pip install
+# anthropic` (included in requirements.txt).
+#
+# Set SCORER = "none" to disable auto-scoring and rely only on the manual
+# "C" button in the UI.
 # =============================================================================
-#   "claude" — Anthropic API (needs ANTHROPIC_API_KEY env var, `pip install anthropic`).
-#   "ollama" — local Ollama server at OLLAMA_URL.
-#   "none"   — disable scoring.
-SCORER           = "ollama"
+SCORER           = "claude"
 CLAUDE_MODEL     = "claude-sonnet-4-6"
-OLLAMA_URL       = "http://localhost:11434/api/chat"
-OLLAMA_MODEL     = "qwen2.5:7b"
 SCORE_BATCH_SIZE = 1      # 1 = 100% coverage; higher = faster but may drop scores
 SCORE_DESC_CHARS = 15000  # description chars sent to the LLM per job. Set high
                           # enough to include Salary/Compensation/Benefits which
-                          # usually sit near the end of a posting. Very few jobs
-                          # exceed this; on the current model + laptop the extra
-                          # latency is negligible for ~150 jobs.
-SCORE_PARALLEL   = 6      # concurrent calls to Ollama/Claude
+                          # usually sit near the end of a posting.
+SCORE_PARALLEL   = 6      # concurrent calls to Claude
 SCORE_LONG_ROLES = True   # role_long (structured markdown) is the only role output now
 
 # =============================================================================
