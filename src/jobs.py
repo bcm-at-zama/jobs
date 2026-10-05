@@ -4277,7 +4277,6 @@ def render_html_filters(seniority_labels, all_locations=None):
         '      <input type="text" id="text-filter" placeholder="kubernetes + rust or golang">\n'
         '    </div>\n'
         '    <div class="filter-group">\n'
-        '      <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-empty-toggle"> Hide sections with no matching jobs</label>\n'
         '      <label class="filter-check"><input type="checkbox" id="hide-spontaneous-toggle"> Hide Spontaneous which are not liked</label>\n'
         '    </div>\n'
@@ -4551,6 +4550,33 @@ HTML_TEMPLATE = """<!doctype html>
        only applies to .spontaneous-row entries that _buildRankedView
        moved in. */
     body.tab-ranked.hide-ranked-spontaneous #ranked-list .spontaneous-row {
+      display: none;
+    }
+    /* Per-element hide toggles from the top bar. Each driven by a body
+       class so they apply across every tab, not just All. */
+    body.hide-seniority .badge.seniority,
+    body.hide-seniority .badge.xp,
+    body.hide-seniority .badge.ic-level { display: none; }
+    body.hide-score .badge.claude-fit,
+    body.hide-score .badge.score { display: none; }
+    body.hide-salary .badge.salary { display: none; }
+    body.hide-keywords .badge.highlight-badge { display: none; }
+    body.hide-location .locs { display: none; }
+
+    /* "Show marks" checkbox: when off, hide the state BUTTONS (+1 /
+       TA / ✓ / R / K / review / reject) in Ranked so only the titles +
+       badges remain. Scoped to `button.*` and `.ranked-spacer` so the
+       row-level state classes (li.toapply / li.applied / …) are NOT
+       matched — otherwise the whole row would disappear and the count
+       shown in the tab label would appear to drop. */
+    body.tab-ranked.hide-ranked-marks #ranked-list button.like,
+    body.tab-ranked.hide-ranked-marks #ranked-list button.toapply,
+    body.tab-ranked.hide-ranked-marks #ranked-list button.applied,
+    body.tab-ranked.hide-ranked-marks #ranked-list button.app-rejected-btn,
+    body.tab-ranked.hide-ranked-marks #ranked-list button.keep,
+    body.tab-ranked.hide-ranked-marks #ranked-list button.review,
+    body.tab-ranked.hide-ranked-marks #ranked-list button.reject,
+    body.tab-ranked.hide-ranked-marks #ranked-list .ranked-spacer {
       display: none;
     }
     body.tab-ranked .company-section,
@@ -5240,6 +5266,40 @@ HTML_TEMPLATE = """<!doctype html>
     button.app-rejected-btn[data-state="off"]:hover {
       opacity: 1;
     }
+    /* Visual cascade: when a row has reached a later state, show every
+       earlier state button as if it were also "on" — so the chain reads
+       consistently (even if the user skipped intermediate clicks when
+       marking the job app-rejected directly). The underlying
+       data-state attributes stay as the user set them; this is a pure
+       display override. Higher specificity than the [data-state="off"]
+       muted style above, so it wins when both match. */
+    li.toapply button.like,
+    li.applied button.like,
+    li.app-rejected button.like,
+    .spontaneous-row.toapply button.like,
+    .spontaneous-row.applied button.like,
+    .spontaneous-row.app-rejected button.like {
+      background: var(--success);
+      color: #ffffff;
+      border-color: var(--success);
+      opacity: 1;
+    }
+    li.applied button.toapply,
+    li.app-rejected button.toapply,
+    .spontaneous-row.applied button.toapply,
+    .spontaneous-row.app-rejected button.toapply {
+      background: var(--danger);
+      color: #ffffff;
+      border-color: var(--danger);
+      opacity: 1;
+    }
+    li.app-rejected button.applied,
+    .spontaneous-row.app-rejected button.applied {
+      background: #8250df;
+      color: #ffffff;
+      border-color: #8250df;
+      opacity: 1;
+    }
     /* The .review (R → write-to-planning/TOREVIEW.md) and .app-rejected-btn (R → mark
        application rejected) share one slot: on a bare row the Review
        button is the "R" shown, on any state row the app-rejected one is.
@@ -5798,6 +5858,11 @@ function saveFilters() {
     roleSummary: document.getElementById('role-summary-toggle')?.checked ?? true,
     hideEmpty: document.getElementById('hide-empty-toggle')?.checked ?? false,
     hideSpontaneous: document.getElementById('hide-spontaneous-toggle')?.checked ?? false,
+    showSeniority: document.getElementById('show-seniority-toggle')?.checked ?? true,
+    showScore:     document.getElementById('show-score-toggle')?.checked ?? true,
+    showSalary:    document.getElementById('show-salary-toggle')?.checked ?? true,
+    showKeywords:  document.getElementById('show-keywords-toggle')?.checked ?? true,
+    showLocation:  document.getElementById('show-location-toggle')?.checked ?? true,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
@@ -5837,6 +5902,21 @@ function loadFilters() {
   if (hs && s.hideSpontaneous === true) {
     hs.checked = true;
     document.body.classList.add('hide-spontaneous');
+  }
+  // Per-element show toggles (seniority / score / salary / keywords /
+  // location). The checkboxes live inside the Settings modal and are
+  // created lazily on first open — so we apply the body class based on
+  // the saved state alone, regardless of whether cb exists yet. The
+  // modal's open-time sync re-aligns checkbox state to body classes.
+  const elementToggles = [
+    ['show-seniority-toggle', 'hide-seniority', 'showSeniority'],
+    ['show-score-toggle',     'hide-score',     'showScore'],
+    ['show-salary-toggle',    'hide-salary',    'showSalary'],
+    ['show-keywords-toggle',  'hide-keywords',  'showKeywords'],
+    ['show-location-toggle',  'hide-location',  'showLocation'],
+  ];
+  for (const [, bodyCls, key] of elementToggles) {
+    if (s[key] === false) document.body.classList.add(bodyCls);
   }
 }
 
@@ -6724,13 +6804,19 @@ document.querySelectorAll('.loc-country-toggle').forEach(btn => {
   });
 });
 
-const hlToggle = document.getElementById('highlight-toggle');
-if (hlToggle) {
-  hlToggle.addEventListener('change', () => {
-    document.body.classList.toggle('no-highlights', !hlToggle.checked);
-    saveFilters();
-  });
-}
+// Per-element show/hide toggles (highlight / seniority / score /
+// salary / keywords / location). The checkboxes live inside the
+// Settings modal (⚙) and are wired on first open. The body classes
+// below are the source of truth; they're applied at page-load from
+// localStorage by loadFilters() so the UI reflects the user's
+// preferences even before they open the modal.
+const _ELEMENT_TOGGLES = [
+  ['show-seniority-toggle', 'hide-seniority', 'showSeniority'],
+  ['show-score-toggle',     'hide-score',     'showScore'],
+  ['show-salary-toggle',    'hide-salary',    'showSalary'],
+  ['show-keywords-toggle',  'hide-keywords',  'showKeywords'],
+  ['show-location-toggle',  'hide-location',  'showLocation'],
+];
 
 const ssToggle = document.getElementById('score-summary-toggle');
 if (ssToggle) {
@@ -7089,6 +7175,23 @@ const RANKED_SHOW_SPONT_KEY = 'jobs:ranked-show-spontaneous';
     document.body.classList.toggle('hide-ranked-spontaneous', !cb.checked);
     try { localStorage.setItem(RANKED_SHOW_SPONT_KEY, cb.checked ? '1' : '0'); } catch (e) {}
     _updateTabCounts();
+  });
+})();
+
+// "Show marks" checkbox inside the Ranked tab. When off, hides the
+// state buttons (+1 / TA / ✓ / R / K) so Ranked becomes a clean
+// title+score list. Persisted alongside the spontaneous toggle.
+const RANKED_SHOW_MARKS_KEY = 'jobs:ranked-show-marks';
+(() => {
+  const cb = document.getElementById('ranked-show-marks');
+  if (!cb) return;
+  let saved = null;
+  try { saved = localStorage.getItem(RANKED_SHOW_MARKS_KEY); } catch (e) {}
+  cb.checked = saved !== '0';
+  document.body.classList.toggle('hide-ranked-marks', !cb.checked);
+  cb.addEventListener('change', () => {
+    document.body.classList.toggle('hide-ranked-marks', !cb.checked);
+    try { localStorage.setItem(RANKED_SHOW_MARKS_KEY, cb.checked ? '1' : '0'); } catch (e) {}
   });
 })();
 
@@ -7451,16 +7554,30 @@ function _setClaudeLang(lang) {
 
 function openClaudeSettingsModal() {
   return new Promise((resolve) => {
-    let modal = document.getElementById('claude-settings-modal');
+    let modal = document.getElementById('settings-modal');
     if (!modal) {
       modal = document.createElement('div');
-      modal.id = 'claude-settings-modal';
+      modal.id = 'settings-modal';
       modal.className = 'modal-backdrop';
       modal.innerHTML =
         '<div class="modal">' +
-        '  <h3>Claude settings</h3>' +
-        '  <label>Pinned Claude.ai conversation URL (leave empty to clear)<br>' +
-        '    <input type="text" id="cs-url" placeholder="https://claude.ai/chat/…" style="width:100%">' +
+        '  <h3>Settings</h3>' +
+        // Row-element show/hide toggles. Each applies instantly on
+        // change (no need to Save) and persists via saveFilters().
+        '  <div style="font-weight:600; margin-bottom:0.3rem">Show on each job row</div>' +
+        '  <div style="display:flex; flex-wrap:wrap; gap:0.4rem 1.2rem; margin-bottom:0.8rem">' +
+        '    <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>' +
+        '    <label class="filter-check"><input type="checkbox" id="show-seniority-toggle" checked> Seniority</label>' +
+        '    <label class="filter-check"><input type="checkbox" id="show-score-toggle" checked> Score</label>' +
+        '    <label class="filter-check"><input type="checkbox" id="show-salary-toggle" checked> Salary</label>' +
+        '    <label class="filter-check"><input type="checkbox" id="show-keywords-toggle" checked> Keywords</label>' +
+        '    <label class="filter-check"><input type="checkbox" id="show-location-toggle" checked> Location</label>' +
+        '  </div>' +
+        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.4rem; margin-bottom:0.8rem">' +
+        '    Toggles apply instantly. Changes persist in localStorage.' +
+        '  </div>' +
+        '  <label>Pinned chat conversation URL (leave empty to clear)<br>' +
+        '    <input type="text" id="cs-url" placeholder="https://claude.ai/chat/… or https://chatgpt.com/c/…" style="width:100%">' +
         '  </label>' +
         '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
         '    When set, the AI button opens THAT chat instead of a new one — so permissions you granted carry over. The prompt is copied to clipboard.' +
@@ -7470,7 +7587,7 @@ function openClaudeSettingsModal() {
         '    <label style="font-weight:normal; display:inline-block"><input type="radio" name="cs-lang" value="fr"> French</label>' +
         '  </label>' +
         '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
-        '    Affects the notes + summaries Claude writes back. UI stays in English.' +
+        '    Affects the notes + summaries the LLM writes back. UI stays in English.' +
         '  </div>' +
         '  <div class="modal-actions">' +
         '    <button type="button" id="cs-cancel">Cancel</button>' +
@@ -7478,7 +7595,35 @@ function openClaudeSettingsModal() {
         '  </div>' +
         '</div>';
       document.body.appendChild(modal);
+      // First time the modal is built — wire the Show toggles (they
+      // live inside the modal now, so the handlers can only attach
+      // after the markup exists). Each change applies instantly to the
+      // body class + persists via saveFilters.
+      for (const [id, bodyCls] of _ELEMENT_TOGGLES) {
+        const cb = modal.querySelector('#' + id);
+        if (!cb) continue;
+        cb.addEventListener('change', () => {
+          document.body.classList.toggle(bodyCls, !cb.checked);
+          saveFilters();
+        });
+      }
+      const hl = modal.querySelector('#highlight-toggle');
+      if (hl) {
+        hl.addEventListener('change', () => {
+          document.body.classList.toggle('no-highlights', !hl.checked);
+          saveFilters();
+        });
+      }
     }
+    // Sync checkbox state from the current body classes every time the
+    // modal is opened (handles the case where another browser tab
+    // changed localStorage and this tab re-synced on refresh).
+    const _syncToggle = (id, bodyCls) => {
+      const cb = modal.querySelector('#' + id);
+      if (cb) cb.checked = !document.body.classList.contains(bodyCls);
+    };
+    _syncToggle('highlight-toggle', 'no-highlights');
+    for (const [id, bodyCls] of _ELEMENT_TOGGLES) _syncToggle(id, bodyCls);
     const urlInput = modal.querySelector('#cs-url');
     urlInput.value = _getPinnedClaudeChatUrl();
     const lang = _getClaudeLang();
@@ -8799,8 +8944,13 @@ def main():
     n_applied      = len((applied_keys & visible_urls) - app_rej_keys)
     n_app_rejected = len(app_rej_keys & visible_urls)
     # All counts live on the tab labels; the R / AI / ⚙ actions live
-    # inside the tabs nav. The top bar is just a status line for
-    # async-action feedback (open-URLs toast, Claude paste etc.).
+    # inside the tabs nav. The top bar carries the async-action status
+    # line + global settings (currently just the Highlight toggle) that
+    # need to stay reachable on every tab (not only the All tab's
+    # filters section).
+    # Settings (⚙) owns the row-element show/hide toggles — see
+    # openSettingsModal in the inline JS. The top bar carries only the
+    # async-action status line.
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
@@ -8939,6 +9089,7 @@ def main():
         # every tab EXCEPT ranked via CSS.
         + '  <div id="ranked-controls" class="ranked-controls">\n'
         + '    <label class="filter-check"><input type="checkbox" id="ranked-show-spontaneous" checked> Show spontaneous</label>\n'
+        + '    <label class="filter-check"><input type="checkbox" id="ranked-show-marks" checked> Show marks</label>\n'
         + '  </div>\n'
         + '  <ul id="ranked-list" class="ranked-list"></ul>\n'
         + "\n".join(html_sections)

@@ -61,11 +61,16 @@ class TestFiltersStripped(unittest.TestCase):
 
     def test_core_filters_still_present(self):
         # These are kept — they're the ALL-tab-only filtering tools.
+        # highlight-toggle used to be in the filters section but was
+        # moved to the always-visible top bar so it works across tabs.
         out = jobs.render_html_filters([])
         for keep in ("loc-filter", "title-filter", "text-filter",
-                     "highlight-toggle", "hide-empty-toggle", "hide-spontaneous-toggle"):
+                     "hide-empty-toggle", "hide-spontaneous-toggle"):
             with self.subTest(id=keep):
                 self.assertIn(keep, out)
+        # Highlight toggle moved out of the filters section
+        self.assertNotIn("highlight-toggle", out,
+                         "Highlight toggle should live in the top bar, not in filters.")
 
 
 if __name__ == "__main__":
