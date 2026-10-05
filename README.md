@@ -55,19 +55,19 @@ so your search is more efficient every day.
 ### Installation
 
 ```bash
-make install      # venv + Python deps + Playwright Chromium (~2 min)
+make install
 ```
 
 ### Onboarding
 
 ```bash
-make onboarding   # creates data/user_config.py + data/profile.md
+make onboarding
 ```
 
 ### Daily use
 
 ```bash
-make run          # fetch every source, open the browser
+make run
 ```
 
 The HTML lands in your browser; everything else is point-and-click.
