@@ -39,15 +39,6 @@
     h2 { font-size: 1.1rem; margin: 0; }
     hr { border: none; border-top: 1px solid var(--border); margin: 1.4rem 0; }
 
-    .warn-banner {
-      background: #fff8c5;
-      border: 1px solid #d4a72c;
-      border-radius: 6px;
-      padding: 0.8rem 1rem;
-      margin-bottom: 1.4rem;
-    }
-    .warn-banner strong { color: var(--attention); }
-
     details.group {
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -195,14 +186,6 @@
   <p class="subtitle">Pick the companies you want on your board. You can
   always re-run this wizard later via <code>make onboarding</code>.</p>
 
-  <div id="warn-banner" class="warn-banner" style="display:none">
-    <strong>⚠ data/user_config.py already exists</strong>
-    (<span id="existing-count">?</span> sources, modified
-    <span id="existing-mtime">?</span>). Saving will overwrite it; a
-    backup will be written to
-    <code id="backup-path">data/user_config.py.bak.&lt;timestamp&gt;</code>.
-  </div>
-
   <div id="wizard">
     <h2>Companies to track</h2>
     <p class="subtitle">Expand a group to pick its companies. Use
@@ -272,6 +255,7 @@ function renderGroups() {
     const details = document.createElement('details');
     details.className = 'group';
     details.dataset.group = groupName;
+    details.open = true;  // all groups expanded on first paint
 
     const summary = document.createElement('summary');
     summary.innerHTML =
@@ -334,17 +318,6 @@ function _refreshTotal() {
   const total = document.querySelectorAll('.company-cb:checked').length;
   document.getElementById('total-selected').textContent = total;
   document.getElementById('save-btn').disabled = (total === 0);
-}
-
-/* ---- Existing-config banner ---------------------------------------- */
-
-function renderExistingBanner() {
-  if (!EXISTING || !EXISTING.exists) return;
-  const banner = document.getElementById('warn-banner');
-  banner.style.display = 'block';
-  document.getElementById('existing-count').textContent = EXISTING.n_sources ?? '?';
-  document.getElementById('existing-mtime').textContent = EXISTING.mtime ?? '?';
-  document.getElementById('backup-path').textContent = EXISTING.backup_path ?? '';
 }
 
 /* ---- Save ---------------------------------------------------------- */
@@ -440,7 +413,6 @@ async function launchBoard() {
 
 /* ---- Boot ---------------------------------------------------------- */
 
-renderExistingBanner();
 renderGroups();
 document.getElementById('save-btn').addEventListener('click', save);
 document.getElementById('cancel-btn').addEventListener('click', cancel);
