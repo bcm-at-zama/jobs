@@ -14,6 +14,7 @@ new one, ASK FIRST — don't just create it.
 | `planning/` | Tickets, roadmap, reference docs about the project workflow.  |
 | `knowledge/`| `.md` / `.txt` notes capturing your understanding or research. Build this up as you learn the codebase. |
 | `script/`   | Shell scripts invoked by `make` targets or run directly (e.g. `push.sh`). |
+| `docs/`     | User-facing documentation (dev guide, screenshots). Linked from `README.md`. |
 
 ## No personal data in `src/`
 
