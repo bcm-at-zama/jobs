@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>jobs — onboarding</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --bg-subtle: #f6f8fa;
+      --bg-inset: #eaeef2;
+      --border: #d0d7de;
+      --border-muted: #d8dee4;
+      --fg: #1f2328;
+      --fg-muted: #656d76;
+      --fg-subtle: #6e7781;
+      --accent: #0969da;
+      --accent-emphasis: #0550ae;
+      --success: #1a7f37;
+      --success-emphasis: #116329;
+      --attention: #9a6700;
+      --severe: #bc4c00;
+      --danger: #d1242f;
+      --danger-emphasis: #a40e26;
+    }
+    html { font-size: 13px; scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+                   Helvetica, Arial, sans-serif;
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 0 1.2rem 4rem;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.55;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
+    .subtitle { color: var(--fg-muted); margin: 0 0 1.5rem; font-size: 1rem; }
+    h2 { font-size: 1.1rem; margin: 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.4rem 0; }
+
+    .warn-banner {
+      background: #fff8c5;
+      border: 1px solid #d4a72c;
+      border-radius: 6px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 1.4rem;
+    }
+    .warn-banner strong { color: var(--attention); }
+
+    details.group {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin: 0.6rem 0;
+      background: var(--bg-subtle);
+      padding: 0 0.9rem;
+    }
+    details.group[open] {
+      padding-bottom: 0.9rem;
+    }
+    details.group > summary {
+      cursor: pointer;
+      padding: 0.75rem 0;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      list-style: none;
+    }
+    details.group > summary::-webkit-details-marker { display: none; }
+    details.group > summary::before {
+      content: '▶';
+      display: inline-block;
+      transition: transform 0.15s;
+      color: var(--fg-muted);
+      font-size: 0.75rem;
+    }
+    details.group[open] > summary::before { transform: rotate(90deg); }
+    .group-count {
+      margin-left: auto;
+      font-weight: normal;
+      color: var(--fg-muted);
+      font-size: 0.9rem;
+    }
+    .group-count.has-picks { color: var(--success); font-weight: 600; }
+
+    .group-actions {
+      padding: 0.3rem 0 0.7rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .group-actions button {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.3rem 0.7rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .group-actions button:hover {
+      background: var(--bg-inset);
+      border-color: var(--fg-subtle);
+    }
+
+    .company-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.3rem 1rem;
+    }
+    @media (max-width: 720px) {
+      .company-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .company-grid label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.15rem 0;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .company-grid input[type="checkbox"] {
+      accent-color: var(--accent-emphasis);
+    }
+
+    .sticky-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 0.9rem 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .sticky-footer .counter {
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .sticky-footer .spacer { flex: 1; }
+    .sticky-footer button {
+      padding: 0.55rem 1.2rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-subtle);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .sticky-footer button.primary {
+      background: var(--success);
+      color: #ffffff;
+      border-color: var(--success-emphasis);
+    }
+    .sticky-footer button.primary:hover { background: var(--success-emphasis); }
+    .sticky-footer button.primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: var(--success);
+    }
+    .sticky-footer button.secondary:hover {
+      background: var(--bg-inset);
+    }
+
+    .status-line {
+      color: var(--fg-muted);
+      font-size: 0.9rem;
+    }
+    .status-line.success { color: var(--success); font-weight: 600; }
+    .status-line.error { color: var(--danger); font-weight: 600; }
+
+    .done-screen {
+      display: none;
+      text-align: center;
+      padding: 4rem 1rem;
+    }
+    .done-screen.visible { display: block; }
+    .done-screen h2 { font-size: 1.4rem; margin-bottom: 0.6rem; }
+    .done-screen code {
+      background: var(--bg-subtle);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to jobs</h1>
+  <p class="subtitle">Pick the companies you want on your board. You can
+  always re-run this wizard later via <code>make onboarding</code>.</p>
+
+  <div id="warn-banner" class="warn-banner" style="display:none">
+    <strong>⚠ data/user_config.py already exists</strong>
+    (<span id="existing-count">?</span> sources, modified
+    <span id="existing-mtime">?</span>). Saving will overwrite it; a
+    backup will be written to
+    <code id="backup-path">data/user_config.py.bak.&lt;timestamp&gt;</code>.
+  </div>
+
+  <div id="wizard">
+    <h2>Companies to track</h2>
+    <p class="subtitle">Expand a group to pick its companies. Use
+    <strong>All</strong> / <strong>None</strong> to toggle the whole
+    group at once.</p>
+    <div id="groups-container"></div>
+  </div>
+
+  <div id="done" class="done-screen">
+    <h2>Done.</h2>
+    <p>Wrote <code id="done-path">data/user_config.py</code>.</p>
+    <p>Close this tab and run <code>make run</code> in your terminal.</p>
+  </div>
+
+  <div class="sticky-footer">
+    <span class="counter">
+      <span id="total-selected">0</span> companies selected
+    </span>
+    <span class="spacer"></span>
+    <span id="status" class="status-line"></span>
+    <button type="button" class="secondary" id="cancel-btn">Cancel</button>
+    <button type="button" class="primary" id="save-btn">Save</button>
+  </div>
+
+<script>
+// CATALOG + EXISTING are inlined by the server when it renders this page.
+// Fallbacks make the file loadable in a browser without a server for
+// quick visual testing.
+const CATALOG = /*__CATALOG__*/ (window.__CATALOG__ || []);
+const EXISTING = /*__EXISTING__*/ (window.__EXISTING__ || null);
+
+/* ---- Group by group ------------------------------------------------- */
+
+function groupBy(arr, keyFn) {
+  const out = new Map();
+  for (const e of arr) {
+    const k = keyFn(e);
+    if (!out.has(k)) out.set(k, []);
+    out.get(k).push(e);
+  }
+  return out;
+}
+
+function renderGroups() {
+  const container = document.getElementById('groups-container');
+  const grouped = groupBy(CATALOG, e => e.group);
+  // Sort groups by size DESC — the biggest ones first.
+  const sortedGroups = [...grouped.entries()].sort((a, b) => b[1].length - a[1].length);
+  const preChecked = new Set((EXISTING && EXISTING.sources) || []);
+
+  for (const [groupName, entries] of sortedGroups) {
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    const details = document.createElement('details');
+    details.className = 'group';
+    details.dataset.group = groupName;
+
+    const summary = document.createElement('summary');
+    summary.innerHTML =
+      '<span class="group-name"></span>' +
+      '<span class="group-count"><span class="n-on">0</span>/' + entries.length + '</span>';
+    summary.querySelector('.group-name').textContent = groupName;
+    details.appendChild(summary);
+
+    const actions = document.createElement('div');
+    actions.className = 'group-actions';
+    actions.innerHTML =
+      '<button type="button" data-act="all">All in group</button>' +
+      '<button type="button" data-act="none">None in group</button>';
+    details.appendChild(actions);
+
+    const grid = document.createElement('div');
+    grid.className = 'company-grid';
+    for (const e of entries) {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'company-cb';
+      cb.dataset.name = e.name;
+      if (preChecked.has(e.name)) cb.checked = true;
+      cb.addEventListener('change', () => _refreshCounters(details));
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + e.name));
+      grid.appendChild(label);
+    }
+    details.appendChild(grid);
+
+    actions.querySelector('[data-act="all"]').addEventListener('click', (ev) => {
+      ev.preventDefault();
+      details.querySelectorAll('.company-cb').forEach(cb => { cb.checked = true; });
+      _refreshCounters(details);
+    });
+    actions.querySelector('[data-act="none"]').addEventListener('click', (ev) => {
+      ev.preventDefault();
+      details.querySelectorAll('.company-cb').forEach(cb => { cb.checked = false; });
+      _refreshCounters(details);
+    });
+
+    container.appendChild(details);
+    _refreshCounters(details);
+  }
+  _refreshTotal();
+}
+
+function _refreshCounters(details) {
+  const total = details.querySelectorAll('.company-cb').length;
+  const on = details.querySelectorAll('.company-cb:checked').length;
+  const slot = details.querySelector('.n-on');
+  slot.textContent = on;
+  const count = details.querySelector('.group-count');
+  count.classList.toggle('has-picks', on > 0);
+  _refreshTotal();
+}
+
+function _refreshTotal() {
+  const total = document.querySelectorAll('.company-cb:checked').length;
+  document.getElementById('total-selected').textContent = total;
+  document.getElementById('save-btn').disabled = (total === 0);
+}
+
+/* ---- Existing-config banner ---------------------------------------- */
+
+function renderExistingBanner() {
+  if (!EXISTING || !EXISTING.exists) return;
+  const banner = document.getElementById('warn-banner');
+  banner.style.display = 'block';
+  document.getElementById('existing-count').textContent = EXISTING.n_sources ?? '?';
+  document.getElementById('existing-mtime').textContent = EXISTING.mtime ?? '?';
+  document.getElementById('backup-path').textContent = EXISTING.backup_path ?? '';
+}
+
+/* ---- Save ---------------------------------------------------------- */
+
+async function save() {
+  const names = [...document.querySelectorAll('.company-cb:checked')]
+    .map(cb => cb.dataset.name);
+  const status = document.getElementById('status');
+  status.className = 'status-line';
+  status.textContent = 'Writing…';
+  try {
+    const r = await fetch('/write-user-config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({names}),
+    });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const data = await r.json();
+    status.className = 'status-line success';
+    status.textContent = '✓ Saved';
+    document.getElementById('wizard').style.display = 'none';
+    document.getElementById('done').classList.add('visible');
+    document.getElementById('done-path').textContent = data.path || 'data/user_config.py';
+  } catch (e) {
+    status.className = 'status-line error';
+    status.textContent = 'Save failed: ' + e.message;
+  }
+}
+
+async function cancel() {
+  try {
+    await fetch('/cancel', {method: 'POST'});
+  } catch (e) {}
+  document.getElementById('status').textContent = 'Cancelled. You can close this tab.';
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('cancel-btn').disabled = true;
+}
+
+/* ---- Boot ---------------------------------------------------------- */
+
+renderExistingBanner();
+renderGroups();
+document.getElementById('save-btn').addEventListener('click', save);
+document.getElementById('cancel-btn').addEventListener('click', cancel);
+</script>
+</body>
+</html>

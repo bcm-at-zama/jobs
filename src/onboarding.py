@@ -1,156 +1,54 @@
-"""Interactive onboarding wizard — walks a new user through configuring
-their personal jobs board. Entry point: `jobs.py --onboard` (also wired
-to `make onboarding`).
+"""Interactive onboarding wizard — HTML dialog served by a short-lived
+local HTTP server. Entry point: `jobs.py --onboard` (also wired to
+`make onboarding`).
 
-MVP scope: welcome + company selection via per-group dialog. Future
-steps (keywords, blacklists, review) will be added once the group
-dialog UX is validated end-to-end.
+Flow:
+  1. Pick a free port, start http.server.ThreadingHTTPServer.
+  2. Open the user's browser on /onboarding.html.
+  3. Page lists the ~150 companies grouped per src/catalog.py.
+  4. User ticks companies, clicks Save → POST /write-user-config.
+  5. Server writes data/user_config.py (+ a timestamped backup if an
+     existing file was present), responds 200, prints a confirmation
+     to the terminal, then stops the server.
 
-Lives next to jobs.py in src/ so it imports the catalog without any
-PYTHONPATH tweaks.
+MVP scope: only the SOURCES list. HIGHLIGHTS / TITLE_BLACKLIST /
+LOCATION_BLACKLIST ship as empty stubs; a future ticket will cover
+them.
 """
 from __future__ import annotations
 
 import datetime as _dt
+import http.server
+import importlib.util as _ilu
+import json
 import os
 import pprint
 import shutil
+import socket
 import sys
-from itertools import groupby
+import threading
+import webbrowser
 
 from catalog import CATALOG
 
 
 # =============================================================================
-# Rendering helpers — stdlib only, no colour deps.
+# Content building
 # =============================================================================
 
-def _hr(title: str = "") -> str:
-    bar = "=" * 70
-    return f"\n{bar}\n{title}\n{bar}" if title else f"\n{bar}"
-
-
-def _step_header(n: int, total: int, title: str) -> None:
-    print(_hr(f"Step {n}/{total} — {title}"))
-
-
-def _ask(prompt: str, default: str = "") -> str:
-    suffix = f" [{default}]" if default else ""
-    try:
-        line = input(f"{prompt}{suffix} > ").strip()
-    except (EOFError, KeyboardInterrupt):
-        print("\nAborted.")
-        sys.exit(1)
-    return line or default
-
-
-def _ask_yn(prompt: str, default: bool = False) -> bool:
-    hint = "[Y/n]" if default else "[y/N]"
-    ans = _ask(f"{prompt} {hint}").lower()
-    if not ans:
-        return default
-    return ans in ("y", "yes", "o", "oui")
-
-
-# =============================================================================
-# Company selection — per-group dialog
-# =============================================================================
-
-def _group_catalog():
-    """Return [(group_name, [entry, ...]), ...] sorted by group then name."""
-    rows = sorted(CATALOG, key=lambda e: (e["group"].lower(), e["name"].lower()))
-    out = []
-    for g, items in groupby(rows, key=lambda e: e["group"]):
-        out.append((g, list(items)))
-    return out
-
-
-def _render_group(group_name: str, entries: list[dict], selected: set[str],
-                  group_idx: int, group_total: int) -> None:
-    """Render the current state of a group — two-column layout."""
-    n_on = sum(1 for e in entries if e["name"] in selected)
-    print(_hr(f"Group {group_idx}/{group_total}: {group_name} ({n_on}/{len(entries)} selected)"))
-    # Two-column grid for readability. Rows are the shorter of the two halves.
-    half = (len(entries) + 1) // 2
-    left, right = entries[:half], entries[half:]
-    width = max((len(e["name"]) for e in entries), default=20) + 6
-    for i in range(half):
-        line = _fmt_entry(i + 1, left[i], selected, width)
-        if i < len(right):
-            line += _fmt_entry(half + i + 1, right[i], selected, width)
-        print("  " + line)
-    print()
-    print("  Commands:  a  (all on)   n  (all off)   1 3 5  (flip)   d  (done, next group)")
-
-
-def _fmt_entry(idx: int, entry: dict, selected: set[str], width: int) -> str:
-    mark = "x" if entry["name"] in selected else " "
-    return f"[{idx:>3}] [{mark}] {entry['name']:<{width}}"
-
-
-def _run_group_dialog(group_name: str, entries: list[dict], selected: set[str],
-                      group_idx: int, group_total: int) -> None:
-    """Mutate `selected` based on user input until they type 'd'."""
-    name_by_idx = {i + 1: e["name"] for i, e in enumerate(entries)}
-    while True:
-        _render_group(group_name, entries, selected, group_idx, group_total)
-        raw = _ask("")
-        if not raw:
-            continue
-        cmd = raw.lower()
-        if cmd == "d":
-            return
-        if cmd == "a":
-            for e in entries:
-                selected.add(e["name"])
-            continue
-        if cmd == "n":
-            for e in entries:
-                selected.discard(e["name"])
-            continue
-        # Treat anything else as a space- or comma-separated list of indices.
-        tokens = [t for t in raw.replace(",", " ").split() if t]
-        valid = True
-        indices = []
-        for t in tokens:
-            try:
-                i = int(t)
-            except ValueError:
-                print(f"  ✗ not a number: {t!r}")
-                valid = False
-                break
-            if i not in name_by_idx:
-                print(f"  ✗ out of range: {i} (valid: 1..{len(entries)})")
-                valid = False
-                break
-            indices.append(i)
-        if not valid:
-            continue
-        # Flip each index.
-        for i in indices:
-            name = name_by_idx[i]
-            if name in selected:
-                selected.discard(name)
-            else:
-                selected.add(name)
-
-
-# =============================================================================
-# File writing
-# =============================================================================
-
-def _build_user_config(selected: set[str]) -> str:
+def _build_user_config(selected_names: set[str]) -> str:
     """Serialise the selected companies into a user_config.py string.
-    HIGHLIGHTS / TITLE_BLACKLIST / LOCATION_BLACKLIST are left as empty
-    stubs for the user to fill in later (future wizard steps)."""
-    chosen = [e for e in CATALOG if e["name"] in selected]
+    HIGHLIGHTS / TITLE_BLACKLIST / LOCATION_BLACKLIST ship as empty
+    stubs — the user edits them by hand (future wizard step)."""
+    chosen = [e for e in CATALOG if e["name"] in selected_names]
     chosen.sort(key=lambda e: (e["group"].lower(), e["name"].lower()))
     sources = []
     for e in chosen:
         entry = {k: v for k, v in e.items() if k != "group"}
         entry["queries"] = []
         sources.append(entry)
-    header = f'''"""data/user_config.py — generated by `make onboarding` on {_dt.datetime.now().isoformat(timespec='seconds')}.
+    now = _dt.datetime.now().isoformat(timespec="seconds")
+    header = f'''"""data/user_config.py — generated by `make onboarding` on {now}.
 
 Personal preferences live here, outside src/, so src/ can stay
 open-sourceable with zero personal data. src/config.py loads this file
@@ -170,87 +68,219 @@ companies. The wizard asks before overwriting an existing file.
     return header + body
 
 
-def _confirm_overwrite(path: str) -> bool:
-    """Return True when the user wants to overwrite the existing file.
-    Prints the backup path that'll be used."""
-    try:
-        n_sources, mtime = _summarize_existing(path)
-    except Exception:
-        n_sources, mtime = ("?", "?")
-    backup = _backup_path(path)
-    print()
-    print(f"⚠  {path} already exists ({n_sources} sources, modified {mtime}).")
-    print(f"   If you continue, a backup will be written to {backup}.")
-    return _ask_yn("Overwrite?", default=False)
-
-
-def _summarize_existing(path: str) -> tuple[int, str]:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("_existing_uc", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    n = len(getattr(mod, "SOURCES", []) or [])
-    ts = _dt.datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M")
-    return n, ts
-
-
 def _backup_path(path: str) -> str:
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     return f"{path}.bak.{stamp}"
+
+
+def _summarize_existing(path: str) -> dict:
+    """Return a dict describing an existing user_config.py (sources
+    count + modification time) so the wizard can show a sensible
+    warning banner. Falls back to '?' values when the file is unreadable."""
+    info = {"exists": True, "n_sources": "?", "mtime": "?"}
+    try:
+        spec = _ilu.spec_from_file_location("_existing_uc", path)
+        mod = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        info["n_sources"] = len(getattr(mod, "SOURCES", []) or [])
+    except Exception:
+        pass
+    try:
+        info["mtime"] = _dt.datetime.fromtimestamp(
+            os.path.getmtime(path)
+        ).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        pass
+    return info
+
+
+# =============================================================================
+# HTTP server
+# =============================================================================
+
+def _pick_free_port(preferred: int = 8766) -> int:
+    """Return `preferred` if it's bindable on localhost, otherwise ask
+    the OS for any free port. Keeps the wizard off the main board's
+    8765 so both can coexist."""
+    for port in (preferred, 0):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", port))
+                return s.getsockname()[1]
+        except OSError:
+            continue
+    raise RuntimeError("could not find a free port for the onboarding server")
+
+
+def _load_html(data_dir: str, out_path: str) -> bytes:
+    """Load src/onboarding.html and inline the CATALOG + EXISTING JSON
+    so the browser doesn't need a second round-trip."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(here, "onboarding.html"), encoding="utf-8") as f:
+        html = f.read()
+    existing = {"exists": False}
+    if os.path.isfile(out_path):
+        existing = _summarize_existing(out_path)
+        existing["backup_path"] = _backup_path(out_path)
+    catalog_json = json.dumps(CATALOG, ensure_ascii=False)
+    existing_json = json.dumps(existing, ensure_ascii=False)
+    html = html.replace(
+        "/*__CATALOG__*/ (window.__CATALOG__ || [])",
+        catalog_json,
+    )
+    html = html.replace(
+        "/*__EXISTING__*/ (window.__EXISTING__ || null)",
+        existing_json,
+    )
+    return html.encode("utf-8")
+
+
+class _OnboardingServer(http.server.ThreadingHTTPServer):
+    """Carries the shared state so handlers can post results back."""
+
+    daemon_threads = True
+
+    def __init__(self, address, handler_cls, data_dir, out_path, done_event):
+        super().__init__(address, handler_cls)
+        self.data_dir = data_dir
+        self.out_path = out_path
+        self.done_event = done_event
+        self.result = {"status": "cancelled", "path": None, "backup": None, "n": 0}
+
+
+class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
+
+    # Silence the default per-request stderr log — we have our own prints.
+    def log_message(self, fmt, *args):  # noqa: N802 — stdlib signature
+        return
+
+    def do_GET(self):  # noqa: N802
+        if self.path in ("/", "/onboarding.html"):
+            body = _load_html(self.server.data_dir, self.server.out_path)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def do_POST(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            payload = json.loads(self.rfile.read(length) or b"{}")
+        except Exception:
+            payload = {}
+
+        if self.path == "/write-user-config":
+            self._handle_write(payload)
+            return
+        if self.path == "/cancel":
+            self._json(200, {"ok": True})
+            self.server.result["status"] = "cancelled"
+            self.server.done_event.set()
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def _handle_write(self, payload):
+        raw = payload.get("names") or []
+        selected = {str(n).strip() for n in raw if str(n).strip()}
+        valid = {e["name"] for e in CATALOG}
+        selected = selected & valid
+        if not selected:
+            self._json(400, {"error": "no valid company names"})
+            return
+        try:
+            os.makedirs(self.server.data_dir, exist_ok=True)
+            backup = None
+            if os.path.isfile(self.server.out_path):
+                backup = _backup_path(self.server.out_path)
+                shutil.copy2(self.server.out_path, backup)
+            content = _build_user_config(selected)
+            with open(self.server.out_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            self.server.result = {
+                "status": "saved",
+                "path": self.server.out_path,
+                "backup": backup,
+                "n": len(selected),
+            }
+            self._json(200, {
+                "ok": True,
+                "path": self.server.out_path,
+                "backup": backup,
+                "n": len(selected),
+            })
+            self.server.done_event.set()
+        except Exception as e:
+            self._json(500, {"error": str(e)[:300]})
+
+    def _json(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
 
 
 # =============================================================================
 # Entry point
 # =============================================================================
 
-def run_wizard(data_dir: str = "data") -> int:
-    """Run the full onboarding flow. Returns a POSIX exit code."""
+def run_wizard(data_dir: str = "data", open_browser: bool = True) -> int:
+    """Run the HTML onboarding wizard. Returns a POSIX exit code.
+    `open_browser=False` is used by tests."""
     os.makedirs(data_dir, exist_ok=True)
     out_path = os.path.join(data_dir, "user_config.py")
 
-    print(_hr("Welcome to jobs!"))
-    print("This wizard configures your personal board in a few minutes.")
-    print("You can rerun it any time via `make onboarding`.")
+    port = _pick_free_port()
+    done = threading.Event()
+    server = _OnboardingServer(
+        ("127.0.0.1", port), _OnboardingHandler,
+        data_dir=data_dir, out_path=out_path, done_event=done,
+    )
+    url = f"http://127.0.0.1:{port}/onboarding.html"
 
-    if os.path.isfile(out_path):
-        if not _confirm_overwrite(out_path):
-            print("\nCancelled. Your existing config was not touched.")
-            return 0
+    print("=" * 70)
+    print("Onboarding wizard")
+    print("=" * 70)
+    print(f"Serving on {url}")
+    print("Pick your companies in the browser, then click Save.")
+    print("(Ctrl-C to abort.)")
 
-    _step_header(1, 2, "Companies to track")
-    print("Pick which companies to scrape, group by group.")
-    print("You can skip a group entirely (just type 'd' to move on).")
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
 
-    selected: set[str] = set()
-    groups = _group_catalog()
-    for idx, (gname, entries) in enumerate(groups, 1):
-        _run_group_dialog(gname, entries, selected, idx, len(groups))
+    if open_browser:
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
 
-    _step_header(2, 2, "Review & write")
-    chosen = sorted(selected)
-    print(f"  {len(chosen)} companies selected.")
-    if chosen:
-        preview = ", ".join(chosen[:12]) + (f", … (+{len(chosen) - 12})" if len(chosen) > 12 else "")
-        print(f"  {preview}")
+    try:
+        done.wait()
+    except KeyboardInterrupt:
+        print("\nAborted.")
+        server.shutdown()
+        return 1
 
-    if not _ask_yn(f"Write {out_path}?", default=True):
-        print("Cancelled. Nothing was written.")
+    server.shutdown()
+    result = server.result
+
+    print()
+    if result["status"] == "saved":
+        print(f"✓ Wrote {result['path']} ({result['n']} companies).")
+        if result["backup"]:
+            print(f"  Backup: {result['backup']}")
+        print()
+        print("Next: run  make run  to fetch and open your board.")
         return 0
 
-    if os.path.isfile(out_path):
-        backup = _backup_path(out_path)
-        shutil.copy2(out_path, backup)
-        print(f"  ✓ Backup: {backup}")
-
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(_build_user_config(selected))
-    print(f"  ✓ Wrote {out_path}")
-    print()
-    print("Next steps:")
-    print("  • Edit HIGHLIGHTS / TITLE_BLACKLIST / LOCATION_BLACKLIST by hand")
-    print("    in your new user_config.py (the wizard will cover these in a")
-    print("    future version).")
-    print("  • Run  make run  to fetch and open your board.")
+    print("Cancelled — nothing was written.")
     return 0
 
 
