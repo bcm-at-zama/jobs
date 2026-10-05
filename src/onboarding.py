@@ -51,15 +51,68 @@ HIGHLIGHT_PRESETS = [
     "Engineering Manager", "CTO",
 ]
 
-LOCATION_BLACKLIST_PRESETS = [
-    "India", "Pakistan", "Bangladesh", "Sri Lanka",
-    "Philippines", "Vietnam", "Thailand", "Indonesia", "Malaysia",
-    "UAE", "Dubai", "Saudi Arabia", "Qatar",
-    "Egypt", "Nigeria", "Kenya",
-    "Brazil", "Mexico", "Argentina", "Colombia", "LATAM",
-    "Japan", "Tokyo", "China", "Beijing",
-    "APAC",
-]
+# Grouped by continent so the wizard can show a <details> per group.
+# Includes a "Regions" group at the top for the common multi-country
+# aggregates (APAC, EMEA, LATAM, …). All UN member states are listed so
+# nobody is left out — users can scroll to their own country, click,
+# done.
+LOCATION_BLACKLIST_GROUPS = {
+    "Regions / aggregates": [
+        "APAC", "EMEA", "LATAM", "MENA", "GCC",
+        "Nordics", "Benelux", "DACH", "Sub-Saharan Africa",
+    ],
+    "Africa": [
+        "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi",
+        "Cabo Verde", "Cameroon", "Central African Republic", "Chad",
+        "Comoros", "Côte d'Ivoire", "DR Congo", "Djibouti", "Egypt",
+        "Equatorial Guinea", "Eritrea", "Eswatini", "Ethiopia", "Gabon",
+        "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho",
+        "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania",
+        "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria",
+        "Rwanda", "São Tomé and Príncipe", "Senegal", "Seychelles",
+        "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan",
+        "Tanzania", "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe",
+    ],
+    "North America & Caribbean": [
+        "Antigua and Barbuda", "Bahamas", "Barbados", "Belize", "Canada",
+        "Costa Rica", "Cuba", "Dominica", "Dominican Republic",
+        "El Salvador", "Grenada", "Guatemala", "Haiti", "Honduras",
+        "Jamaica", "Mexico", "Nicaragua", "Panama", "Saint Kitts and Nevis",
+        "Saint Lucia", "Saint Vincent and the Grenadines",
+        "Trinidad and Tobago", "United States",
+    ],
+    "South America": [
+        "Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador",
+        "Guyana", "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela",
+    ],
+    "Asia": [
+        "Afghanistan", "Armenia", "Azerbaijan", "Bahrain", "Bangladesh",
+        "Bhutan", "Brunei", "Cambodia", "China", "Cyprus", "Georgia",
+        "Hong Kong", "India", "Indonesia", "Iran", "Iraq", "Israel",
+        "Japan", "Jordan", "Kazakhstan", "Kuwait", "Kyrgyzstan", "Laos",
+        "Lebanon", "Malaysia", "Maldives", "Mongolia", "Myanmar", "Nepal",
+        "North Korea", "Oman", "Pakistan", "Palestine", "Philippines",
+        "Qatar", "Saudi Arabia", "Singapore", "South Korea", "Sri Lanka",
+        "Syria", "Taiwan", "Tajikistan", "Thailand", "Timor-Leste",
+        "Turkey", "Turkmenistan", "UAE", "Uzbekistan", "Vietnam", "Yemen",
+    ],
+    "Europe": [
+        "Albania", "Andorra", "Austria", "Belarus", "Belgium",
+        "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czechia",
+        "Denmark", "Estonia", "Finland", "France", "Germany", "Greece",
+        "Hungary", "Iceland", "Ireland", "Italy", "Kosovo", "Latvia",
+        "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Moldova",
+        "Monaco", "Montenegro", "Netherlands", "North Macedonia", "Norway",
+        "Poland", "Portugal", "Romania", "Russia", "San Marino", "Serbia",
+        "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland", "Ukraine",
+        "United Kingdom",
+    ],
+    "Oceania": [
+        "Australia", "Fiji", "Kiribati", "Marshall Islands", "Micronesia",
+        "Nauru", "New Zealand", "Palau", "Papua New Guinea", "Samoa",
+        "Solomon Islands", "Tonga", "Tuvalu", "Vanuatu",
+    ],
+}
 
 TITLE_BLACKLIST_PACKS = {
     "Entry-level": [
@@ -211,7 +264,7 @@ def _load_html(data_dir: str, out_path: str) -> bytes:
     existing_json = json.dumps(existing, ensure_ascii=False)
     presets_json = json.dumps({
         "highlights": HIGHLIGHT_PRESETS,
-        "locations": LOCATION_BLACKLIST_PRESETS,
+        "location_groups": LOCATION_BLACKLIST_GROUPS,
         "title_packs": TITLE_BLACKLIST_PACKS,
     }, ensure_ascii=False)
     html = html.replace(
@@ -224,7 +277,7 @@ def _load_html(data_dir: str, out_path: str) -> bytes:
     )
     html = html.replace(
         "/*__PRESETS__*/ (window.__PRESETS__ || {\n"
-        "  highlights: [], locations: [], title_packs: {}\n"
+        "  highlights: [], location_groups: {}, title_packs: {}\n"
         "})",
         presets_json,
     )

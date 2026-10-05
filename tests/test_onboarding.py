@@ -283,7 +283,8 @@ class TestHttpWizard(unittest.TestCase):
                     body = r.read().decode()
                 self.assertIn("Security", body)   # from HIGHLIGHT_PRESETS
                 self.assertIn("Entry-level", body)  # from TITLE_BLACKLIST_PACKS
-                self.assertIn("India", body)      # from LOCATION_BLACKLIST_PRESETS
+                self.assertIn("India", body)      # from LOCATION_BLACKLIST_GROUPS/Asia
+                self.assertIn("Africa", body)     # continent group header
                 self.assertNotIn("window.__PRESETS__", body)
             finally:
                 self._stop(server)

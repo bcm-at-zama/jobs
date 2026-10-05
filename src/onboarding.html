@@ -254,6 +254,25 @@
     }
 
     /* Preset pack checkboxes */
+    .pack-header {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-top: 0.4rem;
+    }
+    .pack-actions { display: flex; gap: 0.4rem; }
+    .pack-actions button {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.65rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
+    .pack-actions button:hover {
+      background: var(--bg-inset);
+      border-color: var(--fg-subtle);
+    }
     .pack-list {
       display: flex;
       flex-direction: column;
@@ -327,6 +346,16 @@
       background: var(--success-emphasis);
     }
     .sticky-footer button.secondary:hover { background: var(--bg-inset); }
+    /* Blue Skip-to-launch so the "exit" action is clearly distinct from
+       Next (green/primary) and Back (grey/secondary). */
+    .sticky-footer button#skip-btn {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent-emphasis);
+    }
+    .sticky-footer button#skip-btn:hover:not(:disabled) {
+      background: var(--accent-emphasis);
+    }
 
     .status-line {
       color: var(--fg-muted);
@@ -391,7 +420,13 @@
     <h2>Hide these titles <span class="optional-tag">optional</span></h2>
     <p class="subtitle">Jobs whose title contains any of these
     (case-insensitive) are hidden. Tick preset packs or add your own.</p>
-    <div><strong>Preset packs</strong>:</div>
+    <div class="pack-header">
+      <strong>Hide roles that look like one of these packs:</strong>
+      <div class="pack-actions">
+        <button type="button" data-pack-act="all">Hide all packs</button>
+        <button type="button" data-pack-act="none">None</button>
+      </div>
+    </div>
     <div class="pack-list" id="tb-packs"></div>
     <div><strong>Custom titles</strong> (one per line):</div>
     <textarea class="custom-list" id="tb-custom"
@@ -402,13 +437,12 @@
   <div class="page" id="page-4">
     <h2>Hide these locations <span class="optional-tag">optional</span></h2>
     <p class="subtitle">Jobs are hidden when <em>every</em> listed
-    location matches one of these entries. Click a suggestion or add
-    your own.</p>
-    <div><strong>Suggestions</strong> (click to toggle):</div>
-    <div class="chip-row" id="loc-presets"></div>
-    <div><strong>Your entries</strong> (type then press Enter):</div>
+    location matches one of these entries. Expand a continent to pick
+    countries, or add your own (cities, regions, …) at the bottom.</p>
+    <div id="loc-groups-container"></div>
+    <div style="margin-top:1rem"><strong>Custom entries</strong> (cities, regions, type then press Enter):</div>
     <input type="text" id="loc-input" class="chip-input"
-           placeholder="e.g. Tokyo, Dubai">
+           placeholder="e.g. Tokyo, Dubai, Berlin">
     <div class="chip-row" id="loc-selected"></div>
   </div>
 
@@ -443,7 +477,7 @@
 const CATALOG = /*__CATALOG__*/ (window.__CATALOG__ || []);
 const EXISTING = /*__EXISTING__*/ (window.__EXISTING__ || null);
 const PRESETS = /*__PRESETS__*/ (window.__PRESETS__ || {
-  highlights: [], locations: [], title_packs: {}
+  highlights: [], location_groups: {}, title_packs: {}
 });
 
 const TOTAL_STEPS = 4;
@@ -683,6 +717,97 @@ function _ChipPicker(prefix, presets) {
   return {collect: () => [...state]};
 }
 
+/* Grouped version — used by Step 4 (locations by continent). Presets
+   is a {group: [items]} dict instead of a flat array. */
+function _GroupedChipPicker(prefix, groups) {
+  const groupsEl = document.getElementById(prefix + '-groups-container');
+  const selectedEl = document.getElementById(prefix + '-selected');
+  const input = document.getElementById(prefix + '-input');
+  const state = new Set();
+  const allPresets = new Set();
+  for (const items of Object.values(groups)) {
+    for (const it of items) allPresets.add(it);
+  }
+
+  function render() {
+    groupsEl.innerHTML = '';
+    for (const [groupName, items] of Object.entries(groups)) {
+      const details = document.createElement('details');
+      details.className = 'group';
+      details.open = false;
+      const n_on = items.filter(x => state.has(x)).length;
+      const summary = document.createElement('summary');
+      summary.innerHTML =
+        '<span class="group-name"></span>' +
+        '<span class="group-count ' + (n_on ? 'has-picks' : '') + '">' +
+          '<span class="n-on">' + n_on + '</span>/' + items.length +
+        '</span>';
+      summary.querySelector('.group-name').textContent = groupName;
+      details.appendChild(summary);
+
+      const actions = document.createElement('div');
+      actions.className = 'group-actions';
+      actions.innerHTML =
+        '<button type="button" data-act="all">All in group</button>' +
+        '<button type="button" data-act="none">None in group</button>';
+      details.appendChild(actions);
+      actions.querySelector('[data-act="all"]').addEventListener('click', (ev) => {
+        ev.preventDefault();
+        for (const it of items) state.add(it);
+        render();
+      });
+      actions.querySelector('[data-act="none"]').addEventListener('click', (ev) => {
+        ev.preventDefault();
+        for (const it of items) state.delete(it);
+        render();
+      });
+
+      const chipRow = document.createElement('div');
+      chipRow.className = 'chip-row';
+      for (const item of items) {
+        const chip = document.createElement('span');
+        chip.className = 'chip' + (state.has(item) ? ' selected' : '');
+        chip.textContent = item;
+        chip.addEventListener('click', () => {
+          if (state.has(item)) state.delete(item);
+          else state.add(item);
+          render();
+        });
+        chipRow.appendChild(chip);
+      }
+      details.appendChild(chipRow);
+      groupsEl.appendChild(details);
+    }
+    // Custom entries (anything not in a preset group) sit in their own
+    // chip row below the groups.
+    selectedEl.innerHTML = '';
+    for (const v of state) {
+      if (allPresets.has(v)) continue;
+      const chip = document.createElement('span');
+      chip.className = 'chip selected';
+      chip.appendChild(document.createTextNode(v));
+      const x = document.createElement('span');
+      x.className = 'chip-remove';
+      x.textContent = '×';
+      x.addEventListener('click', () => { state.delete(v); render(); });
+      chip.appendChild(x);
+      selectedEl.appendChild(chip);
+    }
+  }
+
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
+    for (const p of parts) state.add(p);
+    input.value = '';
+    render();
+  });
+
+  render();
+  return {collect: () => [...state]};
+}
+
 let kwPicker, locPicker;
 
 /* ========================================================================
@@ -710,6 +835,17 @@ function renderTitlePacks() {
     text.appendChild(sample);
     label.appendChild(text);
     container.appendChild(label);
+  }
+  // Wire the "All packs" / "None" buttons sitting in the pack header.
+  for (const btn of document.querySelectorAll('[data-pack-act]')) {
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const check = btn.dataset.packAct === 'all';
+      for (const cb of document.querySelectorAll('.tb-pack')) {
+        cb.checked = check;
+      }
+      refreshFooter();
+    });
   }
 }
 
@@ -894,7 +1030,7 @@ renderGroups();
 _wireCompanySearch();
 renderTitlePacks();
 kwPicker  = _ChipPicker('kw',  PRESETS.highlights || []);
-locPicker = _ChipPicker('loc', PRESETS.locations || []);
+locPicker = _GroupedChipPicker('loc', PRESETS.location_groups || {});
 
 document.getElementById('cancel-btn').addEventListener('click', cancel);
 document.getElementById('back-btn').addEventListener('click', () => showStep(currentStep - 1));
