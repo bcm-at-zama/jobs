@@ -1,13 +1,11 @@
-# Core runtime dependencies for jobs.py.
+# Core runtime dependency.
 #
-# - playwright: scrapers tagged kind: "pw" render JS-heavy career pages.
-# - anthropic: Claude SDK used by SCORER="claude" to rate every job
-#   against your profile. If omitted, auto-scoring is silently skipped
-#   (the engine still runs; the C button in the UI still works via
-#   urllib directly).
+# playwright: scrapers tagged kind: "pw" render JS-heavy career pages
+#             (Apple, Google, Meta, Microsoft, Scale, etc.). The rest
+#             of the engine runs on the Python stdlib.
 #
-# Install with:   make install
-# Then run with:  make run
+# No LLM API key or SDK is needed — scoring is done manually via the
+# "C" button in the browser, which uses your Claude.ai subscription
+# (web paste flow, no API cost).
 
 playwright>=1.40
-anthropic>=0.40

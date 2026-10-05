@@ -1,157 +1,202 @@
-# A Simple Job Board for Users
+# jobs — your personal job hunt dashboard
 
-A self-hosted job hunt dashboard that scrapes company career pages
-directly, scores each posting against YOUR profile with an LLM, and
-puts every opening you care about in one browser tab.
-
-## What it does
-
-`jobs` runs on your laptop, fetches postings from the career pages of
-the companies YOU care about (dozens of ATS types supported out of the
-box — Greenhouse, Lever, Ashby, Workday, Phenom, BambooHR, Pinpoint,
-Umantis, SuccessFactors, Eightfold, SmartRecruiters, custom Playwright),
-scores each opening with Claude against the profile you write in
-Markdown, and renders everything as a static HTML page you drive from
-your browser. State (liked, to apply, applied, rejected) is persisted
-as local JSON files — nothing leaves your machine.
-
-**What you get:**
-
-- **One cross-company view.** No more opening twelve career tabs to
-  check whether anything new showed up this morning. One refresh gives
-  you every new opening across every company you track, grouped by
-  industry and ranked how you want.
-- **Fit signal on every row.** Click C and the engine asks Claude to
-  rate each visible posting against your profile out of 10, with a
-  one-sentence reason. The ranking separates the two or three
-  job-you-should-actually-read from the hundred that look vaguely
-  interesting on paper.
-- **No noise, no gatekeepers.** Every posting comes from the company's
-  own ATS, not a search aggregator. No sponsored posts, no "jobs for
-  you" feed trained on someone else's clicks, no premium tier required
-  to see salary bands or old-but-still-open roles.
-- **Your pipeline stays yours.** When you click Applied, that goes into
-  a JSON file on your disk. You own the data, you can grep it, you can
-  back it up on your own private repo, and no third party gets to
-  decide when they lock you out of your own history.
-
-## Screenshots
-
-<!-- TODO: capture Ranked view, All view with filters, Pipeline tab,
-     C-button paste bar. Save to docs/screenshots/ and link below. -->
+Tired of refreshing twelve career tabs every morning? Tired of generic
+job boards burying real postings under sponsored noise, paywalled
+filters, and ghost roles? **`jobs` runs on your laptop. You pick the
+companies. You own the data. Claude ranks every opening against your
+profile.** One `make run`, one browser tab, every job you care about.
 
 ![Ranked view](docs/screenshots/ranked.png)
-![All view with filters](docs/screenshots/all.png)
-![Pipeline](docs/screenshots/pipeline.png)
+
+---
+
+## Why you'd want this
+
+- **One cross-company view.** Scrapes career pages directly — Greenhouse,
+  Lever, Ashby, Workday, Phenom, BambooHR, SuccessFactors, Eightfold,
+  SmartRecruiters, custom Playwright. Dozens of ATS types, one unified
+  list. No noise, no sponsored posts, no "jobs for you" feed.
+
+- **Fit score on every row.** One click (`C`) sends every visible
+  posting to Claude, which rates each one `/10` against the profile you
+  wrote. The ranked view puts the two or three roles you should
+  actually read at the top — ahead of the hundred that look vaguely
+  interesting on paper.
+
+- **Full application pipeline.** Like → To Apply → Applied → Pipeline.
+  State lives in local JSON files you can grep, back up, and version.
+  Nothing is on anyone else's server.
+
+- **Zero API cost for scoring.** The `C` button opens Claude.ai in your
+  browser and pastes a batched prompt — Claude.ai handles it with your
+  existing Pro / Max / Team subscription. No API key, no per-token bill.
+
+---
 
 ## Quick start
 
-### 1. Clone & requirements
-
 ```bash
 git clone <this-repo> jobs && cd jobs
-# Python 3.11+ required. No pip install needed for the core engine —
-# the test suite + scrapers run on stdlib only. Playwright is only
-# needed for sources tagged kind: "pw" in your config.
-pip install playwright && playwright install chromium   # optional
+make install      # venv + Python deps + Playwright Chromium (~2 min)
+make onboarding   # creates data/user_config.py + data/profile.md
+# edit data/user_config.py (SOURCES, blacklist, highlights)
+# edit data/profile.md    (1-2 paragraphs about the role you want)
+make run          # fetch every source, open the browser
 ```
 
-### 2. Onboarding — tell the engine what you care about
+Daily use: just `make run`. The HTML lands in your browser; everything
+else is point-and-click.
 
-Copy the example config into `data/` (gitignored by default — your
-preferences stay private):
-
-```bash
-cp src/user_config.example.py data/user_config.py
-```
-
-Edit `data/user_config.py`:
-
-- `SOURCES` — one entry per company. Each entry picks an ATS `kind`
-  (e.g. `greenhouse`, `ashby`, `workday`) and the board `slug`. See
-  `planning/adding-ats-sources.md` for the per-ATS recipe (~3 min to
-  add a new company).
-- `TITLE_BLACKLIST` — substrings that hide any posting (case-
-  insensitive). Use it to drop "Intern", "Account Executive", etc.
-- `LOCATION_BLACKLIST` — countries or cities you don't want (hidden
-  when ALL listed locations match a blacklist entry).
-- `HIGHLIGHTS` — keywords drawn in yellow in titles and descriptions.
-
-Optional but recommended: write `data/profile.md` with 1-2 paragraphs
-describing the role you want (seniority, domain, geography, dealbreakers,
-salary floor). The LLM scorer reads this to generate a fit score per
-job.
-
-### 3. Set your Anthropic API key
-
-Scoring uses Claude. Create an API key at
-[console.anthropic.com](https://console.anthropic.com/) and export it:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-```
-
-If `ANTHROPIC_API_KEY` is unset or the `anthropic` SDK is missing,
-scoring is silently skipped — the engine still runs, you just don't
-get the fit-score column. You can also set `SCORER = "none"` in your
-config to opt out explicitly.
-
-### 4. Run
-
-```bash
-python3 src/jobs.py
-```
-
-First run fetches every source (expect 30-90s depending on how many
-companies). Subsequent runs cache descriptions and are much faster.
-The script writes `data/jobs.html` and opens it in your browser.
-
-### 5. Daily use
-
-- **R** button (top right) — refresh (re-fetch every source).
-- **AI** button — re-run LLM scoring on jobs that got new descriptions.
-- **C** button — ask Claude to rate every visible job out of 10. Opens
-  claude.ai with a batched prompt; paste the reply back in the bar at
-  the bottom of the page.
-- **Tabs** at the top — All / New / Ranked / Spontaneous / Liked / To
-  Apply / Pipeline. `⌘/Ctrl-click` opens every URL in that tab,
-  `⌥/Alt-click` copies them to clipboard, `⇧-click` asks Claude about
-  them.
+---
 
 ## Requirements
 
-- Python 3.11+ (stdlib only for the core engine).
-- Playwright + Chromium — only for `kind: "pw"` sources.
-- `ANTHROPIC_API_KEY` env var — only if you want LLM scoring.
-- No database. All state is JSON files under `data/`.
+- **macOS or Linux** with Python 3.11+.
+- **Chrome / Chromium** installed by `make install` (via Playwright).
+- **A Claude.ai subscription** (Pro, Max, or Team) if you want fit
+  scoring. Free alternatives: use the UI without the `C` button — you
+  still get the cross-company dashboard, filters, and pipeline.
+
+No database. No account. No cloud. Everything runs locally.
+
+---
+
+## In the browser
+
+Top-right action buttons:
+
+| Button | What it does |
+|--------|--------------|
+| **R**  | Refresh — re-fetches every source (~30-90 s). |
+| **C**  | Scores every visible job with Claude. See [Scoring with the C button](#scoring-with-the-c-button) below. |
+| **⚙**  | Set a reusable Claude.ai chat URL so `C` always opens the same conversation (preserves tool permissions). |
+
+Tabs at the top: **All · New · Ranked · Spontaneous · Liked · To Apply ·
+Pipeline**. On every tab:
+
+- `⌘/Ctrl-click` a tab → opens every job URL in that view.
+- `⌥/Alt-click` → copies the URLs to clipboard.
+- `⇧-click` → asks Claude about them (opens Claude.ai with the prompt).
+
+Each row has state buttons (`+1` · `TA` · `✓` · `R` · `K`) that move
+the job through your pipeline.
+
+### Scoring with the C button
+
+The `C` button rates every visible job `/10` against your profile. It
+uses your Claude.ai subscription (web, not API), so there's zero
+per-token cost. The flow is manual — you glue two tabs together with a
+copy-paste — but it finishes in under a minute even for 150 jobs.
+
+**First time:**
+
+1. Open `data/profile.md` and write 1-2 paragraphs about the role you
+   want: seniority, domain, geography, dealbreakers, salary floor.
+   Claude uses this to rate each posting.
+2. Open `data/user_config.py` and make sure your `SOURCES` list is
+   reasonable — the fewer irrelevant companies, the less Claude work.
+
+**Every time you want to score:**
+
+1. Click **C** (top right). The jobs page copies a batched prompt to
+   your clipboard and opens a new Claude.ai tab (or jumps to the chat
+   URL you pinned via **⚙**).
+2. In the Claude tab:
+   - If the prompt landed in the chat input, just hit **Enter**.
+   - If the prompt was too long for the URL, Claude.ai will be empty —
+     paste (**⌘V** / **Ctrl-V**) and send.
+3. Give Claude access to fetch URLs when it asks (first time only —
+   pin a chat with **⚙** so permissions carry over on subsequent runs).
+4. Wait for Claude to finish rating all jobs. The reply follows this
+   format:
+   ```
+   1. 8/10 — fit raison … — SAL: $150k-$200k
+   2. 7/10 — fit raison … — SAL: none
+   ```
+5. **Copy the full reply** (⌘A then ⌘C in the Claude tab).
+6. Switch back to the jobs tab. A sticky paste bar appeared at the
+   bottom of the page — **paste** (⌘V) into it.
+7. The parser extracts the scores and salaries automatically. Each row
+   gets a purple **Score: X/10** badge; hover for the reason. The paste
+   bar self-dismisses after a second.
+
+**Where scores land:**
+
+- The purple score badge is what powers the **Ranked** tab (jobs
+  flattened cross-company, sorted by fit DESC).
+- Scores persist to `data/claude_fit_cache.json` — a refresh (R) won't
+  lose them, and another browser session will show the same scores.
+- Extracted salaries land in `data/llm_cache.json` and show as the
+  yellow `💰` badge on each row.
+
+**Tips:**
+
+- **Pin a chat URL (⚙).** Normally Claude asks permission each run to
+  fetch job pages. If you pin a chat, the permissions carry over and
+  subsequent runs skip the prompt entirely.
+- **Rate incrementally.** Switch to the **New** tab to score only
+  newly-fetched jobs instead of the whole list.
+- **Modifier-click.** `⇧-click` a tab to ask Claude a free-form
+  question about those specific jobs (shortlisting, comparisons, etc.)
+  without going through the scoring prompt.
+
+---
+
+## Adding a company
+
+Open `data/user_config.py` and add a line to `SOURCES`:
+
+```python
+{"name": "Anthropic", "kind": "greenhouse", "slug": "anthropic",
+ "queries": ["security", "research"]},
+```
+
+- `kind` is one of `greenhouse`, `lever`, `ashby`, `workday`, `phenom`,
+  `bamboohr`, `pinpoint`, `umantis`, `successfactors`, `eightfold`,
+  `smartrecruiters`, or `pw` for the Playwright fallback.
+- `slug` is the ATS board identifier (the part after the ATS domain).
+- `queries` filters titles client-side. Leave `[]` to see everything;
+  tighten later.
+
+Full step-by-step per ATS: see
+[`planning/adding-ats-sources.md`](planning/adding-ats-sources.md).
+
+---
 
 ## Project layout
 
-| Directory    | Purpose                                                  |
-|--------------|----------------------------------------------------------|
-| `src/`       | Application source code. Open-sourceable.                |
-| `tests/`     | Test suite (`unittest` stdlib only, ~75 tests, <100 ms). |
-| `data/`      | Your personal data: profile, config, state, caches. Gitignore this when forking. |
-| `debug/`     | Scraper probes, HTML dumps, exploration scripts.         |
-| `planning/`  | Tickets (`open/` + `closed/`), ATS recipes, workflow docs. |
-| `knowledge/` | Freeform notes and research.                             |
-| `script/`    | Shell scripts invoked by `make` targets.                 |
+| Directory    | Purpose                                                   |
+|--------------|-----------------------------------------------------------|
+| `src/`       | Application source. Open-sourceable, zero personal data.  |
+| `tests/`     | Test suite (stdlib `unittest`, no deps, ~70 tests).       |
+| `data/`      | **Your** personal data: config, profile, state, caches.   |
+| `debug/`     | Scraper probes, HTML dumps, exploration scripts.          |
+| `planning/`  | Tickets (`open/` + `closed/`), ATS recipes, workflow docs.|
+| `knowledge/` | Freeform notes and research.                              |
+| `script/`    | Shell scripts (push, etc.) invoked by `make`.             |
+
+---
 
 ## Development
 
 ```bash
-make test             # ~75 tests, <100ms, stdlib unittest
-make commit           # git add src/ tests/ … + commit + push
+make test       # ~70 tests, <100ms, stdlib unittest
+make commit     # git add + commit + push (via script/push.sh)
+make help       # list every target
 ```
 
-House rules live in `CLAUDE.md` (test after every edit, no personal
-data in `src/`, verify scraper changes against debug dumps, etc.).
+House rules — tests after every edit, no personal data in `src/`,
+verify scrapers against debug dumps — live in [`CLAUDE.md`](CLAUDE.md).
+
+---
 
 ## Contributing
 
-See `planning/open/` for the current ticket backlog. A `CONTRIBUTING.md`
-with PR/issue templates is tracked in `planning/open/07-contributing-
-guide.md`.
+Tickets in [`planning/open/`](planning/open). PRs welcome — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md) when it exists (tracked as
+TICKET-07).
+
+---
 
 ## License
 

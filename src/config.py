@@ -62,22 +62,9 @@ LIST_CACHE_TTL_HOURS = 6
 SERVE_HOST = "127.0.0.1"
 SERVE_PORT = 8765
 
-# =============================================================================
-# Scoring backend — Claude (Anthropic API) rates each job against your
-# profile. Needs ANTHROPIC_API_KEY in the environment + `pip install
-# anthropic` (included in requirements.txt).
-#
-# Set SCORER = "none" to disable auto-scoring and rely only on the manual
-# "C" button in the UI.
-# =============================================================================
-SCORER           = "claude"
-CLAUDE_MODEL     = "claude-sonnet-4-6"
-SCORE_BATCH_SIZE = 1      # 1 = 100% coverage; higher = faster but may drop scores
-SCORE_DESC_CHARS = 15000  # description chars sent to the LLM per job. Set high
-                          # enough to include Salary/Compensation/Benefits which
-                          # usually sit near the end of a posting.
-SCORE_PARALLEL   = 6      # concurrent calls to Claude
-SCORE_LONG_ROLES = True   # role_long (structured markdown) is the only role output now
+# Scoring is handled manually via the "C" button in the UI (Claude.ai
+# web paste flow — zero API cost, uses your Claude.ai subscription). No
+# auto-scorer, no API key needed.
 
 # =============================================================================
 # Highlights — words drawn with a marker style in titles + descriptions

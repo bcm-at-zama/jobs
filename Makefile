@@ -1,7 +1,7 @@
 # Default target: show what's available.
 .DEFAULT_GOAL := help
 
-.PHONY: help install test test-verbose run commit pdf html clean-pdf
+.PHONY: help install onboarding test test-verbose run commit pdf html clean-pdf
 
 # Virtualenv lives at ./venv-macos. If it exists, use its python3; else
 # fall back to system python3. Lets `make test` / `make run` work both
@@ -13,38 +13,64 @@ PIP    := $(VENV)/bin/pip
 help:
 	@echo "jobs — Makefile targets:"
 	@echo ""
-	@echo "  make install    Create ./$(VENV) and pip-install requirements.txt."
-	@echo "                  Also installs Playwright's Chromium (needed for"
-	@echo "                  kind: \"pw\" sources). Run once after cloning."
+	@echo "  make install     One-shot setup: venv + Python deps + Playwright"
+	@echo "                   Chromium. Run once after cloning."
 	@echo ""
-	@echo "  make run        Full pipeline: fetch every source, score, render"
-	@echo "                  the HTML, open the browser, keep serving."
-	@echo "                  Pass extra flags via ARGS, e.g.:"
-	@echo "                    make run ARGS=\"--skip-llm --only Anthropic\""
+	@echo "  make onboarding  Create data/user_config.py from the template so"
+	@echo "                   you can edit YOUR sources / blacklists / highlights."
+	@echo "                   Safe to re-run (skips if the file already exists)."
 	@echo ""
-	@echo "  make test       Run the full unittest suite (~75 tests, ~50 ms)."
-	@echo "  make test-verbose   Same, verbose."
+	@echo "  make run         Full pipeline: fetch every source, render the HTML,"
+	@echo "                   open the browser, keep serving. Pass extra flags"
+	@echo "                   via ARGS, e.g.  make run ARGS=\"--only Anthropic\"."
 	@echo ""
-	@echo "  make commit     git add + commit + push (via script/push.sh)."
+	@echo "  make test        Run the full unittest suite (~70 tests, ~50 ms)."
+	@echo "  make test-verbose    Same, verbose."
 	@echo ""
-	@echo "  make pdf        Build business/analysis.pdf via Sphinx + latexmk."
-	@echo "  make html       Build business/_build/html via Sphinx."
-	@echo "  make clean-pdf  Remove the Sphinx build output."
+	@echo "  make commit      git add + commit + push (via script/push.sh)."
 	@echo ""
-	@echo "  make help       This message."
+	@echo "  make pdf         Build business/analysis.pdf via Sphinx + latexmk."
+	@echo "  make html        Build business/_build/html via Sphinx."
+	@echo "  make clean-pdf   Remove the Sphinx build output."
+	@echo ""
+	@echo "  make help        This message."
 
-# `make install` — create venv-macos, install runtime deps + Playwright
-# Chromium. Idempotent: safe to re-run to pick up requirements.txt
-# changes. Uses --upgrade so pin bumps apply.
+# `make install` — one-shot setup: create venv, install deps, install
+# Playwright Chromium. Idempotent: safe to re-run to pick up changes to
+# requirements.txt or Playwright updates.
 install:
 	@test -d $(VENV) || python3 -m venv $(VENV)
-	@$(VENV)/bin/pip install --upgrade pip
-	@$(VENV)/bin/pip install --upgrade -r requirements.txt
+	@$(VENV)/bin/pip install --upgrade --quiet pip
+	@$(VENV)/bin/pip install --upgrade --quiet -r requirements.txt
 	@$(VENV)/bin/playwright install chromium
 	@echo ""
 	@echo "  Installed into ./$(VENV)/"
-	@echo "  Activate with:  source $(VENV)/bin/activate"
-	@echo "  Or just use:    make run / make test  (both auto-detect the venv)"
+	@echo "  Next: run  make onboarding  to create your data/user_config.py."
+
+# `make onboarding` — copy src/user_config.example.py → data/user_config.py
+# so the user has a template to edit. Idempotent: never overwrites an
+# existing file. Also drops an empty data/profile.md if missing — the
+# Claude "C" button in the UI needs it to score jobs against your profile.
+onboarding:
+	@mkdir -p data
+	@if [ -f data/user_config.py ]; then \
+	    echo "  data/user_config.py already exists — not overwriting."; \
+	else \
+	    cp src/user_config.example.py data/user_config.py; \
+	    echo "  Created data/user_config.py — open it and edit SOURCES / BLACKLIST / HIGHLIGHTS."; \
+	fi
+	@if [ -f data/profile.md ]; then \
+	    echo "  data/profile.md already exists — leaving it alone."; \
+	else \
+	    echo "# Your profile" > data/profile.md; \
+	    echo "" >> data/profile.md; \
+	    echo "<!-- 1-2 paragraphs describing the role you want: seniority, domain," >> data/profile.md; \
+	    echo "     geography, dealbreakers, salary floor. The Claude \"C\" button in the UI" >> data/profile.md; \
+	    echo "     reads this to score jobs against your profile. -->" >> data/profile.md; \
+	    echo "  Created data/profile.md — write 1-2 paragraphs about the role you want."; \
+	fi
+	@echo ""
+	@echo "  Then: run  make run  to fetch and open the browser."
 
 test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover tests

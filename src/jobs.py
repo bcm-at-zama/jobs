@@ -29,10 +29,10 @@ Step 3 — Normalize per job
     - Dedupe city variants (`NYC`, `New York, NY`, `New York City` → one).
     Then apply TITLE_BLACKLIST and LOCATION_BLACKLIST filters.
 
-Step 4 — Score against the user's profile (data/profile.md, if present)
-    All non-rejected jobs are batched (SCORE_BATCH_SIZE) and sent to
-    Claude (Anthropic API). Results cached to `score_cache.json`. Failed
-    batches split recursively down to size 1.
+Step 4 — (no auto-scoring; the UI's "C" button sends every visible job
+    to Claude.ai via the paste-bar flow. See `_openClaudePasteBar` in the
+    inline JS. The red Score badge is populated from any legacy
+    `score_cache.json` entries if present.)
 
 Step 5 — Render HTML
     Per source: an <h1> with the board name (linking to the public board),
@@ -63,8 +63,6 @@ from config import (  # noqa: E402,F401 — public config surface
     SCORE_CACHE, DESC_CACHE, CLAUDE_FIT_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
     SERVE_HOST, SERVE_PORT,
-    SCORER, CLAUDE_MODEL,
-    SCORE_BATCH_SIZE, SCORE_DESC_CHARS, SCORE_PARALLEL, SCORE_LONG_ROLES,
     HIGHLIGHTS, TITLE_CASE_OVERRIDES,
     TITLE_BLACKLIST, LOCATION_BLACKLIST,
     SENIORITY_GROUPS, SENIORITY_RANK, SENIORITY, SENIORITY_TOGGLES,
@@ -93,12 +91,6 @@ try:
     HAS_PLAYWRIGHT = True
 except ImportError:
     HAS_PLAYWRIGHT = False
-
-try:
-    import anthropic
-    HAS_ANTHROPIC = True
-except ImportError:
-    HAS_ANTHROPIC = False
 
 import os
 
@@ -2627,41 +2619,6 @@ def board_url_for(source):
     return ""
 
 
-SCORING_SYSTEM_BASE = """You extract the SALARY RANGE from job postings.
-
-Return ONLY a JSON array with ONE ELEMENT PER JOB you were given. If 5 jobs
-are provided, the array MUST contain 5 elements. Never merge, summarize, or
-skip.
-
-Each element must be exactly:
-  {"i": <index from the numbered list>, "salary": "<verbatim salary text or empty>"}
-
-Rules for the salary field:
-- Copy the salary text VERBATIM as it appears in the description.
-- Keep the ORIGINAL currency symbol / code ($, €, £, ¥, CHF, CAD, USD…).
-- Do NOT convert to any other currency, ever.
-- Keep the ORIGINAL numbers (no rounding).
-- Keep BOTH endpoints of any range (e.g. "$150,000 - $200,000").
-- Include the period suffix if stated ("per year", "annually", "/mo", "K").
-- If the description states NO salary at all, use "" (empty string).
-- Max 100 characters. Trim boilerplate ("Base salary:", "Compensation:", etc.).
-- No prose, no explanation, no notes, no "roughly", no "which is".
-
-Examples (for 3 jobs):
-  [
-    {"i": 1, "salary": "$150,000 - $200,000 USD"},
-    {"i": 2, "salary": "£80k - £120k"},
-    {"i": 3, "salary": ""}
-  ]"""
-
-
-def _scoring_system():
-    return SCORING_SYSTEM_BASE
-
-
-SCORING_SYSTEM = _scoring_system()
-
-
 def _load_profile():
     """Return the user's job-search profile as a string. The profile is
     now optional and read from `data/profile.md` (if the user chose to
@@ -2688,359 +2645,6 @@ def _save_score_cache(cache):
         json.dump(cache, f, indent=2)
 
 
-def _make_batch_prompt(batch):
-    lines = ["Score these jobs (return JSON array only, one entry per job):", ""]
-    for i, j in enumerate(batch, 1):
-        desc = re.sub(r"<[^>]+>", " ", j.get("description") or "")
-        desc = re.sub(r"\s+", " ", desc).strip()[:SCORE_DESC_CHARS]
-        locs = ", ".join(j.get("locations") or []) or "N/A"
-        lines.append(f"[{i}]")
-        lines.append(f"title: {j['title']}")
-        lines.append(f"location: {locs}")
-        if desc:
-            lines.append(f"description: {desc}")
-        lines.append("")
-    return "\n".join(lines)
-
-
-_SCORE_DEBUG = {"first": True}
-
-
-def _extract_first_object(text):
-    """Given a possibly-truncated JSON payload (e.g. `[{...},{...},<cut>`),
-    return the first complete top-level object as a dict, or None. Used as a
-    fallback when the LLM loops on itself and blows past the token budget."""
-    # Find the first '{' after optional array bracket.
-    start = text.find("{")
-    if start < 0:
-        return None
-    depth = 0
-    in_str = False
-    esc = False
-    for i in range(start, len(text)):
-        ch = text[i]
-        if in_str:
-            if esc:
-                esc = False
-            elif ch == "\\":
-                esc = True
-            elif ch == '"':
-                in_str = False
-            continue
-        if ch == '"':
-            in_str = True
-        elif ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                try:
-                    return json.loads(text[start:i + 1])
-                except Exception:
-                    return None
-    return None
-
-
-def _parse_score_response(text, batch):
-    orig = text
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.DOTALL)
-    data = None
-    try:
-        data = json.loads(text)
-    except Exception:
-        m = re.search(r"\[.*\]", text, re.DOTALL)
-        if m:
-            try:
-                data = json.loads(m.group(0))
-            except Exception:
-                pass
-    # Recovery path: LLM went into a repetition loop and the payload is a
-    # sequence of duplicated objects with the tail truncated mid-string. Pull
-    # the first complete `{...}` object out and score that one job only.
-    if data is None:
-        first = _extract_first_object(text)
-        if first is not None:
-            data = [first]
-    if isinstance(data, dict):
-        for k in ("scores", "results", "jobs", "data"):
-            if k in data and isinstance(data[k], list):
-                data = data[k]
-                break
-        else:
-            # Single-object response (qwen sometimes returns one JSON object per
-            # call instead of an array). Wrap so the loop below handles it.
-            if any(k in data for k in ("i", "index", "id", "score")):
-                data = [data]
-    out = {}
-    items_list = data if isinstance(data, list) else []
-    for pos, item in enumerate(items_list):
-        if not isinstance(item, dict):
-            continue
-        idx = item.get("i") or item.get("index") or item.get("id")
-        try:
-            idx = int(idx) - 1
-        except Exception:
-            idx = None
-        # Fallback 1: when there's no explicit index but positions align with
-        # the batch (small models often skip or invent the "i" field).
-        if (idx is None or not (0 <= idx < len(batch))) and pos < len(batch):
-            idx = pos
-        # Fallback 2: for size-1 batches, the item is unambiguously the job
-        # (some models emit i=-1, i=0, i=99, etc.; use the only slot we have).
-        if (idx is None or not (0 <= idx < len(batch))) and len(batch) == 1:
-            idx = 0
-        if idx is None or not (0 <= idx < len(batch)):
-            continue
-        url = batch[idx]["url"]
-        try:
-            def _clean(s, maxlen=100):
-                s = str(s or "")
-                # Normalize exotic Unicode spaces (EM QUAD, EN SPACE, etc.).
-                s = re.sub(r"[\u2000-\u200a\u202f\u205f\u3000]", " ", s)
-                s = re.sub(r"\s+", " ", s).strip()
-                # Strip common HTML remnants in case the model leaks them.
-                s = re.sub(r"<[^>]+>", "", s)
-                return s[:maxlen]
-            out[url] = {"salary": _clean(item.get("salary", ""))}
-        except Exception:
-            continue
-    if not out:
-        # Always dump when a batch produces zero scores. Rotated file so
-        # we can inspect multiple failures side by side.
-        try:
-            _ensure_debug_dir()
-            n = _SCORE_DEBUG.setdefault("n", 0) + 1
-            _SCORE_DEBUG["n"] = n
-            with open(f"debug/debug-score-response-{n}.txt", "w", encoding="utf-8") as f:
-                f.write(orig)
-            sys.stdout.write(
-                f"[score] batch parsed 0 items → dumped raw response to "
-                f"debug-score-response-{n}.txt ({len(orig)} chars)\n"
-            )
-        except Exception:
-            pass
-    return out
-
-
-def _score_batch_claude(batch, profile_text, client):
-    resp = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=4000,
-        system=[
-            {"type": "text", "text": SCORING_SYSTEM},
-            {"type": "text", "text": profile_text, "cache_control": {"type": "ephemeral"}},
-        ],
-        messages=[{"role": "user", "content": _make_batch_prompt(batch)}],
-    )
-    text = resp.content[0].text if resp.content else ""
-    return _parse_score_response(text, batch)
-
-
-_LONG_ROLE_SECTIONS = [
-    "missions", "key_responsibilities", "team", "tech", "seniority",
-    "minimal_profile", "preferred_profile", "salary",
-]
-
-
-_SECTION_LABELS = {
-    "missions":            "Missions",
-    "key_responsibilities":"Key responsibilities",
-    "team":                "Team",
-    "tech":                "Tech",
-    "seniority":           "Seniority",
-    "minimal_profile":     "Minimal profile",
-    "preferred_profile":   "Preferred profile",
-    "salary":              "Salary",
-}
-
-
-def _role_long_to_markdown(role_long_value):
-    """Turn an object {missions: [...], team: [...], ...} into the markdown
-    string that the rest of the code expects. If it's already a string,
-    pass through."""
-    if isinstance(role_long_value, str):
-        return role_long_value
-    if not isinstance(role_long_value, dict):
-        return ""
-    parts = []
-    for key in _LONG_ROLE_SECTIONS:
-        bullets = role_long_value.get(key) or []
-        if not isinstance(bullets, list):
-            continue
-        clean = [b.strip() for b in bullets if isinstance(b, str) and b.strip()]
-        if not clean:
-            clean = ["not stated in the description"]
-        label = _SECTION_LABELS.get(key, key.replace("_", " ").title())
-        parts.append(f"**{label}:**\n" + "\n".join(f"- {b}" for b in clean))
-    return "\n\n".join(parts)
-
-
-def score_jobs(jobs):
-    """Attach `score` and `score_reason` to each job in place. Uses SCORE_CACHE
-    to avoid re-scoring URLs we already know about."""
-    if SCORER == "none" or not jobs:
-        return
-    profile = _load_profile()
-    if not profile:
-        sys.stdout.write("[score] no profile (data/profile.md) — skipping\n")
-        return
-    cache = _load_score_cache()
-    # Rescore jobs that don't yet have the `salary` field. Legacy entries
-    # from the old scorer are missing it — we salvage what we can from the
-    # old role_long "Salary" section when present.
-    def _extract_legacy_salary(entry):
-        rl = entry.get("role_long") or ""
-        if not rl:
-            return ""
-        m = re.search(r"\*\*Salary:\*\*\s*[\r\n]+((?:\s*-.*(?:\r?\n|$))+)", rl)
-        if not m:
-            return ""
-        first = m.group(1).splitlines()[0].lstrip("- \t").strip()
-        return first[:100]
-    def _needs_rescore(url):
-        entry = cache.get(url)
-        if entry is None:
-            return True
-        return "salary" not in entry
-    todo = [j for j in jobs if j["url"] and _needs_rescore(j["url"])]
-    for j in jobs:
-        cached = cache.get(j["url"])
-        if cached:
-            sal = cached.get("salary")
-            if sal is None:
-                sal = _extract_legacy_salary(cached)
-            j["salary"] = sal
-    if not todo:
-        return
-
-    client = None
-    if SCORER == "claude":
-        if not HAS_ANTHROPIC:
-            sys.stdout.write("[score] anthropic SDK missing. pip install anthropic\n")
-            return
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            err("[score] ANTHROPIC_API_KEY not set")
-            return
-        client = anthropic.Anthropic()
-
-    def _score(batch):
-        if SCORER == "claude":
-            return _score_batch_claude(batch, profile, client)
-        return {}
-
-    def _score_safely(batch):
-        """Score a batch; on exception split in half, on partial result retry
-        the missing jobs individually."""
-        try:
-            results = _score(batch)
-        except Exception as e:
-            if len(batch) <= 1:
-                err(f"[score] gave up on 1 job ({batch[0]['url']}): {e}")
-                return {}
-            err(f"[score] batch of {len(batch)} failed ({e}); splitting")
-            mid = len(batch) // 2
-            return {**_score_safely(batch[:mid]), **_score_safely(batch[mid:])}
-        missing = [j for j in batch if j["url"] not in results]
-        if 0 < len(missing) < len(batch):
-            # qwen often returns 1 object instead of an array; retry the rest 1 by 1.
-            for j in missing:
-                more = _score_safely([j])
-                results.update(more)
-        return results
-
-    batches = [todo[i:i + SCORE_BATCH_SIZE] for i in range(0, len(todo), SCORE_BATCH_SIZE)]
-    n_batches = len(batches)
-    total_seen = len(jobs)
-    miss_ratio = len(todo) / max(1, total_seen)
-    header = (
-        f"[score] {SCORER}: {len(todo)} jobs / {n_batches} batches "
-        f"(parallel={SCORE_PARALLEL}) — {miss_ratio:.0%} cache miss"
-    )
-    # Threshold: if we're re-scoring more than half the jobs, that's expensive
-    # and probably means the cache was invalidated.
-    if total_seen >= 20 and miss_ratio >= 0.5:
-        warn(header)
-    else:
-        sys.stdout.write(header + "\n")
-    cache_lock = threading.Lock()
-    completed = [0]
-    score_start = time.perf_counter()
-
-    def _fmt_eta(seconds):
-        seconds = max(0, int(seconds))
-        h, r = divmod(seconds, 3600)
-        m, s = divmod(r, 60)
-        if h: return f"{h}h{m:02d}m{s:02d}s"
-        if m: return f"{m}m{s:02d}s"
-        return f"{s}s"
-
-    def _process(batch, idx):
-        results = _score_safely(batch)
-        with cache_lock:
-            new_entries = False
-            for j in batch:
-                r = results.get(j["url"])
-                if r:
-                    j["salary"] = r.get("salary", "")
-                    cache[j["url"]] = r
-                    new_entries = True
-            completed[0] += 1
-            got = sum(1 for j in batch if j["url"] in results)
-            # ETA — extrapolate from the elapsed wall clock and how many
-            # batches we've finished so far. Very smooth once we have >= 3
-            # batches in; jittery before that, so we skip printing until then.
-            elapsed = time.perf_counter() - score_start
-            done = completed[0]
-            if done >= 3 and done < n_batches:
-                per_batch = elapsed / done
-                remaining = (n_batches - done) * per_batch
-                eta_str = f" · ETA {_fmt_eta(remaining)} ({_fmt_eta(elapsed)} elapsed)"
-            elif done == n_batches:
-                eta_str = f" · done in {_fmt_eta(elapsed)}"
-            else:
-                eta_str = ""
-            sys.stdout.write(
-                f"[score] batch {done}/{n_batches}: {got}/{len(batch)} scored{eta_str}\n"
-            )
-            sys.stdout.flush()
-            # Incremental save every N batches so Ctrl-C doesn't lose work.
-            if new_entries and completed[0] % max(1, SCORE_PARALLEL) == 0:
-                _save_score_cache(cache)
-
-    # Claude handles the full configured parallelism (SCORE_PARALLEL)
-    # without backpressure; prompt caching makes the per-request cost
-    # negligible after the first batch.
-    parallel = SCORE_PARALLEL
-    try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=parallel) as ex:
-            for i, batch in enumerate(batches):
-                ex.submit(_process, batch, i)
-    finally:
-        _save_score_cache(cache)
-
-
-# =============================================================================
-# Claude fit scores — triggered by the "C" button in the UI
-# =============================================================================
-_CLAUDE_FIT_SYSTEM = """You rate how well each job matches the candidate's profile.
-
-Return ONLY a JSON array with ONE element per job. If 5 jobs are provided, the array must contain 5 elements.
-
-Each element must be exactly:
-  {"i": <1-based index>, "score": <integer 0..10>, "reason": "<one short sentence, max 160 chars>"}
-
-Scoring guide (based on the candidate profile below):
-- 9-10 = exceptional match (role, seniority, geography, salary ALL align with profile)
-- 7-8  = good fit (minor gaps)
-- 5-6  = partial fit (notable gaps on seniority / geography / domain)
-- 3-4  = weak fit (wrong level or wrong domain)
-- 0-2  = no fit (wrong role entirely)
-
-The reason must be short, factual, and reference WHY the score — not a generic summary of the job."""
-
-
 def _load_claude_fit_cache():
     try:
         with open(CLAUDE_FIT_CACHE, "r", encoding="utf-8") as f:
@@ -3054,173 +2658,8 @@ def _save_claude_fit_cache(cache):
         json.dump(cache, f, indent=2)
 
 
-def _make_fit_prompt(batch):
-    """`batch` is a list of {url, title, company, locations, salary, description}."""
-    lines = [
-        "Rate the fit of these " + str(len(batch)) + " jobs against the profile in the system prompt.",
-        "Return the JSON array now, nothing else.",
-        "",
-    ]
-    for i, j in enumerate(batch, 1):
-        head = f"{i}. {j.get('title') or '(no title)'} @ {j.get('company') or ''}"
-        if j.get("locations"):
-            head += " · " + ", ".join(j["locations"][:3])
-        lines.append(head)
-        salary = (j.get("salary") or "").strip()
-        if salary:
-            lines.append(f"Salary: {salary}")
-        desc = (j.get("description") or "").strip()
-        if desc:
-            # Keep it tight — the profile is in the cached system prompt.
-            lines.append(desc[:1800])
-        lines.append("")
-    return "\n".join(lines)
-
-
-def _parse_fit_response(text, batch):
-    """Return {url: {score, reason}} from Claude's JSON reply."""
-    out = {}
-    try:
-        # Strip optional ```json fences / prose.
-        m = re.search(r"\[.*\]", text, re.DOTALL)
-        arr = json.loads(m.group(0) if m else text)
-    except Exception as e:
-        err(f"[claude-fit] bad JSON: {e}; raw={text[:200]!r}")
-        return out
-    if not isinstance(arr, list):
-        return out
-    for item in arr:
-        if not isinstance(item, dict):
-            continue
-        idx = item.get("i")
-        if not isinstance(idx, int) or idx < 1 or idx > len(batch):
-            continue
-        score = item.get("score")
-        if not isinstance(score, (int, float)):
-            continue
-        reason = str(item.get("reason") or "").strip()[:200]
-        url = batch[idx - 1]["url"]
-        out[url] = {"score": int(score), "reason": reason}
-    return out
-
-
-class ClaudeFitError(Exception):
-    """Raised from claude_fit_scores so the HTTP endpoint can surface a
-    specific setup problem (missing API key, missing profile, …) to the UI
-    instead of swallowing it and returning an empty dict."""
-
-
-def _anthropic_messages(payload, api_key, timeout=120):
-    """Minimal POST to https://api.anthropic.com/v1/messages. Returns the
-    parsed JSON response. Avoids the `anthropic` SDK so this works without
-    an extra pip install — the API is a straight HTTP call."""
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=json.dumps(payload).encode(),
-        method="POST",
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        body = e.read().decode(errors="replace")[:500]
-        raise RuntimeError(f"anthropic api http {e.code}: {body}") from e
-
-
-def claude_fit_scores(urls, force=False):
-    """Score the given URLs with Claude for fit vs PROFILE.md. Writes
-    CLAUDE_FIT_CACHE incrementally. Returns {url: {score, reason, ts}}.
-    Raises ClaudeFitError when a prerequisite is missing."""
-    if not urls:
-        return {}
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ClaudeFitError("ANTHROPIC_API_KEY not set in environment")
-    profile = _load_profile()
-    if not profile:
-        raise ClaudeFitError("profile is empty or missing (expected data/profile.md)")
-    cache = _load_claude_fit_cache()
-    desc_cache = _load_desc_cache()
-    score_cache = _load_score_cache()
-    job_index = load_job_index()
-    out = {}
-    todo = []
-    for u in urls:
-        if u in cache and not force:
-            out[u] = cache[u]
-            continue
-        meta = job_index.get(u, {})
-        # Strip HTML from the description — Claude handles raw text fine
-        # but gets confused by job-board boilerplate HTML.
-        raw_desc = desc_cache.get(u) or ""
-        if isinstance(raw_desc, dict):
-            raw_desc = raw_desc.get("description") or ""
-        clean = re.sub(r"<[^>]+>", " ", raw_desc)
-        clean = re.sub(r"\s+", " ", clean).strip()
-        todo.append({
-            "url": u,
-            "title": meta.get("title", ""),
-            "company": meta.get("source", ""),
-            "locations": meta.get("locations") or [],
-            "salary": (score_cache.get(u, {}).get("salary") or "").strip(),
-            "description": clean or (score_cache.get(u, {}).get("role_long") or ""),
-        })
-    if not todo:
-        return out
-    sys.stdout.write(f"[claude-fit] scoring {len(todo)} jobs ({len(urls)-len(todo)} cached)\n")
-    sys.stdout.flush()
-    batch_size = 10
-    batches = [todo[i:i+batch_size] for i in range(0, len(todo), batch_size)]
-    lock = threading.Lock()
-    def _one_batch(batch):
-        try:
-            resp = _anthropic_messages({
-                "model": CLAUDE_MODEL,
-                "max_tokens": 2000,
-                "system": [
-                    {"type": "text", "text": _CLAUDE_FIT_SYSTEM},
-                    {"type": "text",
-                     "text": "CANDIDATE PROFILE:\n\n" + profile,
-                     "cache_control": {"type": "ephemeral"}},
-                ],
-                "messages": [{"role": "user", "content": _make_fit_prompt(batch)}],
-            }, api_key)
-            content = resp.get("content") or []
-            text = content[0].get("text", "") if content else ""
-            scored = _parse_fit_response(text, batch)
-        except Exception as e:
-            err(f"[claude-fit] batch failed: {e}")
-            return
-        ts = time.strftime("%Y-%m-%dT%H:%M:%S")
-        with lock:
-            for u, r in scored.items():
-                r["ts"] = ts
-                cache[u] = r
-                out[u] = r
-            _save_claude_fit_cache(cache)
-            sys.stdout.write(f"[claude-fit] +{len(scored)}/{len(batch)}\n")
-            sys.stdout.flush()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(batches))) as ex:
-        list(ex.map(_one_batch, batches))
-    return out
-
-
-_LOC_SPLIT_RE = re.compile(r"\s*[;|]\s*")
-
-# "CH - Geneva", "FR, Paris", "GB - London" → strip the country-code prefix.
-# Accept both dash and comma separators.
-_CC_PREFIX_RE = re.compile(
-    r"^([A-Z]{2}|[A-Z]{3})\s*[-–—:,]\s*",
-    re.IGNORECASE,
-)
-
 # Workday job requisition IDs like "JR2021883". Not a location.
-_JR_ID_RE = re.compile(r"^(?:JR|PR|R)\d{5,}$", re.IGNORECASE)
+_JR_ID_RE = re.compile(r"^JR\d{5,}$", re.IGNORECASE)
 
 
 def _pre_split(part):
@@ -3249,7 +2688,14 @@ def _pre_split(part):
     if all(is_cc_pair(s) for s in segments):
         return segments
     return [part]
+_LOC_SPLIT_RE = re.compile(r"\s*[;|]\s*")
 _PLUS_MORE_RE = re.compile(r"\s*\+\s*\d+\s*more\s*$", re.IGNORECASE)
+
+# "CH - Geneva", "FR - Paris", "GB - London" → strip the "XX - " prefix.
+_CC_PREFIX_RE = re.compile(
+    r"^([A-Z]{2}|[A-Z]{3})\s*[-–—:]\s*",
+    re.IGNORECASE,
+)
 
 # City aliases used to collapse "NYC", "New York City", "New York" to one entry.
 _CITY_ALIASES = {
@@ -4638,11 +4084,8 @@ def render_html_tabs():
     actions = (
         '    <div class="tab-actions">\n'
         '      <button type="button" class="refresh-btn" id="refresh-btn" '
-        'title="Re-fetch all sources (equivalent to --clear-cache list --skip-llm), then reload the page." aria-label="Refresh">'
+        'title="Re-fetch all sources (equivalent to --clear-cache list), then reload the page." aria-label="Refresh">'
         '<span class="refresh-icon" aria-hidden="true">R</span></button>\n'
-        '      <button type="button" class="refresh-btn rescore-btn" id="rescore-btn" '
-        'title="Run the LLM scorer for jobs missing from score_cache (typically the NEW ones), then reload. Does not re-fetch." aria-label="Rescore">'
-        '<span class="rescore-icon" aria-hidden="true">AI</span></button>\n'
         '      <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" '
         'title="Ask Claude to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="Claude fit scores">'
         '<span aria-hidden="true">C</span></button>\n'
@@ -5398,12 +4841,11 @@ HTML_TEMPLATE = """<!doctype html>
     /* Rescore button: sibling of refresh, no auto-margin so it sits right
        next to it. Same size/shape, different color to distinguish "compute
        (LLM)" from "fetch (network)". */
-    .rescore-btn { margin-left: 0.4rem; background: #a5d8ff; font-size: 1.05rem; letter-spacing: 0.03em; }
     /* Purple "C" button — ask Claude to rate ALL visible jobs. */
     .claude-c-btn { margin-left: 0.4rem; background: #d0bfff; color: #6639ba; font-size: 1.1rem; }
     .claude-c-btn:hover { background: #b197fc; }
     /* Settings gear next to C — set/clear the pinned Claude URL. Same
-       circle size as R / AI / C; glyph size bumped so the gear visually
+       circle size as R / C; glyph size bumped so the gear visually
        matches the letter buttons (⚙ renders smaller at the same em).
        Green by default, deeper green when a URL is pinned. */
     .claude-chat-url-btn {
@@ -5414,12 +4856,6 @@ HTML_TEMPLATE = """<!doctype html>
     .claude-chat-url-btn:hover { background: #8ce99a; color: #1b5e20; }
     .claude-chat-url-btn.has-url { background: #2b8a3e; color: #ffffff; }
     .claude-chat-url-btn.has-url:hover { background: #1b5e20; }
-    .rescore-btn:hover { background: #74c0fc; }
-    .rescore-btn.busy .rescore-icon {
-      animation: refresh-spin 1s linear infinite;
-      display: inline-block;
-    }
-    .rescore-btn .rescore-icon { display: inline-block; }
     .dump-btn.total-btn { background: #fb8500; border-color: #000; cursor: default; }
     .dump-btn.total-btn:hover { background: #d97400; }
     /* "Total New" — red like the NEW badge, so the visual link is obvious. */
@@ -6840,10 +6276,7 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
 // #open-app-rejected buttons were removed; the ⌘/⌥/⇧-click shortcuts live
 // on the tab buttons now (see _handleTabShortcut in the Primary tabs block).
 
-/* --- Refresh / Rescore: POST /refresh|/rescore, poll /refresh-status ------
-   Both use the same server-side state machine (only one can run at a time),
-   so the client polls the same endpoint. The two buttons just differ in the
-   endpoint they POST to and their status label. */
+/* --- Refresh button: POST /refresh, poll /refresh-status ---------------- */
 (() => {
   const status = document.getElementById('dump-status');
   const base = () => location.protocol === 'file:' ? SERVER_URL : '';
@@ -6898,7 +6331,6 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     });
   }
   wireActionButton('refresh-btn', '/refresh', 'Refreshing');
-  wireActionButton('rescore-btn', '/rescore', 'Rescoring');
 })();
 
 /* --- "C" button: ask Claude to rate every visible job, paste result back - */
@@ -8540,21 +7972,11 @@ document.querySelectorAll('.restore').forEach(btn => {
       }
       if (remaining === 0 && block) block.remove();
       if (sid) updateCounters(sid, +1, -1);
-      // Auto-trigger a RE-RENDER so the job comes back into the main list.
-      // Use /rescore (not /refresh): rescore keeps the list_cache so this
-      // completes in ~5s instead of ~200s. The URL was just removed from
-      // rejected.json, so the next render will promote it to the main list.
-      // A plain location.reload() wouldn't help — it would just re-serve
-      // the STATIC jobs.html rendered BEFORE the /unreject POST.
-      const rb = document.getElementById('rescore-btn');
-      if (rb && !rb.disabled) {
-        rb.click();
-      } else if (rb && rb.disabled) {
-        // A rescore / refresh is already running; just wait for it to
-        // finish and reload. Status bar already shows progress.
-        const status = document.getElementById('dump-status');
-        if (status) status.textContent = 'Restored — waiting for current refresh to finish…';
-      }
+      // The URL was just removed from rejected.json. The next full
+      // refresh (R button) will re-promote it to the main list; we don't
+      // auto-trigger a refresh since the user may want to batch restores.
+      const status = document.getElementById('dump-status');
+      if (status) status.textContent = 'Restored — click R to refresh and re-promote it to the list.';
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
@@ -8574,25 +7996,16 @@ document.querySelectorAll('.unkeep').forEach(_wireUnkeepButton);
 
 
 # Global refresh state, used by the in-browser refresh button. The server
-# spawns `jobs.py --clear-cache list --skip-llm --no-serve --no-open` in a
-# background thread and the client polls /refresh-status until "done".
+# spawns `jobs.py --clear-cache list --no-serve --no-open` in a background
+# thread and the client polls /refresh-status until "done".
 _refresh_state = {"status": "idle", "started_at": None, "error": None, "log_tail": ""}
 _refresh_lock = threading.Lock()
 
 
 def _run_refresh_subprocess(mode="refresh"):
-    """Regenerate jobs.html in a subprocess. Updates _refresh_state.
-
-    Modes:
-      "refresh": --clear-cache list --skip-llm — re-fetch every board, no LLM
-      "rescore": no --clear-cache, no --skip-llm — use cached list, run LLM
-                 only on jobs missing from score_cache (i.e. NEW ones).
-    """
+    """Regenerate jobs.html in a subprocess. Updates _refresh_state."""
     global _refresh_state
-    if mode == "rescore":
-        extra = []                                    # keep list-cache, allow LLM
-    else:
-        extra = ["--clear-cache", "list", "--skip-llm"]
+    extra = ["--clear-cache", "list"]
     try:
         proc = subprocess.run(
             [sys.executable, __file__, *extra, "--no-serve", "--no-open"],
@@ -8652,8 +8065,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/app-rejected", "/un-app-rejected",
             "/history", "/unhistory",
             "/to-review",
-            "/refresh", "/refresh-status", "/rescore",
-            "/claude-fit", "/claude-fit-paste",
+            "/refresh", "/refresh-status",
+            "/claude-fit-paste",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -8701,8 +8114,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(204); self._cors(); self.end_headers(); return
         # Refresh: kicks off jobs.py --clear-cache list --skip-llm in a
         # subprocess. Client polls /refresh-status until done, then reloads.
-        if self.path in ("/refresh", "/rescore"):
-            mode = "rescore" if self.path == "/rescore" else "refresh"
+        if self.path == "/refresh":
             with _refresh_lock:
                 already_running = _refresh_state["status"] == "running"
                 if not already_running:
@@ -8712,43 +8124,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     _refresh_state["log_tail"] = ""
                     threading.Thread(
                         target=_run_refresh_subprocess,
-                        args=(mode,),
+                        args=("refresh",),
                         daemon=True,
                     ).start()
-                    sys.stdout.write(f"{mode}:  started\n")
+                    sys.stdout.write("refresh: started\n")
                 started = _refresh_state["started_at"]
             body = json.dumps({
                 "status": "already-running" if already_running else "started",
                 "elapsed": int(time.time() - started) if started else 0,
             }).encode()
             self.send_response(200); self._cors()
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers(); self.wfile.write(body); return
-        if self.path == "/claude-fit":
-            urls = payload.get("urls") or []
-            force = bool(payload.get("force"))
-            if not isinstance(urls, list) or not urls:
-                self.send_response(400); self._cors(); self.end_headers()
-                return
-            # Synchronous — the client shows a spinner. 100 jobs batched 10
-            # per call with 4-way parallelism ≈ 3-5s total.
-            try:
-                scored = claude_fit_scores(urls, force=force)
-                body = json.dumps({"scores": scored}).encode()
-                self.send_response(200)
-            except ClaudeFitError as e:
-                # Setup problem (missing API key / SDK / profile). Surface
-                # it as a 200 with a human-readable `error` so the UI can
-                # display the specific message in the status bar.
-                err(f"/claude-fit setup: {e}")
-                body = json.dumps({"scores": {}, "error": str(e)}).encode()
-                self.send_response(200)
-            except Exception as e:
-                err(f"/claude-fit crashed: {e}")
-                body = json.dumps({"error": str(e)[:300]}).encode()
-                self.send_response(500)
-            self._cors()
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers(); self.wfile.write(body); return
@@ -8938,7 +8323,6 @@ def _parse_cli():
         epilog=(
             "Examples:\n"
             "  python3 jobs.py                              # full run\n"
-            "  python3 jobs.py --skip-llm                   # fetch only, no LLM\n"
             "  python3 jobs.py --only OpenAI,Anthropic      # just two boards\n"
             "  python3 jobs.py --skip Apple,Google,Meta     # skip these\n"
             "  python3 jobs.py --skip-playwright            # HTTP-only sources\n"
@@ -8952,11 +8336,6 @@ def _parse_cli():
                     help="Skip these board names (comma-separated).")
     ap.add_argument("--skip-playwright", action="store_true",
                     help="Skip all Playwright-based boards (Apple/Google/MS/…).")
-    ap.add_argument("--skip-llm", "--skip-scoring", action="store_true",
-                    dest="skip_llm",
-                    help="Don't call the LLM (uses cached score / reason / "
-                         "role_long only — all three are produced by the same "
-                         "call). --skip-scoring kept as a deprecated alias.")
     ap.add_argument("--no-list-cache", action="store_true",
                     help="Ignore the per-source list cache and re-fetch everything.")
     ap.add_argument("--no-dump-descriptions", action="store_true",
@@ -9051,8 +8430,6 @@ def main():
     only  = _split(args.only) or _split(os.environ.get("JOBS_ONLY", ""))
     skip  = _split(args.skip) or _split(os.environ.get("JOBS_SKIP", ""))
     skip_pw    = args.skip_playwright or os.environ.get("JOBS_SKIP_PLAYWRIGHT") == "1"
-    skip_score = args.skip_llm or os.environ.get("JOBS_SKIP_LLM") == "1" \
-                 or os.environ.get("JOBS_SKIP_SCORING") == "1"
     pw_kinds = {"apple", "google", "microsoft", "meta", "phenom", "scale", "github", "checkmarx", "pixee", "ableton", "lucca", "pw", "wttj"}
     active_sources = [
         s for s in SOURCES
@@ -9104,8 +8481,9 @@ def main():
     timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s")
 
     print("=" * 70, file=sys.stdout)
-    print("Step 2 — score: send visible jobs to the LLM (per the user's profile),", file=sys.stdout)
-    print("               batched with cache-hits reused from score_cache.json", file=sys.stdout)
+    print("Step 2 — hydrate cached scores: no LLM call. The C button in the UI", file=sys.stdout)
+    print("               writes to score_cache.json; we just re-attach the", file=sys.stdout)
+    print("               cached `salary` field so the badge shows up.", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
     t_score_start = time.perf_counter()
     all_visible_for_score = []
@@ -9114,32 +8492,28 @@ def main():
         all_visible_for_score.extend(
             j for j in result["jobs"] if j["url"] not in rejected
         )
-    if not skip_score:
-        score_jobs(all_visible_for_score)
-    else:
-        # Even with --skip-llm we still want the cached `salary` field
-        # attached to fresh jobs so the salary badge shows up.
-        _cached_scores = _load_score_cache()
-        _hits = 0
-        def _extract_legacy_salary(entry):
-            rl = entry.get("role_long") or ""
-            if not rl:
-                return ""
-            m = re.search(r"\*\*Salary:\*\*\s*[\r\n]+((?:\s*-.*(?:\r?\n|$))+)", rl)
-            if not m:
-                return ""
-            return m.group(1).splitlines()[0].lstrip("- \t").strip()[:100]
-        for j in all_visible_for_score:
-            cached = _cached_scores.get(j["url"])
-            if cached:
-                sal = cached.get("salary")
-                if sal is None:
-                    sal = _extract_legacy_salary(cached)
-                j["salary"] = sal
-                _hits += 1
-        timing(f"[timing] scoring SKIPPED (attached {_hits} cached salaries)")
+    _cached_scores = _load_score_cache()
+    _hits = 0
+
+    def _extract_legacy_salary(entry):
+        rl = entry.get("role_long") or ""
+        if not rl:
+            return ""
+        m = re.search(r"\*\*Salary:\*\*\s*[\r\n]+((?:\s*-.*(?:\r?\n|$))+)", rl)
+        if not m:
+            return ""
+        return m.group(1).splitlines()[0].lstrip("- \t").strip()[:100]
+
+    for j in all_visible_for_score:
+        cached = _cached_scores.get(j["url"])
+        if cached:
+            sal = cached.get("salary")
+            if sal is None:
+                sal = _extract_legacy_salary(cached)
+            j["salary"] = sal
+            _hits += 1
     t_score = time.perf_counter() - t_score_start
-    timing(f"[timing] score ({len(all_visible_for_score)} jobs) → {t_score:.1f}s")
+    timing(f"[timing] hydrated {_hits}/{len(all_visible_for_score)} cached salaries → {t_score:.1f}s")
 
     print("=" * 70, file=sys.stdout)
     print("Step 3 — render: build HTML section per source (sorted liked → score", file=sys.stdout)
