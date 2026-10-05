@@ -9143,7 +9143,21 @@ def main():
     print("Step 4 — serve: local HTTP server + auto-open browser; handles", file=sys.stdout)
     print("               POST /reject and POST /like for live persistence", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
-    server = http.server.ThreadingHTTPServer((SERVE_HOST, SERVE_PORT), Handler)
+    try:
+        server = http.server.ThreadingHTTPServer((SERVE_HOST, SERVE_PORT), Handler)
+    except OSError as e:
+        # EADDRINUSE = 48 on macOS, 98 on Linux. Common cause: a prior
+        # `make onboarding` left its spawned board subprocess running.
+        if getattr(e, "errno", None) in (48, 98):
+            err(f"\nPort {SERVE_PORT} is already in use.")
+            err("Another jobs server (or make onboarding → launch) is probably")
+            err("still running. Kill it with:")
+            err("")
+            err(f"    lsof -ti:{SERVE_PORT} | xargs kill")
+            err("")
+            err("Then re-run  make run.")
+            sys.exit(1)
+        raise
     print(f"serving on {server_url} — Ctrl-C to stop", file=sys.stdout)
     if not args.no_open:
         threading.Timer(0.4, lambda: webbrowser.open(server_url)).start()

@@ -408,6 +408,7 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'board': 'https://app.dover.com/jobs/pixee',
   'search_url': 'https://app.dover.com/jobs/pixee',
   'group': 'Security Companies'},
+ {'name': 'PQShield', 'kind': 'greenhouse', 'slug': 'pqshield', 'group': 'Security Companies'},
  {'name': 'SandboxAQ', 'kind': 'ashby', 'slug': 'sandboxaq', 'group': 'Security Companies'},
  {'name': 'Semgrep',
   'kind': 'pw',
