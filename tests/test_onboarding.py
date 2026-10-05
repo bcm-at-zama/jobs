@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 import urllib.request
 
 import onboarding
@@ -60,7 +61,8 @@ class TestHttpWizard(unittest.TestCase):
     the file lands on disk with the right content."""
 
     def _start_server(self, tmpdir):
-        """Return (server, thread, url, done_event)."""
+        """Return (server, thread, url, done_event). Each test must
+        call `_stop(server)` in its finally block to release the port."""
         port = onboarding._pick_free_port()
         done = threading.Event()
         server = onboarding._OnboardingServer(
@@ -75,6 +77,12 @@ class TestHttpWizard(unittest.TestCase):
         # Tiny wait for the socket to be ready — serve_forever is sync.
         time.sleep(0.05)
         return server, thread, url, done
+
+    @staticmethod
+    def _stop(server):
+        """Shutdown + close socket so the port is released immediately."""
+        server.shutdown()
+        server.server_close()
 
     def test_get_renders_html_with_inlined_catalog(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -91,7 +99,7 @@ class TestHttpWizard(unittest.TestCase):
                 self.assertNotIn("window.__CATALOG__", body)
                 self.assertNotIn("window.__EXISTING__", body)
             finally:
-                server.shutdown()
+                self._stop(server)
 
     def test_post_write_user_config_creates_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -108,7 +116,10 @@ class TestHttpWizard(unittest.TestCase):
                     resp = json.loads(r.read())
                 self.assertTrue(resp["ok"])
                 self.assertEqual(resp["n"], 2)
-                self.assertTrue(done.is_set(), "server should mark done")
+                # Note: save does NOT trigger done anymore — the server
+                # must stay up so the browser can POST /launch-board.
+                self.assertFalse(done.is_set(),
+                                 "save alone should not shut the server down")
                 # File now exists and parses as a module.
                 out = os.path.join(tmp, "user_config.py")
                 self.assertTrue(os.path.isfile(out))
@@ -118,7 +129,7 @@ class TestHttpWizard(unittest.TestCase):
                 names = {s["name"] for s in mod.SOURCES}
                 self.assertEqual(names, {"Anthropic", "OpenAI"})
             finally:
-                server.shutdown()
+                self._stop(server)
 
     def test_post_write_backs_up_existing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -151,7 +162,7 @@ class TestHttpWizard(unittest.TestCase):
                 self.assertIn("Anthropic", new)
                 self.assertNotIn("Keep me", new)
             finally:
-                server.shutdown()
+                self._stop(server)
 
     def test_post_write_rejects_empty_names(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -173,7 +184,7 @@ class TestHttpWizard(unittest.TestCase):
                 self.assertTrue(raised, "empty names should return HTTP 400")
                 self.assertFalse(os.path.isfile(os.path.join(tmp, "user_config.py")))
             finally:
-                server.shutdown()
+                self._stop(server)
 
     def test_post_cancel_sets_done_without_writing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -184,11 +195,65 @@ class TestHttpWizard(unittest.TestCase):
                 )
                 with urllib.request.urlopen(req) as r:
                     self.assertEqual(r.status, 200)
-                self.assertTrue(done.is_set())
+                # Response may be flushed before the handler's final
+                # done.set() — give it a beat.
+                self.assertTrue(done.wait(timeout=1))
                 self.assertFalse(os.path.isfile(os.path.join(tmp, "user_config.py")))
                 self.assertEqual(server.result["status"], "cancelled")
             finally:
-                server.shutdown()
+                self._stop(server)
+
+    def test_launch_board_spawns_subprocess_and_exposes_state(self):
+        """`/launch-board` must POST → start the subprocess + flip our
+        launch state to 'running'. We mock subprocess.Popen so the real
+        jobs.py never runs in CI."""
+        with tempfile.TemporaryDirectory() as tmp:
+            server, _, url, _ = self._start_server(tmp)
+            fake_proc = mock.MagicMock()
+            fake_proc.poll.return_value = None  # still running
+            try:
+                with mock.patch(
+                    "onboarding.subprocess.Popen", return_value=fake_proc
+                ) as popen:
+                    req = urllib.request.Request(
+                        url + "/launch-board", data=b"", method="POST",
+                    )
+                    with urllib.request.urlopen(req) as r:
+                        data = json.loads(r.read())
+                    self.assertEqual(data["status"], "running")
+                    self.assertIn("127.0.0.1", data["board_url"])
+                    popen.assert_called_once()
+                    args = popen.call_args
+                    # Spawned with jobs.py --no-open in a new session.
+                    cmd = args[0][0]
+                    self.assertIn("jobs.py", cmd[1])
+                    self.assertIn("--no-open", cmd)
+                    self.assertTrue(args[1].get("start_new_session"))
+            finally:
+                self._stop(server)
+
+    def test_launch_status_returns_elapsed_and_detects_ready(self):
+        """Flip the launch_state manually to 'ready' and verify the
+        /launch-status endpoint propagates it + the 1.5 s delayed
+        shutdown fires."""
+        with tempfile.TemporaryDirectory() as tmp:
+            server, _, url, done = self._start_server(tmp)
+            try:
+                with server.launch_lock:
+                    server.launch_state["status"] = "ready"
+                    server.launch_state["started_at"] = time.time() - 7
+                req = urllib.request.Request(
+                    url + "/launch-status", data=b"", method="POST",
+                )
+                with urllib.request.urlopen(req) as r:
+                    data = json.loads(r.read())
+                self.assertEqual(data["status"], "ready")
+                self.assertGreaterEqual(data["elapsed"], 6)
+                # done_event fires ~1.5 s after /launch-status reports ready
+                self.assertTrue(done.wait(timeout=3),
+                                "server should auto-shutdown once ready")
+            finally:
+                self._stop(server)
 
 
 if __name__ == "__main__":

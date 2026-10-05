@@ -25,11 +25,16 @@ import os
 import pprint
 import shutil
 import socket
+import subprocess
 import sys
 import threading
+import time
+import urllib.error
+import urllib.request
 import webbrowser
 
 from catalog import CATALOG
+from config import SERVE_HOST, SERVE_PORT
 
 
 # =============================================================================
@@ -146,6 +151,74 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
         self.out_path = out_path
         self.done_event = done_event
         self.result = {"status": "cancelled", "path": None, "backup": None, "n": 0}
+        # Launch-board subprocess state. Driven by /launch-board + /launch-status.
+        self.launch_lock = threading.Lock()
+        self.launch_state = {
+            "status": "idle",      # idle | running | ready | failed
+            "started_at": None,
+            "board_url": f"http://{SERVE_HOST}:{SERVE_PORT}/",
+            "error": None,
+        }
+        self._launch_proc = None
+
+    def spawn_board(self):
+        """Spawn `jobs.py --no-open` as a detached subprocess so it
+        survives this server's shutdown. Idempotent: a second call
+        while the board is already running is a no-op."""
+        with self.launch_lock:
+            if self.launch_state["status"] in ("running", "ready"):
+                return self.launch_state
+            self.launch_state["status"] = "running"
+            self.launch_state["started_at"] = time.time()
+            self.launch_state["error"] = None
+        try:
+            # start_new_session detaches from our process group so the
+            # board survives when this wizard server exits.
+            here = os.path.dirname(os.path.abspath(__file__))
+            self._launch_proc = subprocess.Popen(
+                [sys.executable, os.path.join(here, "jobs.py"), "--no-open"],
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception as e:
+            with self.launch_lock:
+                self.launch_state["status"] = "failed"
+                self.launch_state["error"] = str(e)[:300]
+            return self.launch_state
+        # Background poller watches localhost:SERVE_PORT, flips to
+        # "ready" once it responds.
+        threading.Thread(target=self._poll_board_ready, daemon=True).start()
+        return self.launch_state
+
+    def _poll_board_ready(self):
+        deadline = time.time() + 900  # 15 min upper bound for first fetch
+        board_url = self.launch_state["board_url"]
+        while time.time() < deadline:
+            # Dead subprocess means the board failed early (bad config,
+            # port conflict, …). Surface it as a failure instead of
+            # polling forever.
+            proc = self._launch_proc
+            if proc and proc.poll() is not None:
+                with self.launch_lock:
+                    self.launch_state["status"] = "failed"
+                    self.launch_state["error"] = (
+                        f"board exited early (code {proc.returncode}); "
+                        "run `make run` in a terminal to see the error"
+                    )
+                return
+            try:
+                with urllib.request.urlopen(board_url, timeout=1) as r:
+                    if 200 <= r.status < 500:
+                        with self.launch_lock:
+                            self.launch_state["status"] = "ready"
+                        return
+            except (urllib.error.URLError, ConnectionRefusedError, OSError):
+                pass
+            time.sleep(1.0)
+        with self.launch_lock:
+            self.launch_state["status"] = "failed"
+            self.launch_state["error"] = "timed out waiting for the board (15 min)"
 
 
 class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
@@ -176,6 +249,27 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
         if self.path == "/write-user-config":
             self._handle_write(payload)
             return
+        if self.path == "/launch-board":
+            # Spawn jobs.py in a detached subprocess + flip our state
+            # so the browser can poll /launch-status. Does NOT shut this
+            # server down yet — we need to keep answering status pings
+            # until the browser redirects.
+            state = self.server.spawn_board()
+            self._json(200, dict(state, elapsed=self._elapsed(state)))
+            return
+        if self.path == "/launch-status":
+            with self.server.launch_lock:
+                state = dict(self.server.launch_state)
+            state["elapsed"] = self._elapsed(state)
+            self._json(200, state)
+            # When ready, schedule shutdown so the user doesn't leave a
+            # zombie port behind. A short grace lets the browser read
+            # this reply before the connection drops.
+            if state["status"] in ("ready", "failed"):
+                threading.Timer(
+                    1.5, lambda: self.server.done_event.set()
+                ).start()
+            return
         if self.path == "/cancel":
             self._json(200, {"ok": True})
             self.server.result["status"] = "cancelled"
@@ -183,6 +277,11 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
             return
         self.send_response(404)
         self.end_headers()
+
+    @staticmethod
+    def _elapsed(state):
+        start = state.get("started_at")
+        return int(time.time() - start) if start else 0
 
     def _handle_write(self, payload):
         raw = payload.get("names") or []
@@ -207,13 +306,20 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
                 "backup": backup,
                 "n": len(selected),
             }
+            print(f"✓ Wrote {self.server.out_path} ({len(selected)} companies).")
+            if backup:
+                print(f"  Backup: {backup}")
             self._json(200, {
                 "ok": True,
                 "path": self.server.out_path,
                 "backup": backup,
                 "n": len(selected),
             })
-            self.server.done_event.set()
+            # NOTE: we do NOT set done_event here anymore — the server
+            # must keep running so the browser can POST /launch-board
+            # from the done screen. Shutdown is triggered either by
+            # /cancel or (automatically) when /launch-status reports
+            # the board is ready.
         except Exception as e:
             self._json(500, {"error": str(e)[:300]})
 
@@ -270,16 +376,23 @@ def run_wizard(data_dir: str = "data", open_browser: bool = True) -> int:
 
     server.shutdown()
     result = server.result
+    launch = server.launch_state
 
     print()
-    if result["status"] == "saved":
-        print(f"✓ Wrote {result['path']} ({result['n']} companies).")
-        if result["backup"]:
-            print(f"  Backup: {result['backup']}")
-        print()
-        print("Next: run  make run  to fetch and open your board.")
+    if launch["status"] == "ready":
+        print(f"✓ Board is up at {launch['board_url']} — enjoy.")
         return 0
-
+    if launch["status"] == "running":
+        print(f"⚠ Board is still building. It will be at {launch['board_url']} "
+              "when ready.")
+        return 0
+    if launch["status"] == "failed":
+        print(f"✗ Board launch failed: {launch.get('error')}")
+        print("  Try  make run  in a terminal to see the full error.")
+        return 1
+    if result["status"] == "saved":
+        print(f"Next: run  make run  to fetch and open your board.")
+        return 0
     print("Cancelled — nothing was written.")
     return 0
 
