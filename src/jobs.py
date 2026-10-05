@@ -29,7 +29,7 @@ Step 3 — Normalize per job
     - Dedupe city variants (`NYC`, `New York, NY`, `New York City` → one).
     Then apply TITLE_BLACKLIST and LOCATION_BLACKLIST filters.
 
-Step 4 — (no auto-scoring; the UI's "C" button sends every visible job
+Step 4 — (no auto-scoring; the UI's "AI" button sends every visible job
     to Claude.ai via the paste-bar flow. See `_openClaudePasteBar` in the
     inline JS. The red Score badge is populated from any legacy
     `score_cache.json` entries if present.)
@@ -4074,7 +4074,7 @@ def render_html_tabs():
     emits the buttons. The active class is applied by JS after reading the
     last-used tab from localStorage.
 
-    The R / AI / C / ⚙ action buttons live inside the tabs nav (pushed to
+    The R / AI / ⚙ action buttons live inside the tabs nav (pushed to
     the right via .tab-actions) so they stay on the same visual row as
     the tabs — matches the user's layout expectation."""
     buttons = "\n".join(
@@ -4087,10 +4087,10 @@ def render_html_tabs():
         'title="Re-fetch all sources (equivalent to --clear-cache list), then reload the page." aria-label="Refresh">'
         '<span class="refresh-icon" aria-hidden="true">R</span></button>\n'
         '      <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" '
-        'title="Ask Claude to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="Claude fit scores">'
-        '<span aria-hidden="true">C</span></button>\n'
+        'title="Ask your LLM to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="AI fit scores">'
+        '<span aria-hidden="true">AI</span></button>\n'
         '      <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" '
-        'title="Set a reusable Claude.ai conversation URL. If set, the C button opens THAT chat (so previous permissions carry over) and copies the prompt to clipboard. Click to set / change / clear." aria-label="Set Claude chat URL">'
+        'title="Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …). If set, the AI button opens THAT chat (so previous permissions carry over) and copies the prompt to clipboard. Click to set / change / clear." aria-label="Set chat URL">'
         '<span aria-hidden="true">\u2699</span></button>\n'
         '    </div>'
     )
@@ -4439,7 +4439,7 @@ HTML_TEMPLATE = """<!doctype html>
       padding-bottom: 0.4rem;
       border-bottom: 1px solid var(--border);
     }
-    /* R / AI / C / ⚙ action buttons live at the right end of the tabs
+    /* R / AI / ⚙ action buttons live at the right end of the tabs
        row — margin-left: auto pushes them to the far right. */
     .tab-actions {
       margin-left: auto;
@@ -4841,11 +4841,11 @@ HTML_TEMPLATE = """<!doctype html>
     /* Rescore button: sibling of refresh, no auto-margin so it sits right
        next to it. Same size/shape, different color to distinguish "compute
        (LLM)" from "fetch (network)". */
-    /* Purple "C" button — ask Claude to rate ALL visible jobs. */
+    /* Purple "AI" button — hand every visible job to the LLM of choice. */
     .claude-c-btn { margin-left: 0.4rem; background: #d0bfff; color: #6639ba; font-size: 1.1rem; }
     .claude-c-btn:hover { background: #b197fc; }
-    /* Settings gear next to C — set/clear the pinned Claude URL. Same
-       circle size as R / C; glyph size bumped so the gear visually
+    /* Settings gear next to AI — set/clear the pinned chat URL. Same
+       circle size as R / AI; glyph size bumped so the gear visually
        matches the letter buttons (⚙ renders smaller at the same em).
        Green by default, deeper green when a URL is pinned. */
     .claude-chat-url-btn {
@@ -5312,7 +5312,7 @@ HTML_TEMPLATE = """<!doctype html>
       background: var(--accent); color: #ffffff; border-color: var(--accent-emphasis);
     }
     .modal-actions button.primary:hover { background: var(--accent-emphasis); }
-    /* Sticky "paste Claude's reply here" bar — appears when you click C. */
+    /* Sticky "paste the reply here" bar — appears when you click AI. */
     #claude-paste-bar {
       position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%);
       z-index: 999;
@@ -6333,7 +6333,7 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
   wireActionButton('refresh-btn', '/refresh', 'Refreshing');
 })();
 
-/* --- "C" button: ask Claude to rate every visible job, paste result back - */
+/* --- "AI" button: ask the LLM to rate every visible job, paste result back - */
 const CLAUDE_FIT_KEY = 'jobs:claude-fit:v1';
 function _loadClaudeFits() {
   try { return JSON.parse(localStorage.getItem(CLAUDE_FIT_KEY) || '{}') || {}; }
@@ -6377,7 +6377,7 @@ function _renderClaudeFitOnLi(row, score, reason) {
     badge.dataset.tooltip = reason;
     badge.removeAttribute('title');
   } else {
-    badge.title = 'Click C to re-score';
+    badge.title = 'Click AI to re-score';
     delete badge.dataset.tooltip;
   }
   badge.textContent = 'Score: ' + n + '/10';
@@ -6478,7 +6478,7 @@ function _collectVisibleJobUrls() {
     const url = li.querySelector('button.like, button.reject')?.dataset.url;
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   });
-  // Include EVERY ✉ Spontaneous row (one per source) so the C button
+  // Include EVERY ✉ Spontaneous row (one per source) so the AI button
   // can score the company-level "introduce yourself" / "general
   // application" link, regardless of the current tab or hide-spontaneous
   // state. Spontaneous rows are a small fixed set (one per source) so
@@ -6575,7 +6575,7 @@ function _parseClaudeFits(text, urls) {
   return out;
 }
 
-// 1-click flow: click C → opens Claude.ai with the prompt AND shows a
+// 1-click flow: click AI → opens the pinned chat with the prompt AND shows a
 // sticky paste bar at the bottom of the page. User pastes Claude's reply
 // → scores save and badges appear automatically. No "Save" button.
 function _openClaudePasteBar(urls, promptMode) {
@@ -6589,7 +6589,7 @@ function _openClaudePasteBar(urls, promptMode) {
       : promptMode === 'copied'
       ? '<div class="paste-bar-hint">⚠ Prompt too long for URL — <strong>⌘V in Claude first</strong> to send it, then paste its reply here.</div>'
       : promptMode === 'failed'
-      ? '<div class="paste-bar-hint">⚠ Could not copy prompt. Re-click C or dismiss.</div>'
+      ? '<div class="paste-bar-hint">⚠ Could not copy prompt. Re-click AI or dismiss.</div>'
       : '';
   bar = document.createElement('div');
   bar.id = 'claude-paste-bar';
@@ -6674,7 +6674,7 @@ function _openClaudePasteBar(urls, promptMode) {
   document.addEventListener('keydown', onKey);
 }
 
-// C button — one click: opens Claude.ai with the batched prompt pre-filled
+// AI button — one click: opens the pinned chat with the batched prompt pre-filled
 // AND shows a bottom paste bar for the reply. Zero clicks after that in
 // our UI: paste → auto-save → badges.
 document.getElementById('claude-score-all')?.addEventListener('click', async () => {
@@ -7463,7 +7463,7 @@ function openClaudeSettingsModal() {
         '    <input type="text" id="cs-url" placeholder="https://claude.ai/chat/…" style="width:100%">' +
         '  </label>' +
         '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
-        '    When set, the C button opens THAT chat instead of a new one — so permissions you granted carry over. The prompt is copied to clipboard.' +
+        '    When set, the AI button opens THAT chat instead of a new one — so permissions you granted carry over. The prompt is copied to clipboard.' +
         '  </div>' +
         '  <label>Response language<br>' +
         '    <label style="font-weight:normal; display:inline-block; margin-right:1rem"><input type="radio" name="cs-lang" value="en"> English</label>' +
@@ -8507,7 +8507,7 @@ def main():
     timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s")
 
     print("=" * 70, file=sys.stdout)
-    print("Step 2 — hydrate cached scores: no LLM call. The C button in the UI", file=sys.stdout)
+    print("Step 2 — hydrate cached scores: no LLM call. The AI button in the UI", file=sys.stdout)
     print("               writes to score_cache.json; we just re-attach the", file=sys.stdout)
     print("               cached `salary` field so the badge shows up.", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
@@ -8798,7 +8798,7 @@ def main():
     # An applied+rejected job counts as Rejected, NOT Applied — mutually exclusive.
     n_applied      = len((applied_keys & visible_urls) - app_rej_keys)
     n_app_rejected = len(app_rej_keys & visible_urls)
-    # All counts live on the tab labels; the R / AI / C / ⚙ actions live
+    # All counts live on the tab labels; the R / AI / ⚙ actions live
     # inside the tabs nav. The top bar is just a status line for
     # async-action feedback (open-URLs toast, Claude paste etc.).
     total_bar = (

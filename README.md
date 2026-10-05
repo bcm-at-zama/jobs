@@ -1,4 +1,4 @@
-# A Job Hunt Dashboard Made for Users
+# Your own private job hunt dashboard
 
 Does any of this ring a bell?
 
@@ -16,7 +16,7 @@ Our board:
 so your search is more efficient every day.
 
 <!-- TODO: capture a screenshot of the Ranked view (post `make run` +
-     after clicking C once) and save to docs/screenshots/ranked.png.
+     after clicking AI once) and save to docs/screenshots/ranked.png.
      Tracked in planning/open/09-screenshots-demo.md. -->
 
 ---
@@ -35,14 +35,14 @@ so your search is more efficient every day.
   State lives in local JSON files you can grep, back up, and version.
   Nothing is on anyone else's server.
 
-- **Fit score on every row with AI, optionally.** One click (`C`) hands every visible
+- **Fit score on every row with AI, optionally.** One click (`AI`) hands every visible
   posting to the LLM of your choice — Claude.ai, ChatGPT, Gemini,
   anything with a chat UI — which rates each one `/10` against the
   profile you wrote. The ranked view puts the two or three roles you
   should actually read at the top, ahead of the hundred that look
   vaguely interesting on paper.
 
-- **Reduced cost for scoring.** The `C` button copies a batched prompt
+- **Reduced cost for scoring.** The `AI` button copies a batched prompt
   to your clipboard and opens the chat tab of your choice. Any
   subscription you already pay for (Claude.ai Pro, ChatGPT Plus,
   Gemini Advanced, …) handles the scoring. No API key, no per-token
@@ -88,8 +88,8 @@ Top-right action buttons:
 | Button | What it does |
 |--------|--------------|
 | **R**  | Refresh — re-fetches every source (~30-90 s). |
-| **C**  | Scores every visible job with the LLM of your choice. See [Scoring with the C button](#scoring-with-the-c-button) below. |
-| **⚙**  | Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …) so `C` always opens the same conversation and keeps prior permissions / context. |
+| **AI** | Scores every visible job with the LLM of your choice. See [Scoring with the AI button](#scoring-with-the-ai-button) below. |
+| **⚙**  | Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …) so `AI` always opens the same conversation and keeps prior permissions / context. |
 
 Tabs at the top: **All · New · Ranked · Spontaneous · Liked · To Apply ·
 Pipeline**. On every tab:
@@ -98,12 +98,13 @@ Pipeline**. On every tab:
 - `⌥/Alt-click` → copies the URLs to clipboard.
 - `⇧-click` → asks your LLM about them (opens the pinned chat with the prompt).
 
-Each row has state buttons (`+1` · `TA` · `✓` · `R` · `K`) that move
-the job through your pipeline.
+Each row has state buttons that move the job through your pipeline:
+`+1` like · `TA` to apply · `✓` applied · `R` rejected by them · `K`
+keep in history.
 
-### Scoring with the C button
+### Scoring with the AI button
 
-The `C` button rates every visible job `/10` against your profile
+The `AI` button rates every visible job `/10` against your profile
 using your preferred LLM (Claude.ai, ChatGPT, Gemini, …). You use the
 chat subscription you already pay for — zero per-token cost. The flow
 is manual — you glue two tabs together with a copy-paste — but it
@@ -119,15 +120,15 @@ finishes in under a minute even for 150 jobs.
    prompt.
 3. Optional: click **⚙** (top right) once to pin the chat URL of your
    preferred LLM — e.g. `https://chatgpt.com/c/<id>` or
-   `https://claude.ai/chat/<id>`. Subsequent `C` clicks open THAT same
+   `https://claude.ai/chat/<id>`. Subsequent `AI` clicks open THAT same
    conversation, which (a) keeps whatever fetch / search permissions
    the model has already received and (b) lets the model carry context
-   from previous scoring rounds. Without a pinned URL `C` just opens
+   from previous scoring rounds. Without a pinned URL `AI` just opens
    `https://claude.ai/new`.
 
 **Every time you want to score:**
 
-1. Click **C** (top right). The jobs page copies a batched prompt to
+1. Click **AI** (top right). The jobs page copies a batched prompt to
    your clipboard and opens your pinned chat (or a fresh Claude.ai
    tab).
 2. In the chat tab:
