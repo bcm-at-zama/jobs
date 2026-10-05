@@ -141,6 +141,16 @@ TITLE_BLACKLIST_PACKS = {
         "Technical Recruiter", "Technical Sourcer", "Technical Writer",
         "Content Manager", "Content Strategy",
     ],
+    "Engineer (specializations)": [
+        "Data Engineer", "Analytics Engineer",
+        "QA Engineer", "Test Engineer", "SDET",
+        "Sales Engineer", "Solutions Engineer",
+        "Support Engineer", "Technical Support Engineer",
+        "Customer Engineer", "Integration Engineer",
+        "DevOps Engineer", "Site Reliability Engineer",
+        "Platform Engineer", "Build Engineer", "Release Engineer",
+        "Network Engineer",
+    ],
 }
 
 
