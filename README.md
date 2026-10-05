@@ -1,16 +1,19 @@
 # A Job Hunt Dashboard Made for Users
 
-Does any of this ring a bell to you:
-- tired of refreshing twelve career tabs every morning?
-- bored to not be able to not read again and again the positions you already saw last time
-- frustrated to not be able to have an AI help you decide which position is likely more for you, based on your profile
+Does any of this ring a bell?
 
-Our board
-- runs on your laptop
-- lists the companies you have chosen
-- let you filter by locations, keywords
-- keep a state
-such that your search is more efficient.
+- Tired of refreshing twelve career tabs every morning?
+- Tired of re-reading the same positions you already dismissed last time?
+- Frustrated that no AI helps you decide which role actually fits your profile?
+
+Our board:
+
+- runs on your laptop,
+- lists only the companies you have chosen, in a single unified view you can customize
+- lets you filter by location and keyword,
+- keeps a state across runs,
+
+so your search is more efficient every day.
 
 <!-- TODO: capture a screenshot of the Ranked view (post `make run` +
      after clicking C once) and save to docs/screenshots/ranked.png.
@@ -25,7 +28,8 @@ such that your search is more efficient.
   SmartRecruiters, custom Playwright. Dozens of ATS types, one unified
   list. No noise, no sponsored posts, no "jobs for you" feed.
 
-- **Maintain a state** of already seen positions
+- **Stateful across runs.** Jobs you've already seen, dismissed, or
+  marked as applied don't come back to haunt you.
 
 - **Full application pipeline.** Like → To Apply → Applied → Pipeline.
   State lives in local JSON files you can grep, back up, and version.
@@ -92,7 +96,7 @@ Pipeline**. On every tab:
 
 - `⌘/Ctrl-click` a tab → opens every job URL in that view.
 - `⌥/Alt-click` → copies the URLs to clipboard.
-- `⇧-click` → asks Claude about them (opens Claude.ai with the prompt).
+- `⇧-click` → asks your LLM about them (opens the pinned chat with the prompt).
 
 Each row has state buttons (`+1` · `TA` · `✓` · `R` · `K`) that move
 the job through your pipeline.
