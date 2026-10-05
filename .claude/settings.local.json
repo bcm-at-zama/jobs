@@ -12,7 +12,12 @@
       "Bash(grep -oE '.{25}[0-9,]{3,7}[^<>]{0,20}\\(jobs|results|matches|positions|found|available\\)' /workspace/debug/debug-microsoft-security-0.html)",
       "Bash(git -C /workspace diff HEAD -- jobs.py config.py)",
       "Bash(make test *)",
-      "Bash(node /tmp/test_ranked_dom.mjs)"
+      "Bash(node /tmp/test_ranked_dom.mjs)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(make test-verbose *)",
+      "Bash(awk '/^LOCATION_BLACKLIST = \\\\[/,/^\\\\]/{print NR\": \"$0}' /workspace/src/config.py)",
+      "Bash(awk '/^SOURCES = \\\\[/,/^\\\\]/{print NR\": \"$0}' /workspace/src/config.py)"
     ]
   }
 }

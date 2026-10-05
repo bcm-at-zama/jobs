@@ -1,5 +1,33 @@
 # CLAUDE.md — house rules for this repo
 
+## Repository layout — do NOT create directories without asking
+
+Only the following top-level directories exist. If you think you need a
+new one, ASK FIRST — don't just create it.
+
+| Directory   | Purpose                                                       |
+|-------------|---------------------------------------------------------------|
+| `src/`      | Application source code (`.py`). This may become open source. |
+| `tests/`    | Test suite (`.py`). Always kept separate from `src/`.         |
+| `data/`     | **User's personal data** — profile, applied, liked, rejected, caches. Not open-sourced. |
+| `debug/`    | Everything debug-related: probes, HTML dumps, exploration scripts. |
+| `planning/` | Tickets, roadmap, reference docs about the project workflow.  |
+| `knowledge/`| `.md` / `.txt` notes capturing your understanding or research. Build this up as you learn the codebase. |
+| `script/`   | Shell scripts invoked by `make` targets or run directly (e.g. `push.sh`). |
+
+## No personal data in `src/`
+
+Source code (anything in `src/`) may be published as open source. It
+must contain ZERO personal data belonging to the user — no preferences,
+no filters, no profile fields, no custom highlight keywords, no
+user-specific URLs. If a file in `src/` carries personal values, split
+them out into `data/` (user-overridable) and leave only neutral defaults
+or empty placeholders in `src/`.
+
+Before adding a value to a `src/` file, ask yourself: "would this be
+awkward if a stranger ran this exact file?" If yes, the value belongs
+in `data/`.
+
 ## Run `make test` after every edit, and grow the suite
 
 **This is non-negotiable, and pre-authorized.** After any edit to

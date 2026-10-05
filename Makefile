@@ -1,13 +1,17 @@
 # Minimal Makefile — `make test` runs the whole suite.
 # Uses stdlib unittest so no pip install needed.
 
-.PHONY: test test-verbose pdf html clean-pdf
+.PHONY: test test-verbose commit pdf html clean-pdf
 
 test:
-	python3 -m unittest discover tests
+	PYTHONPATH=src python3 -m unittest discover tests
 
 test-verbose:
-	python3 -m unittest discover tests -v
+	PYTHONPATH=src python3 -m unittest discover tests -v
+
+# `make commit` → forwards to script/push.sh (git add + commit + push).
+commit:
+	@bash script/push.sh
 
 # ---------------------------------------------------------------------------
 # business/analysis.md → PDF via Sphinx + latexmk.

@@ -1,17 +1,18 @@
 """user_config.example.py — minimal starter config for a new user.
 
-This file is a TEMPLATE. The real engine reads `config.py`. To onboard:
+This file is a TEMPLATE. The engine reads `data/user_config.py`
+(gitignored for an open-source clone). To onboard:
 
-    1. Copy this file to `config.py` (overwriting the one shipped with
-       Benoit's bias — companies in cybersecurity / big tech / music tech).
+    1. Copy this file to `data/user_config.py`.
     2. Edit the four lists below to reflect YOUR job hunt.
-    3. Run `python3 jobs.py`.
+    3. Run `python3 src/jobs.py`.
 
-The engine (jobs.py) is agnostic of what you put here. You can add dozens
-more companies, swap the LLM backend, change the HTTP port, etc. See
-the ORIGINAL config.py in the repo for the full schema.
+Framework defaults (seniority bands, ATS fetchers, scoring settings,
+company blurbs) live in `src/config.py`. Personal preferences stay in
+`data/user_config.py` so src/ can be shared as open source without
+leaking private taste.
 
-NOTE: this example is intentionally small (5 sources, 3-5 entries per
+NOTE: this example is intentionally small (3 sources, 3-5 entries per
 list) so new users have something that runs end-to-end in <10s on a
 first fetch. Grow it as you discover sources you care about.
 """

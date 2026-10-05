@@ -4364,11 +4364,11 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             if url else ""
         )
         # "Review" button: only visible on jobs with no state yet. Clicking
-        # appends the title to TOREVIEW.md AND rejects the URL, so the user
+        # appends the title to planning/TOREVIEW.md AND rejects the URL, so the user
         # can later batch-add common patterns to TITLE_BLACKLIST.
         review_btn = (
             f'<button class="review" data-url="{url_esc}" data-title="{title_attr}" '
-            f'title="Queue title for review (writes to TOREVIEW.md) and remove">R</button>'
+            f'title="Queue title for review (writes to planning/TOREVIEW.md) and remove">R</button>'
             if url else ""
         )
         # TA / ✓ / R / K are always rendered (greyed out via CSS when
@@ -5712,7 +5712,7 @@ HTML_TEMPLATE = """<!doctype html>
     .reject:disabled { opacity: 0.4; cursor: wait; }
 
     /* Review button: orange circle, only rendered when the job has no state.
-       Sends title to TOREVIEW.md + rejects the URL in one click. */
+       Sends title to planning/TOREVIEW.md + rejects the URL in one click. */
     button.review {
       flex-shrink: 0;
       background: transparent;
@@ -5863,7 +5863,7 @@ HTML_TEMPLATE = """<!doctype html>
     button.app-rejected-btn[data-state="off"]:hover {
       opacity: 1;
     }
-    /* The .review (R → write-to-TOREVIEW) and .app-rejected-btn (R → mark
+    /* The .review (R → write-to-planning/TOREVIEW.md) and .app-rejected-btn (R → mark
        application rejected) share one slot: on a bare row the Review
        button is the "R" shown, on any state row the app-rejected one is.
        We render BOTH server-side and swap their visibility so the row
@@ -8427,7 +8427,7 @@ document.querySelectorAll('.reject').forEach(btn => {
 });
 
 // Review button: like reject, but also POSTs the title to /to-review which
-// appends it to TOREVIEW.md. Non-undoable — the file append is not reversible.
+// appends it to planning/TOREVIEW.md. Non-undoable — the file append is not reversible.
 document.querySelectorAll('button.review').forEach(btn => {
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -8449,7 +8449,7 @@ document.querySelectorAll('button.review').forEach(btn => {
       if (!res.ok) throw new Error('http ' + res.status);
       // Track this like a reject so the undo toast + Cmd-Z bring it back.
       // /to-review both rejects the URL and appends the title to
-      // TOREVIEW.md; the TOREVIEW.md line is not auto-removed on undo
+      // planning/TOREVIEW.md; the planning/TOREVIEW.md line is not auto-removed on undo
       // (user cleans up manually), but the /unreject call on undo pulls
       // the URL back out of rejected.json so the job re-appears next
       // render — which is what "undo" mostly needs to mean here.
@@ -8900,12 +8900,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             s = load_history(); s.discard(url); save_history(s)
             sys.stdout.write(f"history-: {url}\n")
         elif self.path == "/to-review":
-            # Append title to TOREVIEW.md AND reject the URL so the job
-            # doesn't come back next run. User cleans up TOREVIEW.md later
-            # and reports back which patterns to add to TITLE_BLACKLIST.
+            # Append title to planning/TOREVIEW.md AND reject the URL so
+            # the job doesn't come back next run. User cleans up
+            # planning/TOREVIEW.md later and reports back which patterns
+            # to add to TITLE_BLACKLIST.
             title = (payload.get("title") or "").strip() or "(no title)"
             try:
-                with open("TOREVIEW.md", "a", encoding="utf-8") as f:
+                os.makedirs("planning", exist_ok=True)
+                with open("planning/TOREVIEW.md", "a", encoding="utf-8") as f:
                     f.write(f"- {title}\n")
             except Exception as e:
                 sys.stdout.write(f"toreview: append failed: {e}\n")
