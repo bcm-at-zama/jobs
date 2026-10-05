@@ -6499,18 +6499,24 @@ function _buildClaudeScoringPrompt(urls) {
   if (_getClaudeLang() === 'fr') {
     return (
       "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
-      "Pour chaque job, va chercher la description sur le site, puis donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, salaire, red flags). Extrait aussi le salaire verbatim de la description (par exemple « $150k-$200k USD » ou « 70k€ base + equity »), ou « none » s'il n'est pas publié.\\n\\n" +
-      "FORMAT STRICT de la réponse — une ligne par job (pas de saut de ligne dans la justification), EXACTEMENT :\\n" +
-      "N. X/10 — <justification 2-3 phrases sur une seule ligne> — SAL: <salaire verbatim ou none>\\n\\n" +
+      "Pour chaque job, va chercher la description sur le site, puis :\\n" +
+      " 1) donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, red flags) ;\\n" +
+      " 2) extrait la fourchette salariale UNIQUEMENT en chiffres (ex: « $150k-$200k », « 70k€ », « £80k-£120k + equity »). Pas de phrase, pas de \\"Base salary:\\", pas de \\"Annual compensation range:\\". Juste les montants + la devise + \\"+ equity\\" si applicable. Si aucun salaire n'est publié, écris « none ».\\n\\n" +
+      "FORMAT STRICT — EXACTEMENT DEUX LIGNES PAR JOB (score sur une ligne, salaire sur la suivante) :\\n" +
+      "N. X/10 — <justification 2-3 phrases sur une seule ligne>\\n" +
+      "SAL N: <chiffres uniquement ou none>\\n\\n" +
       "Jobs :\\n" +
       numbered
     );
   }
   return (
     "Rate the fit of each of these " + urls.length + " jobs against my profile (I'll share my profile on request).\\n" +
-    "For each job, fetch the description from the site, then give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, salary, red flags). Also extract the salary verbatim from the description (e.g. \\"$150k-$200k USD\\" or \\"£80k-£120k + equity\\"), or \\"none\\" if not published.\\n\\n" +
-    "STRICT RESPONSE FORMAT — one line per job (no line breaks inside the justification), EXACTLY:\\n" +
-    "N. X/10 — <2-3 sentence justification on a single line> — SAL: <verbatim salary or none>\\n\\n" +
+    "For each job, fetch the description from the site, then:\\n" +
+    " 1) give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, red flags);\\n" +
+    " 2) extract the salary range in NUMBERS ONLY (e.g. \\"$150k-$200k\\", \\"70k€\\", \\"£80k-£120k + equity\\"). No sentence, no \\"Base salary:\\", no \\"Annual compensation range:\\". Just the amounts + currency + \\"+ equity\\" if applicable. If no salary is published, write \\"none\\".\\n\\n" +
+    "STRICT RESPONSE FORMAT — EXACTLY TWO LINES PER JOB (score on one line, salary on the next):\\n" +
+    "N. X/10 — <2-3 sentence justification on a single line>\\n" +
+    "SAL N: <numbers only or none>\\n\\n" +
     "Jobs:\\n" +
     numbered
   );
@@ -6518,33 +6524,53 @@ function _buildClaudeScoringPrompt(urls) {
 
 // Parser tolerant to common markdown variants:
 //   "1. 8/10 — fit raison" / "1) 8/10 - fit raison" / "**1.** 8/10 ..."
-// Optional "— SAL: <value>" suffix carries the salary Claude extracted from
-// the job page, which we strip from the reason and surface as a badge.
+// Salaries live on their own line "SAL N: value" so the model is more
+// likely to produce them reliably (the inline "— SAL" suffix on a long
+// justification was being dropped by Claude). Two passes: score lines
+// first, then salary lines keyed by job index.
 const _CLAUDE_FIT_LINE_RE = /^[*\\s>-]*(\\d+)[.)]\\s*(\\d+)\\s*\\/\\s*10\\s*[—\\-–:]+\\s*(.*)$/gm;
-const _CLAUDE_FIT_SAL_RE  = /\\s*[—\\-–]\\s*SAL\\s*:\\s*(.+?)\\s*$/i;
+const _CLAUDE_FIT_SAL_LINE_RE = /^[*\\s>-]*SAL\\s*(\\d+)\\s*[:\\-]\\s*(.+?)\\s*$/gim;
+// Also accept a legacy inline "— SAL: <value>" suffix on the score line
+// (older runs may have been pinned chats trained on the previous format).
+const _CLAUDE_FIT_SAL_INLINE_RE = /\\s*[—\\-–]\\s*SAL\\s*:\\s*(.+?)\\s*$/i;
+function _cleanSalary(raw) {
+  const v = (raw || '').trim().replace(/^["']|["']$/g, '');
+  if (!v) return '';
+  if (/^(none|n\\/?a|unknown|not\\s+(?:disclosed|published|listed|specified))$/i.test(v)) {
+    return '';
+  }
+  return v.slice(0, 100);
+}
 function _parseClaudeFits(text, urls) {
   const out = {};
   if (!text || !urls || !urls.length) return out;
+  // Pass 1 — score + reason lines.
   _CLAUDE_FIT_LINE_RE.lastIndex = 0;
   let m;
   while ((m = _CLAUDE_FIT_LINE_RE.exec(text)) !== null) {
     const idx = parseInt(m[1], 10);
     const score = parseInt(m[2], 10);
     let reason = (m[3] || '').trim();
-    // Peel the "— SAL: <value>" suffix if present. "none" / "N/A" / empty
-    // all collapse to an empty salary (nothing to display).
+    // Legacy inline SAL suffix — strip it from the reason and remember.
     let salary = '';
-    const salMatch = _CLAUDE_FIT_SAL_RE.exec(reason);
-    if (salMatch) {
-      reason = reason.slice(0, salMatch.index).trim();
-      const raw = salMatch[1].trim().replace(/^["']|["']$/g, '');
-      if (raw && !/^(none|n\\/?a|unknown|not\\s+(?:disclosed|published|listed|specified))$/i.test(raw)) {
-        salary = raw;
-      }
+    const inline = _CLAUDE_FIT_SAL_INLINE_RE.exec(reason);
+    if (inline) {
+      reason = reason.slice(0, inline.index).trim();
+      salary = _cleanSalary(inline[1]);
     }
     if (idx >= 1 && idx <= urls.length && score >= 0 && score <= 10) {
       out[urls[idx - 1]] = { score, reason, salary, ts: new Date().toISOString() };
     }
+  }
+  // Pass 2 — standalone "SAL N: value" lines overwrite the salary slot.
+  _CLAUDE_FIT_SAL_LINE_RE.lastIndex = 0;
+  while ((m = _CLAUDE_FIT_SAL_LINE_RE.exec(text)) !== null) {
+    const idx = parseInt(m[1], 10);
+    if (idx < 1 || idx > urls.length) continue;
+    const entry = out[urls[idx - 1]];
+    if (!entry) continue;
+    const cleaned = _cleanSalary(m[2]);
+    if (cleaned) entry.salary = cleaned;
   }
   return out;
 }
@@ -6571,7 +6597,7 @@ function _openClaudePasteBar(urls, promptMode) {
     '<div class="paste-bar-inner">' +
     promptHint +
     '  <span class="paste-bar-label">Paste Claude\\'s reply here · <span id="claude-paste-status">' + urls.length + ' jobs</span></span>' +
-    '  <textarea id="claude-paste-area" rows="2" placeholder="&quot;1. 8/10 — reason\\n2. ...&quot;"></textarea>' +
+    '  <textarea id="claude-paste-area" rows="2" placeholder="&quot;1. 8/10 — reason\\nSAL 1: $150k-$200k\\n2. ...&quot;"></textarea>' +
     '  <button type="button" id="claude-paste-close" title="Dismiss">×</button>' +
     '</div>';
   document.body.appendChild(bar);

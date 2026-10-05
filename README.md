@@ -1,11 +1,16 @@
-# jobs — your personal job hunt dashboard
+# A Job Hunt Dashboard Made for Users
 
-Tired of refreshing twelve career tabs every morning? Tired of generic
-job boards burying real postings under sponsored noise, paywalled
-filters, and ghost roles? **`jobs` runs on your laptop. You pick the
-companies. You own the data. Your favourite AI chatbot ranks every
-opening against your profile.** One `make run`, one browser tab, every
-job you care about.
+Does any of this ring a bell to you:
+- tired of refreshing twelve career tabs every morning?
+- bored to not be able to not read again and again the positions you already saw last time
+- frustrated to not be able to have an AI help you decide which position is likely more for you, based on your profile
+
+Our board
+- runs on your laptop
+- lists the companies you have chosen
+- let you filter by locations, keywords
+- keep a state
+such that your search is more efficient.
 
 <!-- TODO: capture a screenshot of the Ranked view (post `make run` +
      after clicking C once) and save to docs/screenshots/ranked.png.
@@ -20,18 +25,20 @@ job you care about.
   SmartRecruiters, custom Playwright. Dozens of ATS types, one unified
   list. No noise, no sponsored posts, no "jobs for you" feed.
 
-- **Fit score on every row.** One click (`C`) hands every visible
+- **Maintain a state** of already seen positions
+
+- **Full application pipeline.** Like → To Apply → Applied → Pipeline.
+  State lives in local JSON files you can grep, back up, and version.
+  Nothing is on anyone else's server.
+
+- **Fit score on every row with AI, optionally.** One click (`C`) hands every visible
   posting to the LLM of your choice — Claude.ai, ChatGPT, Gemini,
   anything with a chat UI — which rates each one `/10` against the
   profile you wrote. The ranked view puts the two or three roles you
   should actually read at the top, ahead of the hundred that look
   vaguely interesting on paper.
 
-- **Full application pipeline.** Like → To Apply → Applied → Pipeline.
-  State lives in local JSON files you can grep, back up, and version.
-  Nothing is on anyone else's server.
-
-- **Zero API cost for scoring.** The `C` button copies a batched prompt
+- **Reduced cost for scoring.** The `C` button copies a batched prompt
   to your clipboard and opens the chat tab of your choice. Any
   subscription you already pay for (Claude.ai Pro, ChatGPT Plus,
   Gemini Advanced, …) handles the scoring. No API key, no per-token
@@ -41,34 +48,34 @@ job you care about.
 
 ## Quick start
 
+### Installation
+
 ```bash
-git clone <this-repo> jobs && cd jobs
 make install      # venv + Python deps + Playwright Chromium (~2 min)
+```
+
+### Onboarding
+
+```bash
 make onboarding   # creates data/user_config.py + data/profile.md
-# edit data/user_config.py (SOURCES, blacklist, highlights)
-# edit data/profile.md    (1-2 paragraphs about the role you want)
+```
+
+### Daily use
+
+```bash
 make run          # fetch every source, open the browser
 ```
 
-Daily use: just `make run`. The HTML lands in your browser; everything
-else is point-and-click.
-
----
+The HTML lands in your browser; everything else is point-and-click.
 
 ## Requirements
 
 - **macOS or Linux** with Python 3.11+.
-- **Chrome / Chromium** installed by `make install` (via Playwright).
+
 - **A subscription to any chat LLM** (Claude.ai, ChatGPT, Gemini,
-  DeepSeek, …) if you want fit scoring. The `C` button is wired to
-  Claude.ai by default, but the paste bar accepts any model's reply as
-  long as it follows the simple `N. X/10 — reason` format. Without a
-  chat subscription you still get the cross-company dashboard,
-  filters, and pipeline — just no fit score.
+  DeepSeek, …) if you want fit scoring.
 
 No database. No account. No cloud. Everything runs locally.
-
----
 
 ## In the browser
 
@@ -126,11 +133,13 @@ finishes in under a minute even for 150 jobs.
      send.
 3. Approve any URL-fetch / web-browse permission the model asks for
    (first time only on a pinned chat).
-4. Wait for the model to finish. The expected reply format is one
-   line per job:
+4. Wait for the model to finish. The expected reply format is two
+   lines per job (score + salary):
    ```
    1. 8/10 — fit reason in 2-3 sentences on a single line
+   SAL 1: $150k-$200k + equity
    2. 7/10 — another fit reason
+   SAL 2: none
    ```
 5. **Copy the full reply** (⌘A then ⌘C in the chat tab).
 6. Switch back to the jobs tab. A sticky paste bar appeared at the
