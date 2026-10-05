@@ -1,0 +1,13 @@
+# Core runtime dependencies for jobs.py.
+#
+# - playwright: scrapers tagged kind: "pw" render JS-heavy career pages.
+# - anthropic: Claude SDK used by SCORER="claude" to rate every job
+#   against your profile. If omitted, auto-scoring is silently skipped
+#   (the engine still runs; the C button in the UI still works via
+#   urllib directly).
+#
+# Install with:   make install
+# Then run with:  make run
+
+playwright>=1.40
+anthropic>=0.40
