@@ -42,3 +42,4 @@
 - People Business Partner
 - Complex Claims Manager
 - Policy Manager, Consults and Escalations
+- Global PR & Influencer Manager (m/f/d)

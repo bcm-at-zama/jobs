@@ -4520,18 +4520,19 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         _sp_toapply = spontaneous_url in to_apply
         _sp_applied = spontaneous_url in applied
         _sp_app_rej = spontaneous_url in app_rejected
+        # +1 / TA / ✓ / R are always rendered (greyed via CSS when
+        # data-state="off") so every spontaneous row has the same
+        # horizontal button layout. This matches the li.job behavior and
+        # keeps alignment consistent in the Ranked view.
         _sp_like_btn = (
             f'<button class="like spontaneous-like" data-url="{_sp_url_esc}" '
             f'data-state="{"on" if _sp_liked else "off"}" '
             f'title="Like this spontaneous application">+1</button>'
         )
-        # Later-stage buttons appear only once the previous state was reached,
-        # matching the regular-job progressive-reveal behavior.
         _sp_toapply_btn = (
             f'<button class="toapply" data-url="{_sp_url_esc}" '
             f'data-state="{"on" if _sp_toapply else "off"}" '
             f'title="Mark as To apply">TA</button>'
-            if (_sp_liked or _sp_toapply or _sp_applied) else ""
         )
         _sp_applied_meta = applied.get(spontaneous_url, {}) if isinstance(applied, dict) and _sp_applied else {}
         _sp_applied_tooltip = (
@@ -4542,7 +4543,6 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'<button class="applied" data-url="{_sp_url_esc}" '
             f'data-state="{"on" if _sp_applied else "off"}" '
             f'title="{html.escape(_sp_applied_tooltip, quote=True)}">\u2713</button>'
-            if (_sp_toapply or _sp_applied) else ""
         )
         _sp_app_rej_meta = app_rejected.get(spontaneous_url, {}) if _sp_app_rej else {}
         if _sp_app_rej:
@@ -4558,7 +4558,6 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
             f'<button class="app-rejected-btn" data-url="{_sp_url_esc}" '
             f'data-state="{"on" if _sp_app_rej else "off"}" '
             f'title="{_sp_ar_tooltip}">R</button>'
-            if (_sp_applied or _sp_app_rej) else ""
         )
         spontaneous = (
             f'{_sp_like_btn}{_sp_toapply_btn}{_sp_applied_btn}{_sp_app_rej_btn}'
@@ -5153,28 +5152,99 @@ HTML_TEMPLATE = """<!doctype html>
        JS moves every <li.job> into #ranked-list; CSS hides the company
        sections so the user only sees the flat ranked view. */
     .ranked-list { list-style: none; padding: 0; margin: 1rem 0 2rem; }
-    body:not(.tab-ranked) #ranked-list { display: none; }
+    .ranked-controls {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      margin: 0.6rem 0 0;
+      padding: 0.4rem 0;
+      font-size: 0.9rem;
+    }
+    body:not(.tab-ranked) #ranked-list,
+    body:not(.tab-ranked) #ranked-controls { display: none; }
+    /* "Show spontaneous" checkbox: when off, hide every spontaneous row
+       inside the ranked list. Spontaneous li.job are regular jobs — this
+       only applies to .spontaneous-row entries that _buildRankedView
+       moved in. */
+    body.tab-ranked.hide-ranked-spontaneous #ranked-list .spontaneous-row {
+      display: none;
+    }
     body.tab-ranked .company-section,
     body.tab-ranked .nav,
     body.tab-ranked .spontaneous-row { display: none; }
     body.tab-ranked #ranked-list { display: block; }
     /* Scored spontaneous rows are moved into #ranked-list by
        _buildRankedView — override the hide-all rule above so they
-       actually render in the ranked view. */
-    body.tab-ranked #ranked-list .spontaneous-row { display: flex; }
-    /* Alignment of spontaneous rows with li.job rows in Ranked view is
-       handled by invisible placeholder buttons that _injectRankedSpacers
-       prepends/inserts to match li.job's extra Review + Reject + Keep +
-       ▶ marker slots. visibility:hidden preserves layout while hiding
-       the pixels; the existing flex gap handles spacing automatically. */
+       actually render in the ranked view. Match li.job's flex settings
+       exactly (gap: 0.6rem, align-items: baseline) because the base
+       .spontaneous-row rule uses 0.5rem/center, which accumulates to a
+       visible ~8px misalignment across the 7-item button chain. */
+    body.tab-ranked #ranked-list .spontaneous-row {
+      display: flex;
+      gap: 0.6rem;
+      align-items: baseline;
+    }
+    /* Rows WITHOUT a state class don't get the stateful padding +
+       border-left (0.4rem + 3px = ~7.8px) that liked/toapply/applied/
+       app-rejected rows do, which left-shifts their +1 column. Give them
+       a transparent 3px border + the same padding so every row in Ranked
+       has the same left edge regardless of state. Specificity trick:
+       :not() filter targets only the unstyled rows so the stateful
+       border colors keep winning without !important. */
+    body.tab-ranked #ranked-list li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected),
+    body.tab-ranked #ranked-list .spontaneous-row:not(.liked):not(.toapply):not(.applied):not(.app-rejected) {
+      padding: 0.2rem 0.4rem;
+      border-left: 3px solid transparent;
+      border-radius: 4px;
+    }
+    /* Alignment of spontaneous rows with li.job rows in Ranked view:
+       3 invisible placeholder buttons (Review + Reject + Keep) match
+       li.job's extra state-button slots. The ▶ marker that li.job's
+       <details> renders inside the summary is simulated with
+       padding-left on the prefix so the title text starts at the same
+       x-offset in both row types. */
     .ranked-spacer {
       visibility: hidden;
       pointer-events: none;
     }
-    .ranked-spacer.ranked-marker {
+    /* Visible ▶ marker before the prefix on spontaneous rows in Ranked —
+       matches the <details> ::marker that li.job gets natively. Use
+       U+25B6 (BLACK RIGHT-POINTING TRIANGLE) to match Chrome/Firefox/
+       Safari's native details marker glyph; U+25B8 (small triangle) is
+       noticeably thinner. Font color = --fg so it reads the same weight
+       as the native black marker. */
+    body.tab-ranked #ranked-list .spontaneous-row .company-prefix::before {
+      content: '\u25B6';
       display: inline-block;
-      width: 0.9rem;
-      height: 1rem;
+      color: var(--fg);
+      margin-right: 0.35rem;
+    }
+    /* Strip the big orange ✉ Spontaneous button in Ranked view —
+       within a flat ranked list that visual weight competes with the
+       job titles. Fall back to plain text that reads as "Spontaneous
+       application" so the row is still identifiable at a glance.
+       Font-size is inherited (not forced to 0.9rem) so the link text
+       matches the regular job titles' size. */
+    body.tab-ranked #ranked-list .spontaneous-row .spontaneous-link {
+      background: transparent;
+      color: var(--fg);
+      border: none;
+      padding: 0;
+      font-weight: 400;
+      /* Explicit font-size overrides the base .spontaneous-link rule
+         (0.9rem) so the text matches the ~1rem titles on li.job. */
+      font-size: 1rem;
+    }
+    /* Prefix inherits body font-size (1rem) — match it explicitly so
+       the triangle marker (::before) and the "Company —" text are the
+       same size as li.job's title column. */
+    body.tab-ranked #ranked-list .spontaneous-row .company-prefix {
+      font-size: 1rem;
+    }
+    body.tab-ranked #ranked-list .spontaneous-row .spontaneous-link:hover {
+      background: transparent;
+      color: var(--accent);
+      text-decoration: underline;
     }
     .ranked-list .company-prefix {
       color: var(--fg-muted);
@@ -7354,9 +7424,11 @@ function _rankedFitScore(li) {
 //   - Review (R)  — circle 1.3rem        → front of row
 //   - Reject (×)  — circle 1.3rem        → front of row
 //   - Keep (K)    — circle 1.3rem        → after state buttons
-//   - Details ▶   — ~0.9rem marker       → after Keep
-// Using real-looking buttons with visibility:hidden lets the existing
-// flex layout + gap handle the alignment math — no fragile pixel offsets.
+// The ▶ details-marker (~0.9rem wide) that li.job's <details> renders
+// inside its summary is simulated with CSS padding-left on the prefix,
+// NOT a flex sibling — that way the spont row has the same number of
+// flex children before the content column as li.job (7), and the gap
+// math stays symmetric.
 function _injectRankedSpacers(row) {
   if (row._rankedSpacers) return;
   const mk = (cls) => {
@@ -7367,30 +7439,17 @@ function _injectRankedSpacers(row) {
     b.tabIndex = -1;
     return b;
   };
-  const mkMarker = () => {
-    const s = document.createElement('span');
-    s.className = 'ranked-spacer ranked-marker';
-    s.setAttribute('aria-hidden', 'true');
-    return s;
-  };
   // Front spacers: review + reject
   const frontReview = mk('review');
   const frontReject = mk('reject');
   row.prepend(frontReject);
   row.prepend(frontReview);
-  // Tail spacers (keep + ▶ marker), inserted right before the prefix /
-  // spontaneous link so the title column lines up.
+  // Tail spacer (keep), inserted right before the prefix / spontaneous
+  // link so the content column lines up with li.job's details column.
   const tailKeep = mk('keep');
-  const tailMarker = mkMarker();
   const anchor = row.querySelector('.company-prefix') || row.querySelector('.spontaneous-link');
-  if (anchor) {
-    anchor.before(tailKeep);
-    anchor.before(tailMarker);
-  } else {
-    row.appendChild(tailKeep);
-    row.appendChild(tailMarker);
-  }
-  row._rankedSpacers = [frontReview, frontReject, tailKeep, tailMarker];
+  if (anchor) anchor.before(tailKeep); else row.appendChild(tailKeep);
+  row._rankedSpacers = [frontReview, frontReject, tailKeep];
 }
 function _removeRankedSpacers(row) {
   if (!row._rankedSpacers) return;
@@ -7431,7 +7490,17 @@ function _buildRankedView() {
     // Spontaneous rows get placeholder slots for the buttons li.job has
     // but they don't — Review / Reject / Keep / ▶ marker — so the flex
     // layout naturally lines up the state-button chain and the title.
-    if (row.classList.contains('spontaneous-row')) _injectRankedSpacers(row);
+    if (row.classList.contains('spontaneous-row')) {
+      _injectRankedSpacers(row);
+      // Swap the link text from "✉ Spontaneous" (the big orange button
+      // style) to plain "Spontaneous application" that reads as a label
+      // alongside the ranked titles. CSS strips the button styling.
+      const link = row.querySelector('.spontaneous-link');
+      if (link && !link.dataset.origText) {
+        link.dataset.origText = link.textContent;
+        link.textContent = 'Spontaneous application';
+      }
+    }
     list.appendChild(row);
   }
   // Sort by Claude fit DESC, no-score at the bottom. Preserve DOM order
@@ -7447,6 +7516,12 @@ function _restoreRankedView() {
   const rows = [...list.querySelectorAll(':scope > li.job, :scope > .spontaneous-row')];
   for (const row of rows) {
     _removeRankedSpacers(row);
+    // Restore the original "✉ Spontaneous" button text if we swapped it.
+    const link = row.querySelector('.spontaneous-link');
+    if (link && link.dataset.origText) {
+      link.textContent = link.dataset.origText;
+      delete link.dataset.origText;
+    }
     if (row._companyPrefix) {
       row._companyPrefix.remove();
       delete row._companyPrefix;
@@ -7574,7 +7649,9 @@ function _computeTabCounts() {
     toapply:     q('li.job.toapply') + q('.spontaneous-row.toapply'),
     pipeline:    q('li.job.applied, li.job.app-rejected')
                  + q('.spontaneous-row.applied, .spontaneous-row.app-rejected'),
-    ranked:      q('li.job') + q('.spontaneous-row:has(.badge.claude-fit)'),
+    ranked:      q('li.job') + (document.body.classList.contains('hide-ranked-spontaneous')
+                                   ? 0
+                                   : q('.spontaneous-row:has(.badge.claude-fit)')),
     spontaneous: q('.spontaneous-row'),
     new:         q('li.job:has(.badge.new-badge)'),
   };
@@ -7597,6 +7674,25 @@ function _updateTabCounts() {
     if (el) el.textContent = counts[active] ?? counts.all;
   }
 }
+// "Show spontaneous" checkbox inside the Ranked tab. Persisted so the
+// user's last setting sticks. Reading happens before activateTab so the
+// body class is correct on first paint of the Ranked view.
+const RANKED_SHOW_SPONT_KEY = 'jobs:ranked-show-spontaneous';
+(() => {
+  const cb = document.getElementById('ranked-show-spontaneous');
+  if (!cb) return;
+  let saved = null;
+  try { saved = localStorage.getItem(RANKED_SHOW_SPONT_KEY); } catch (e) {}
+  // Default on; only unchecked when the saved value is explicitly '0'.
+  cb.checked = saved !== '0';
+  document.body.classList.toggle('hide-ranked-spontaneous', !cb.checked);
+  cb.addEventListener('change', () => {
+    document.body.classList.toggle('hide-ranked-spontaneous', !cb.checked);
+    try { localStorage.setItem(RANKED_SHOW_SPONT_KEY, cb.checked ? '1' : '0'); } catch (e) {}
+    _updateTabCounts();
+  });
+})();
+
 // Init: restore last-used tab (defaults to 'all' on first load). Runs AFTER
 // loadFilters so the tab preset wins over any stale saved checkbox state.
 (() => {
@@ -9495,7 +9591,12 @@ def main():
         + render_html_filters(seniority_labels, all_locations) + "\n"
         # Ranked tab destination — JS moves every <li.job> here on tab
         # activation (sorted by Claude fit DESC), and restores them to their
-        # original company section on deactivation.
+        # original company section on deactivation. The controls bar above
+        # it hosts the "show spontaneous" checkbox; both are hidden on
+        # every tab EXCEPT ranked via CSS.
+        + '  <div id="ranked-controls" class="ranked-controls">\n'
+        + '    <label class="filter-check"><input type="checkbox" id="ranked-show-spontaneous" checked> Show spontaneous</label>\n'
+        + '  </div>\n'
         + '  <ul id="ranked-list" class="ranked-list"></ul>\n'
         + "\n".join(html_sections)
     )
