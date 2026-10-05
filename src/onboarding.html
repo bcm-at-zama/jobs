@@ -38,6 +38,52 @@
     .subtitle { color: var(--fg-muted); margin: 0 0 1.5rem; font-size: 1rem; }
     h2 { font-size: 1.1rem; margin: 0; }
     hr { border: none; border-top: 1px solid var(--border); margin: 1.4rem 0; }
+    code {
+      background: var(--bg-subtle);
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+
+    .step-indicator {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 1.4rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--fg-muted);
+      flex-wrap: wrap;
+    }
+    .step-indicator .step-chip {
+      padding: 0.25rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-subtle);
+    }
+    .step-indicator .step-chip.current {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent-emphasis);
+    }
+    .step-indicator .step-chip.done {
+      background: var(--success);
+      color: #ffffff;
+      border-color: var(--success-emphasis);
+    }
+
+    .page { display: none; }
+    .page.visible { display: block; }
+    .optional-tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: var(--bg-inset);
+      color: var(--fg-muted);
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
 
     details.group {
       border: 1px solid var(--border);
@@ -46,9 +92,7 @@
       background: var(--bg-subtle);
       padding: 0 0.9rem;
     }
-    details.group[open] {
-      padding-bottom: 0.9rem;
-    }
+    details.group[open] { padding-bottom: 0.9rem; }
     details.group > summary {
       cursor: pointer;
       padding: 0.75rem 0;
@@ -113,6 +157,140 @@
       accent-color: var(--accent-emphasis);
     }
 
+    /* Company search */
+    .search-row { position: relative; margin: 0.4rem 0 1rem; }
+    .search-input { max-width: none; }
+    .search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      max-height: 280px;
+      overflow-y: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      display: none;
+      z-index: 10;
+    }
+    .search-results.visible { display: block; }
+    .search-results .result-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.45rem 0.7rem;
+      border-bottom: 1px solid var(--border-muted);
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .search-results .result-row:last-child { border-bottom: none; }
+    .search-results .result-row:hover,
+    .search-results .result-row.focused {
+      background: var(--bg-subtle);
+    }
+    .search-results .result-group {
+      margin-left: auto;
+      color: var(--fg-muted);
+      font-size: 0.82rem;
+    }
+    .search-results .result-checked {
+      color: var(--success);
+      font-weight: 600;
+    }
+    .search-results .empty {
+      padding: 0.5rem 0.7rem;
+      color: var(--fg-muted);
+      font-style: italic;
+    }
+    .company-grid label.flash {
+      animation: flash-highlight 1.4s ease-out;
+    }
+    @keyframes flash-highlight {
+      0%   { background: #fff8c5; box-shadow: 0 0 0 3px #d4a72c inset; }
+      100% { background: transparent; box-shadow: none; }
+    }
+
+    /* Chip UI (keywords + locations) */
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.6rem 0 1rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      cursor: pointer;
+      font-size: 0.9rem;
+      user-select: none;
+    }
+    .chip:hover { background: var(--bg-inset); border-color: var(--fg-subtle); }
+    .chip.selected {
+      background: var(--success);
+      color: #ffffff;
+      border-color: var(--success-emphasis);
+    }
+    .chip-remove {
+      font-size: 1.05em;
+      line-height: 1;
+      opacity: 0.7;
+    }
+    .chip-remove:hover { opacity: 1; }
+    .chip-input {
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      width: 100%;
+      max-width: 520px;
+      box-sizing: border-box;
+    }
+
+    /* Preset pack checkboxes */
+    .pack-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin: 0.6rem 0 1.2rem;
+    }
+    .pack-list label {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.4rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-subtle);
+      cursor: pointer;
+    }
+    .pack-list label:hover { background: var(--bg-inset); }
+    .pack-list .pack-name { font-weight: 600; }
+    .pack-list .pack-sample {
+      font-size: 0.85rem;
+      color: var(--fg-muted);
+      display: block;
+      margin-top: 0.15rem;
+    }
+
+    textarea.custom-list {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 100px;
+      padding: 0.5rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
     .sticky-footer {
       position: fixed;
       bottom: 0;
@@ -123,12 +301,9 @@
       padding: 0.9rem 1.2rem;
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.8rem;
     }
-    .sticky-footer .counter {
-      font-weight: 600;
-      color: var(--fg);
-    }
+    .sticky-footer .counter { font-weight: 600; color: var(--fg); }
     .sticky-footer .spacer { flex: 1; }
     .sticky-footer button {
       padding: 0.55rem 1.2rem;
@@ -139,20 +314,19 @@
       font-weight: 600;
       font-size: 0.95rem;
     }
+    .sticky-footer button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
     .sticky-footer button.primary {
       background: var(--success);
       color: #ffffff;
       border-color: var(--success-emphasis);
     }
-    .sticky-footer button.primary:hover { background: var(--success-emphasis); }
-    .sticky-footer button.primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      background: var(--success);
+    .sticky-footer button.primary:hover:not(:disabled) {
+      background: var(--success-emphasis);
     }
-    .sticky-footer button.secondary:hover {
-      background: var(--bg-inset);
-    }
+    .sticky-footer button.secondary:hover { background: var(--bg-inset); }
 
     .status-line {
       color: var(--fg-muted);
@@ -168,32 +342,77 @@
     }
     .done-screen.visible { display: block; }
     .done-screen h2 { font-size: 1.4rem; margin-bottom: 0.6rem; }
-    .done-screen code {
-      background: var(--bg-subtle);
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
-      font-size: 1rem;
-    }
-    .big-btn {
-      padding: 0.9rem 1.8rem !important;
-      font-size: 1.1rem !important;
-      margin-top: 0.8rem;
-    }
+    .done-screen code { font-size: 1rem; }
   </style>
 </head>
 <body>
   <h1>Welcome to your Personalized Job Board</h1>
-  <p class="subtitle">Pick the companies you want on your board. You can
-  always re-run this wizard later via <code>make onboarding</code>.</p>
+  <p class="subtitle">Four quick steps. Only the first is required — you
+  can skip to launch at any time.</p>
 
-  <div id="wizard">
+  <div class="step-indicator" id="step-indicator">
+    <span class="step-chip" data-step="1">1 · Companies</span>
+    <span class="step-chip" data-step="2">2 · Keywords</span>
+    <span class="step-chip" data-step="3">3 · Hide titles</span>
+    <span class="step-chip" data-step="4">4 · Hide locations</span>
+  </div>
+
+  <!-- Step 1: Companies ------------------------------------------------ -->
+  <div class="page" id="page-1">
     <h2>Companies to track</h2>
     <p class="subtitle">Expand a group to pick its companies. Use
     <strong>All</strong> / <strong>None</strong> to toggle the whole
     group at once.</p>
+    <div class="search-row">
+      <input type="text" id="company-search" class="chip-input search-input"
+             placeholder="Search a company (e.g. Anthropic, Spotify, Snyk)…"
+             autocomplete="off">
+      <div id="company-search-results" class="search-results"></div>
+    </div>
     <div id="groups-container"></div>
   </div>
 
+  <!-- Step 2: Keywords (highlights) ------------------------------------ -->
+  <div class="page" id="page-2">
+    <h2>Keywords <span class="optional-tag">optional</span></h2>
+    <p class="subtitle">Words highlighted in <mark>yellow</mark> inside
+    job titles and descriptions. Click a suggestion to add it, or type
+    your own below.</p>
+    <div><strong>Suggestions</strong> (click to toggle):</div>
+    <div class="chip-row" id="kw-presets"></div>
+    <div><strong>Your keywords</strong> (type then press Enter):</div>
+    <input type="text" id="kw-input" class="chip-input"
+           placeholder="e.g. Rust, Kubernetes, Senior Staff">
+    <div class="chip-row" id="kw-selected"></div>
+  </div>
+
+  <!-- Step 3: Title blacklist ------------------------------------------ -->
+  <div class="page" id="page-3">
+    <h2>Hide these titles <span class="optional-tag">optional</span></h2>
+    <p class="subtitle">Jobs whose title contains any of these
+    (case-insensitive) are hidden. Tick preset packs or add your own.</p>
+    <div><strong>Preset packs</strong>:</div>
+    <div class="pack-list" id="tb-packs"></div>
+    <div><strong>Custom titles</strong> (one per line):</div>
+    <textarea class="custom-list" id="tb-custom"
+              placeholder="Freelance&#10;Chief of Staff&#10;Site Reliability"></textarea>
+  </div>
+
+  <!-- Step 4: Location blacklist --------------------------------------- -->
+  <div class="page" id="page-4">
+    <h2>Hide these locations <span class="optional-tag">optional</span></h2>
+    <p class="subtitle">Jobs are hidden when <em>every</em> listed
+    location matches one of these entries. Click a suggestion or add
+    your own.</p>
+    <div><strong>Suggestions</strong> (click to toggle):</div>
+    <div class="chip-row" id="loc-presets"></div>
+    <div><strong>Your entries</strong> (type then press Enter):</div>
+    <input type="text" id="loc-input" class="chip-input"
+           placeholder="e.g. Tokyo, Dubai">
+    <div class="chip-row" id="loc-selected"></div>
+  </div>
+
+  <!-- Build-progress screen -------------------------------------------- -->
   <div id="building" class="done-screen">
     <h2>Building your board…</h2>
     <p>Fetching every source in the background (same as a giant
@@ -208,24 +427,31 @@
     </p>
   </div>
 
-  <div class="sticky-footer">
-    <span class="counter">
-      <span id="total-selected">0</span> companies selected
-    </span>
+  <div class="sticky-footer" id="footer">
+    <span class="counter" id="footer-counter"></span>
     <span class="spacer"></span>
     <span id="status" class="status-line"></span>
     <button type="button" class="secondary" id="cancel-btn">Cancel</button>
-    <button type="button" class="primary" id="save-btn">Save and launch the board</button>
+    <button type="button" class="secondary" id="back-btn">← Back</button>
+    <button type="button" class="secondary" id="skip-btn">Skip to launch →</button>
+    <button type="button" class="primary" id="next-btn">Next →</button>
+    <button type="button" class="primary" id="launch-btn">Save and launch the board</button>
   </div>
 
 <script>
-// CATALOG + EXISTING are inlined by the server when it renders this page.
-// Fallbacks make the file loadable in a browser without a server for
-// quick visual testing.
+// CATALOG + EXISTING + preset lists are inlined by the server.
 const CATALOG = /*__CATALOG__*/ (window.__CATALOG__ || []);
 const EXISTING = /*__EXISTING__*/ (window.__EXISTING__ || null);
+const PRESETS = /*__PRESETS__*/ (window.__PRESETS__ || {
+  highlights: [], locations: [], title_packs: {}
+});
 
-/* ---- Group by group ------------------------------------------------- */
+const TOTAL_STEPS = 4;
+let currentStep = 1;
+
+/* ========================================================================
+   Step 1 — Companies (same as before, grouped <details>)
+   ======================================================================== */
 
 function groupBy(arr, keyFn) {
   const out = new Map();
@@ -240,7 +466,6 @@ function groupBy(arr, keyFn) {
 function renderGroups() {
   const container = document.getElementById('groups-container');
   const grouped = groupBy(CATALOG, e => e.group);
-  // Sort groups by size DESC — the biggest ones first.
   const sortedGroups = [...grouped.entries()].sort((a, b) => b[1].length - a[1].length);
   const preChecked = new Set((EXISTING && EXISTING.sources) || []);
 
@@ -249,7 +474,7 @@ function renderGroups() {
     const details = document.createElement('details');
     details.className = 'group';
     details.dataset.group = groupName;
-    details.open = true;  // all groups expanded on first paint
+    details.open = true;
 
     const summary = document.createElement('summary');
     summary.innerHTML =
@@ -274,7 +499,7 @@ function renderGroups() {
       cb.className = 'company-cb';
       cb.dataset.name = e.name;
       if (preChecked.has(e.name)) cb.checked = true;
-      cb.addEventListener('change', () => _refreshCounters(details));
+      cb.addEventListener('change', () => _refreshCompanyCounters(details));
       label.appendChild(cb);
       label.appendChild(document.createTextNode(' ' + e.name));
       grid.appendChild(label);
@@ -284,51 +509,311 @@ function renderGroups() {
     actions.querySelector('[data-act="all"]').addEventListener('click', (ev) => {
       ev.preventDefault();
       details.querySelectorAll('.company-cb').forEach(cb => { cb.checked = true; });
-      _refreshCounters(details);
+      _refreshCompanyCounters(details);
     });
     actions.querySelector('[data-act="none"]').addEventListener('click', (ev) => {
       ev.preventDefault();
       details.querySelectorAll('.company-cb').forEach(cb => { cb.checked = false; });
-      _refreshCounters(details);
+      _refreshCompanyCounters(details);
     });
 
     container.appendChild(details);
-    _refreshCounters(details);
+    _refreshCompanyCounters(details);
   }
-  _refreshTotal();
 }
 
-function _refreshCounters(details) {
-  const total = details.querySelectorAll('.company-cb').length;
+function _refreshCompanyCounters(details) {
   const on = details.querySelectorAll('.company-cb:checked').length;
-  const slot = details.querySelector('.n-on');
-  slot.textContent = on;
-  const count = details.querySelector('.group-count');
-  count.classList.toggle('has-picks', on > 0);
-  _refreshTotal();
+  details.querySelector('.n-on').textContent = on;
+  details.querySelector('.group-count').classList.toggle('has-picks', on > 0);
+  refreshFooter();
 }
 
-function _refreshTotal() {
-  const total = document.querySelectorAll('.company-cb:checked').length;
-  document.getElementById('total-selected').textContent = total;
-  document.getElementById('save-btn').disabled = (total === 0);
+function companyCount() {
+  return document.querySelectorAll('.company-cb:checked').length;
+}
+function collectCompanies() {
+  return [...document.querySelectorAll('.company-cb:checked')].map(cb => cb.dataset.name);
 }
 
-/* ---- Save ---------------------------------------------------------- */
+/* ---- Company search: live dropdown of matches ----------------------- */
 
-async function save() {
-  const names = [...document.querySelectorAll('.company-cb:checked')]
-    .map(cb => cb.dataset.name);
+let _searchIdx = []; // {name, group, lower}
+function _indexCompanies() {
+  _searchIdx = CATALOG.map(e => ({
+    name: e.name, group: e.group, lower: e.name.toLowerCase(),
+  }));
+}
+
+function _companySearch(q) {
+  q = (q || '').trim().toLowerCase();
+  if (!q) return [];
+  const starts = [];
+  const contains = [];
+  for (const e of _searchIdx) {
+    if (e.lower.startsWith(q)) starts.push(e);
+    else if (e.lower.includes(q)) contains.push(e);
+  }
+  return [...starts, ...contains].slice(0, 15);
+}
+
+function _renderSearchResults(matches) {
+  const dropdown = document.getElementById('company-search-results');
+  dropdown.innerHTML = '';
+  if (!matches.length) {
+    dropdown.classList.remove('visible');
+    return;
+  }
+  for (const m of matches) {
+    const row = document.createElement('div');
+    row.className = 'result-row';
+    const cb = document.querySelector('.company-cb[data-name="' + CSS.escape(m.name) + '"]');
+    const isChecked = cb && cb.checked;
+    row.innerHTML = (isChecked
+      ? '<span class="result-checked">✓</span>'
+      : '<span style="width:1em"></span>') +
+      '<span class="result-name"></span>' +
+      '<span class="result-group"></span>';
+    row.querySelector('.result-name').textContent = m.name;
+    row.querySelector('.result-group').textContent = m.group;
+    row.addEventListener('click', () => _jumpToCompany(m.name));
+    dropdown.appendChild(row);
+  }
+  dropdown.classList.add('visible');
+}
+
+function _jumpToCompany(name) {
+  const cb = document.querySelector('.company-cb[data-name="' + CSS.escape(name) + '"]');
+  if (!cb) return;
+  // Open the parent <details> so the checkbox is visible, then scroll
+  // + flash it so the user can tick it immediately.
+  const details = cb.closest('details.group');
+  if (details && !details.open) details.open = true;
+  const label = cb.closest('label');
+  if (label) {
+    label.scrollIntoView({behavior: 'smooth', block: 'center'});
+    label.classList.remove('flash');
+    void label.offsetWidth; // reflow so the animation re-runs
+    label.classList.add('flash');
+  }
+  cb.focus();
+  // Collapse the dropdown so it doesn't cover the row.
+  document.getElementById('company-search-results').classList.remove('visible');
+}
+
+function _wireCompanySearch() {
+  _indexCompanies();
+  const input = document.getElementById('company-search');
+  const dropdown = document.getElementById('company-search-results');
+  input.addEventListener('input', () => {
+    _renderSearchResults(_companySearch(input.value));
+  });
+  input.addEventListener('focus', () => {
+    if (input.value) _renderSearchResults(_companySearch(input.value));
+  });
+  // Click outside closes the dropdown.
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('.search-row')) {
+      dropdown.classList.remove('visible');
+    }
+  });
+  // Enter → jump to the first match.
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const matches = _companySearch(input.value);
+      if (matches.length) _jumpToCompany(matches[0].name);
+    } else if (ev.key === 'Escape') {
+      dropdown.classList.remove('visible');
+    }
+  });
+}
+
+/* ========================================================================
+   Step 2 — Keywords (chips + presets)
+   Step 4 — Locations (chips + presets)
+   Shared implementation: _ChipPicker
+   ======================================================================== */
+
+function _ChipPicker(prefix, presets) {
+  const presetsEl = document.getElementById(prefix + '-presets');
+  const selectedEl = document.getElementById(prefix + '-selected');
+  const input = document.getElementById(prefix + '-input');
+  const state = new Set();
+
+  function render() {
+    presetsEl.innerHTML = '';
+    for (const p of presets) {
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (state.has(p) ? ' selected' : '');
+      chip.textContent = p;
+      chip.addEventListener('click', () => {
+        if (state.has(p)) state.delete(p);
+        else state.add(p);
+        render();
+      });
+      presetsEl.appendChild(chip);
+    }
+    selectedEl.innerHTML = '';
+    for (const v of state) {
+      if (presets.includes(v)) continue;  // avoid duplicate chip
+      const chip = document.createElement('span');
+      chip.className = 'chip selected';
+      chip.innerHTML = '';
+      chip.appendChild(document.createTextNode(v));
+      const x = document.createElement('span');
+      x.className = 'chip-remove';
+      x.textContent = '×';
+      x.addEventListener('click', () => { state.delete(v); render(); });
+      chip.appendChild(x);
+      selectedEl.appendChild(chip);
+    }
+  }
+
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
+    for (const p of parts) state.add(p);
+    input.value = '';
+    render();
+  });
+
+  render();
+  return {collect: () => [...state]};
+}
+
+let kwPicker, locPicker;
+
+/* ========================================================================
+   Step 3 — Title blacklist (preset packs + textarea)
+   ======================================================================== */
+
+function renderTitlePacks() {
+  const container = document.getElementById('tb-packs');
+  for (const [name, titles] of Object.entries(PRESETS.title_packs || {})) {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'tb-pack';
+    cb.dataset.pack = name;
+    label.appendChild(cb);
+    const text = document.createElement('div');
+    const nameEl = document.createElement('span');
+    nameEl.className = 'pack-name';
+    nameEl.textContent = name;
+    text.appendChild(nameEl);
+    const sample = document.createElement('span');
+    sample.className = 'pack-sample';
+    sample.textContent = titles.slice(0, 6).join(', ') +
+      (titles.length > 6 ? ', …' : '');
+    text.appendChild(sample);
+    label.appendChild(text);
+    container.appendChild(label);
+  }
+}
+
+function collectTitleBlacklist() {
+  const out = [];
+  const seen = new Set();
+  const push = v => {
+    const t = v.trim();
+    if (!t || seen.has(t.toLowerCase())) return;
+    seen.add(t.toLowerCase());
+    out.push(t);
+  };
+  for (const cb of document.querySelectorAll('.tb-pack:checked')) {
+    for (const t of (PRESETS.title_packs[cb.dataset.pack] || [])) push(t);
+  }
+  const custom = document.getElementById('tb-custom').value || '';
+  for (const line of custom.split('\n')) push(line);
+  return out;
+}
+
+/* ========================================================================
+   Step navigation
+   ======================================================================== */
+
+function showStep(n) {
+  n = Math.max(1, Math.min(TOTAL_STEPS, n));
+  currentStep = n;
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    document.getElementById('page-' + i).classList.toggle('visible', i === n);
+  }
+  // Step indicator chips
+  for (const chip of document.querySelectorAll('.step-indicator .step-chip')) {
+    const s = parseInt(chip.dataset.step, 10);
+    chip.classList.remove('current', 'done');
+    if (s === n) chip.classList.add('current');
+    else if (s < n) chip.classList.add('done');
+  }
+  refreshFooter();
+  window.scrollTo({top: 0, behavior: 'instant'});
+}
+
+function refreshFooter() {
+  const counter = document.getElementById('footer-counter');
+  const back = document.getElementById('back-btn');
+  const next = document.getElementById('next-btn');
+  const skip = document.getElementById('skip-btn');
+  const launch = document.getElementById('launch-btn');
+
+  // Back: visible on steps 2-4.
+  back.style.display = currentStep > 1 ? '' : 'none';
+  // Skip: visible on optional steps only (2, 3). Step 4 shows Save-and-launch
+  // directly instead (no need to skip since we're at the last step).
+  skip.style.display = (currentStep >= 2 && currentStep <= 3) ? '' : 'none';
+  // Next: step 1, 2, 3.
+  next.style.display = currentStep < TOTAL_STEPS ? '' : 'none';
+  // Save-and-launch: only on step 4 (the user hit "Next" on every page).
+  launch.style.display = currentStep === TOTAL_STEPS ? '' : 'none';
+
+  // Context-aware counter.
+  if (currentStep === 1) {
+    counter.textContent = companyCount() + ' companies selected';
+    next.disabled = (companyCount() === 0);
+  } else if (currentStep === 2) {
+    counter.textContent = (kwPicker?.collect().length || 0) + ' keywords';
+    next.disabled = false;
+  } else if (currentStep === 3) {
+    counter.textContent = collectTitleBlacklist().length + ' titles to hide';
+    next.disabled = false;
+  } else {
+    counter.textContent = (locPicker?.collect().length || 0) + ' locations to hide';
+    launch.disabled = false;
+  }
+}
+
+/* ========================================================================
+   Save + launch (shared by Skip and Save-and-launch)
+   ======================================================================== */
+
+async function saveAndLaunch() {
+  const payload = {
+    names: collectCompanies(),
+    highlights: currentStep >= 2 ? kwPicker.collect() : [],
+    title_blacklist: currentStep >= 3 ? collectTitleBlacklist() : [],
+    location_blacklist: currentStep >= 4 ? locPicker.collect() : [],
+  };
+  if (payload.names.length === 0) {
+    document.getElementById('status').textContent =
+      '⚠ Pick at least one company first.';
+    showStep(1);
+    return;
+  }
   const status = document.getElementById('status');
-  const saveBtn = document.getElementById('save-btn');
+  const launchBtn = document.getElementById('launch-btn');
+  const skipBtn = document.getElementById('skip-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const backBtn = document.getElementById('back-btn');
   status.className = 'status-line';
   status.textContent = 'Writing config…';
-  saveBtn.disabled = true;
+  [launchBtn, skipBtn, nextBtn, backBtn].forEach(b => b.disabled = true);
   try {
     const r = await fetch('/write-user-config', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({names}),
+      body: JSON.stringify(payload),
     });
     if (!r.ok) throw new Error('http ' + r.status);
     await r.json();
@@ -337,14 +822,15 @@ async function save() {
   } catch (e) {
     status.className = 'status-line error';
     status.textContent = 'Save failed: ' + e.message;
-    saveBtn.disabled = false;
+    [launchBtn, skipBtn, nextBtn, backBtn].forEach(b => b.disabled = false);
     return;
   }
-  // Swap the wizard for the "Building…" screen, then kick off the
-  // board subprocess + status polling. Hide the sticky footer — the
-  // Save and Cancel buttons are moot once the build is in flight.
-  document.getElementById('wizard').style.display = 'none';
-  document.querySelector('.sticky-footer').style.display = 'none';
+  // Swap for the Building… screen and start polling.
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    document.getElementById('page-' + i).classList.remove('visible');
+  }
+  document.getElementById('step-indicator').style.display = 'none';
+  document.getElementById('footer').style.display = 'none';
   document.getElementById('building').classList.add('visible');
   launchBoard();
 }
@@ -354,11 +840,8 @@ async function cancel() {
     await fetch('/cancel', {method: 'POST'});
   } catch (e) {}
   document.getElementById('status').textContent = 'Cancelled. You can close this tab.';
-  document.getElementById('save-btn').disabled = true;
-  document.getElementById('cancel-btn').disabled = true;
+  document.querySelectorAll('.sticky-footer button').forEach(b => b.disabled = true);
 }
-
-/* ---- Launch board (chained after save) ------------------------------ */
 
 async function launchBoard() {
   const statusMsg = document.getElementById('launch-status-msg');
@@ -376,7 +859,6 @@ async function launchBoard() {
       ' — run `make run` in a terminal.';
     return;
   }
-  // Poll /launch-status until the board responds, then redirect.
   while (true) {
     await new Promise(r => setTimeout(r, 2000));
     let s;
@@ -384,17 +866,15 @@ async function launchBoard() {
       const r = await fetch('/launch-status', {method: 'POST'});
       s = await r.json();
     } catch (e) {
-      // The onboarding server may have exited just as the board came
-      // up. Treat that as success and go to the board URL anyway.
       statusMsg.textContent = 'Redirecting…';
-      window.location.href = boardUrl;
+      window.location.href = boardUrl + '#tab=new';
       return;
     }
     elapsed.textContent = s.elapsed + 's elapsed';
     if (s.status === 'ready') {
       statusMsg.className = 'status-line success';
       statusMsg.textContent = '✓ Board is up. Redirecting…';
-      setTimeout(() => { window.location.href = s.board_url; }, 500);
+      setTimeout(() => { window.location.href = s.board_url + '#tab=new'; }, 500);
       return;
     }
     if (s.status === 'failed') {
@@ -406,11 +886,33 @@ async function launchBoard() {
   }
 }
 
-/* ---- Boot ---------------------------------------------------------- */
+/* ========================================================================
+   Boot
+   ======================================================================== */
 
 renderGroups();
-document.getElementById('save-btn').addEventListener('click', save);
+_wireCompanySearch();
+renderTitlePacks();
+kwPicker  = _ChipPicker('kw',  PRESETS.highlights || []);
+locPicker = _ChipPicker('loc', PRESETS.locations || []);
+
 document.getElementById('cancel-btn').addEventListener('click', cancel);
+document.getElementById('back-btn').addEventListener('click', () => showStep(currentStep - 1));
+document.getElementById('next-btn').addEventListener('click', () => showStep(currentStep + 1));
+document.getElementById('skip-btn').addEventListener('click', saveAndLaunch);
+document.getElementById('launch-btn').addEventListener('click', saveAndLaunch);
+
+// Keep the footer counter live when the user flips chips or edits textarea.
+document.getElementById('tb-custom').addEventListener('input', refreshFooter);
+document.getElementById('kw-input').addEventListener('input', refreshFooter);
+document.getElementById('loc-input').addEventListener('input', refreshFooter);
+document.getElementById('page-3').addEventListener('change', refreshFooter);
+// Chip picker + preset packs change state inside the pickers, so refresh
+// the footer on any click bubbling up.
+document.getElementById('page-2').addEventListener('click', () => setTimeout(refreshFooter, 0));
+document.getElementById('page-4').addEventListener('click', () => setTimeout(refreshFooter, 0));
+
+showStep(1);
 </script>
 </body>
 </html>

@@ -38,13 +38,90 @@ from config import SERVE_HOST, SERVE_PORT
 
 
 # =============================================================================
+# Preset content shown on steps 2 / 3 / 4. Hard-coded, user-tunable at
+# runtime through chip selection / textarea entry. Kept here so src/
+# stays self-contained (no runtime config file lookup).
+# =============================================================================
+
+HIGHLIGHT_PRESETS = [
+    "Security", "Cryptography", "Cyber", "AI", "ML", "LLM", "GPU",
+    "Python", "Rust", "Go", "TypeScript", "Kubernetes", "Terraform",
+    "Remote", "Hybrid",
+    "Senior", "Staff", "Principal", "Director", "VP",
+    "Engineering Manager", "CTO",
+]
+
+LOCATION_BLACKLIST_PRESETS = [
+    "India", "Pakistan", "Bangladesh", "Sri Lanka",
+    "Philippines", "Vietnam", "Thailand", "Indonesia", "Malaysia",
+    "UAE", "Dubai", "Saudi Arabia", "Qatar",
+    "Egypt", "Nigeria", "Kenya",
+    "Brazil", "Mexico", "Argentina", "Colombia", "LATAM",
+    "Japan", "Tokyo", "China", "Beijing",
+    "APAC",
+]
+
+TITLE_BLACKLIST_PACKS = {
+    "Entry-level": [
+        "Intern", "Internship", "Junior", "Associate", "New Grad",
+        "Student", "Apprenti", "Stage", "Trainee",
+    ],
+    "Non-engineering": [
+        "Sales", "Marketing", "Recruiter", "Recruiting", "Human Resources",
+        "Finance", "Legal", "Counsel", "Communications", "PR Director",
+        "People Operations", "Accounting",
+    ],
+    "Hardware / electrical": [
+        "ASIC", "Firmware Engineer", "Electrical Engineer", "Hardware Engineer",
+        "Mechanical Engineer", "Design Engineer", "Semiconductor",
+    ],
+    "Operations / admin": [
+        "IT Support", "Office Manager", "Workplace", "Facilities",
+        "Administrative", "Executive Assistant", "People Success",
+    ],
+    "Field / customer-facing": [
+        "Field Engineer", "Field CTO", "Deployed Engineer",
+        "Partner Deployed Engineer", "Customer Success", "Customer Support",
+        "Account Executive", "Account Manager", "Technical Support",
+    ],
+    "Hiring / content": [
+        "Technical Recruiter", "Technical Sourcer", "Technical Writer",
+        "Content Manager", "Content Strategy",
+    ],
+}
+
+
+# =============================================================================
 # Content building
 # =============================================================================
 
-def _build_user_config(selected_names: set[str]) -> str:
-    """Serialise the selected companies into a user_config.py string.
-    HIGHLIGHTS / TITLE_BLACKLIST / LOCATION_BLACKLIST ship as empty
-    stubs — the user edits them by hand (future wizard step)."""
+def _dedupe_preserve_order(items):
+    seen = set()
+    out = []
+    for it in items:
+        if not isinstance(it, str):
+            continue
+        t = it.strip()
+        if not t:
+            continue
+        key = t.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(t)
+    return out
+
+
+def _build_user_config(
+    selected_names: set[str],
+    highlights: list[str] | None = None,
+    title_blacklist: list[str] | None = None,
+    location_blacklist: list[str] | None = None,
+) -> str:
+    """Serialise the wizard's output into a user_config.py string.
+    Every list is deduped (case-insensitive, order preserved); empty
+    lists ship as `[]`.
+    """
     chosen = [e for e in CATALOG if e["name"] in selected_names]
     chosen.sort(key=lambda e: (e["group"].lower(), e["name"].lower()))
     sources = []
@@ -64,10 +141,13 @@ companies. The wizard asks before overwriting an existing file.
 """
 
 '''
+    hl = _dedupe_preserve_order(highlights or [])
+    tb = _dedupe_preserve_order(title_blacklist or [])
+    lb = _dedupe_preserve_order(location_blacklist or [])
     body = (
-        "HIGHLIGHTS = []  # add keywords to draw in yellow (edit by hand for now)\n\n"
-        "TITLE_BLACKLIST = []  # title substrings (case-insensitive) that hide a job\n\n"
-        "LOCATION_BLACKLIST = []  # locations where you don't want to see jobs\n\n"
+        f"HIGHLIGHTS = {pprint.pformat(hl, width=120)}\n\n"
+        f"TITLE_BLACKLIST = {pprint.pformat(tb, width=120)}\n\n"
+        f"LOCATION_BLACKLIST = {pprint.pformat(lb, width=120)}\n\n"
         f"SOURCES = {pprint.pformat(sources, width=120, sort_dicts=False)}\n"
     )
     return header + body
@@ -129,6 +209,11 @@ def _load_html(data_dir: str, out_path: str) -> bytes:
         existing["backup_path"] = _backup_path(out_path)
     catalog_json = json.dumps(CATALOG, ensure_ascii=False)
     existing_json = json.dumps(existing, ensure_ascii=False)
+    presets_json = json.dumps({
+        "highlights": HIGHLIGHT_PRESETS,
+        "locations": LOCATION_BLACKLIST_PRESETS,
+        "title_packs": TITLE_BLACKLIST_PACKS,
+    }, ensure_ascii=False)
     html = html.replace(
         "/*__CATALOG__*/ (window.__CATALOG__ || [])",
         catalog_json,
@@ -136,6 +221,12 @@ def _load_html(data_dir: str, out_path: str) -> bytes:
     html = html.replace(
         "/*__EXISTING__*/ (window.__EXISTING__ || null)",
         existing_json,
+    )
+    html = html.replace(
+        "/*__PRESETS__*/ (window.__PRESETS__ || {\n"
+        "  highlights: [], locations: [], title_packs: {}\n"
+        "})",
+        presets_json,
     )
     return html.encode("utf-8")
 
@@ -291,13 +382,21 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
         if not selected:
             self._json(400, {"error": "no valid company names"})
             return
+        highlights = [str(x) for x in (payload.get("highlights") or [])]
+        title_blacklist = [str(x) for x in (payload.get("title_blacklist") or [])]
+        location_blacklist = [str(x) for x in (payload.get("location_blacklist") or [])]
         try:
             os.makedirs(self.server.data_dir, exist_ok=True)
             backup = None
             if os.path.isfile(self.server.out_path):
                 backup = _backup_path(self.server.out_path)
                 shutil.copy2(self.server.out_path, backup)
-            content = _build_user_config(selected)
+            content = _build_user_config(
+                selected,
+                highlights=highlights,
+                title_blacklist=title_blacklist,
+                location_blacklist=location_blacklist,
+            )
             with open(self.server.out_path, "w", encoding="utf-8") as f:
                 f.write(content)
             self.server.result = {

@@ -7184,10 +7184,19 @@ const RANKED_SHOW_MARKS_KEY = 'jobs:ranked-show-marks';
 
 // Init: restore last-used tab (defaults to 'all' on first load). Runs AFTER
 // loadFilters so the tab preset wins over any stale saved checkbox state.
+// A URL hash of the form `#tab=<name>` wins over the saved value — used
+// by the onboarding wizard to drop the user straight into the New tab
+// after `make onboarding` has built the board.
 (() => {
+  const hashMatch = location.hash.match(/tab=([a-zA-Z-]+)/);
+  const fromHash = hashMatch && TAB_PRESETS[hashMatch[1]] ? hashMatch[1] : null;
   let last = null;
   try { last = localStorage.getItem(TAB_STORAGE_KEY); } catch (e) {}
-  activateTab(last || 'all');
+  activateTab(fromHash || last || 'all');
+  // Clear the hash so a subsequent reload doesn't re-pin the tab.
+  if (fromHash && history.replaceState) {
+    history.replaceState(null, '', location.pathname + location.search);
+  }
 })();
 
 /* --- Like -------------------------------------------------------------- */

@@ -20,7 +20,12 @@ class TestBuildUserConfig(unittest.TestCase):
     """Pure-function tests on the serializer."""
 
     def test_build_user_config_is_valid_python(self):
-        content = onboarding._build_user_config({"Anthropic", "OpenAI"})
+        content = onboarding._build_user_config(
+            {"Anthropic", "OpenAI"},
+            highlights=["Security", "Rust"],
+            title_blacklist=["Intern", "Associate"],
+            location_blacklist=["India", "Dubai"],
+        )
         with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
             f.write(content)
             path = f.name
@@ -35,6 +40,39 @@ class TestBuildUserConfig(unittest.TestCase):
                 self.assertIn("kind", s)
                 self.assertIn("slug", s)
                 self.assertEqual(s["queries"], [])
+            self.assertEqual(mod.HIGHLIGHTS, ["Security", "Rust"])
+            self.assertEqual(mod.TITLE_BLACKLIST, ["Intern", "Associate"])
+            self.assertEqual(mod.LOCATION_BLACKLIST, ["India", "Dubai"])
+        finally:
+            os.unlink(path)
+
+    def test_build_user_config_dedupes_case_insensitive(self):
+        """`security` and `Security` should collapse to one entry."""
+        content = onboarding._build_user_config(
+            {"Anthropic"},
+            highlights=["Security", "security", "  SECURITY  ", "Rust"],
+        )
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            spec = importlib.util.spec_from_file_location("_t", path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            self.assertEqual(mod.HIGHLIGHTS, ["Security", "Rust"])
+        finally:
+            os.unlink(path)
+
+    def test_build_user_config_defaults_empty_lists(self):
+        """Call without the optional kwargs — the three lists stay []."""
+        content = onboarding._build_user_config({"Anthropic"})
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+            f.write(content)
+            path = f.name
+        try:
+            spec = importlib.util.spec_from_file_location("_t", path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
             self.assertEqual(mod.HIGHLIGHTS, [])
             self.assertEqual(mod.TITLE_BLACKLIST, [])
             self.assertEqual(mod.LOCATION_BLACKLIST, [])
@@ -200,6 +238,53 @@ class TestHttpWizard(unittest.TestCase):
                 self.assertTrue(done.wait(timeout=1))
                 self.assertFalse(os.path.isfile(os.path.join(tmp, "user_config.py")))
                 self.assertEqual(server.result["status"], "cancelled")
+            finally:
+                self._stop(server)
+
+    def test_post_write_persists_all_four_lists(self):
+        """The new multi-step payload (names + highlights + blacklists)
+        all land in the generated file."""
+        with tempfile.TemporaryDirectory() as tmp:
+            server, _, url, _ = self._start_server(tmp)
+            try:
+                payload = json.dumps({
+                    "names": ["Anthropic"],
+                    "highlights": ["Security", "AI"],
+                    "title_blacklist": ["Intern", "Associate"],
+                    "location_blacklist": ["India", "Dubai"],
+                }).encode()
+                req = urllib.request.Request(
+                    url + "/write-user-config",
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req) as r:
+                    self.assertTrue(json.loads(r.read())["ok"])
+                out = os.path.join(tmp, "user_config.py")
+                spec = importlib.util.spec_from_file_location("_uc", out)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                self.assertEqual([s["name"] for s in mod.SOURCES], ["Anthropic"])
+                self.assertEqual(mod.HIGHLIGHTS, ["Security", "AI"])
+                self.assertEqual(mod.TITLE_BLACKLIST, ["Intern", "Associate"])
+                self.assertEqual(mod.LOCATION_BLACKLIST, ["India", "Dubai"])
+            finally:
+                self._stop(server)
+
+    def test_get_renders_html_with_inlined_presets(self):
+        """The presets JSON for keywords / locations / title packs is
+        inlined so the browser can render chips + checkboxes without a
+        second round trip."""
+        with tempfile.TemporaryDirectory() as tmp:
+            server, _, url, _ = self._start_server(tmp)
+            try:
+                with urllib.request.urlopen(url + "/onboarding.html") as r:
+                    body = r.read().decode()
+                self.assertIn("Security", body)   # from HIGHLIGHT_PRESETS
+                self.assertIn("Entry-level", body)  # from TITLE_BLACKLIST_PACKS
+                self.assertIn("India", body)      # from LOCATION_BLACKLIST_PRESETS
+                self.assertNotIn("window.__PRESETS__", body)
             finally:
                 self._stop(server)
 
