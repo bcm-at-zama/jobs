@@ -978,6 +978,36 @@ async function cancel() {
   document.querySelectorAll('.sticky-footer button').forEach(b => b.disabled = true);
 }
 
+/**
+ * Probe `url` with a HEAD request before navigating. If it refuses
+ * (e.g. a dying subprocess closed the socket between /launch-status
+ * marking "ready" and the browser running this redirect), retry up to
+ * 20 times at 1 s intervals. Only once we get a response do we
+ * actually navigate.
+ */
+async function _redirectWhenReachable(url, statusEl) {
+  for (let i = 0; i < 20; i++) {
+    try {
+      // HEAD-equivalent via fetch(no-cors) — we don't care about
+      // response content, just that the socket accepts the connection.
+      // The board URL has a hash so strip it for the probe.
+      const bare = url.split('#')[0];
+      await fetch(bare, {method: 'GET', mode: 'no-cors', cache: 'no-store'});
+      window.location.href = url;
+      return;
+    } catch (e) {
+      if (statusEl) {
+        statusEl.textContent = 'Waiting for the board to accept the first page… (' +
+          (i + 1) + 's)';
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  // Last-resort: navigate anyway; the browser error page is at least
+  // actionable (shows ERR_CONNECTION_REFUSED).
+  window.location.href = url;
+}
+
 async function launchBoard() {
   const statusMsg = document.getElementById('launch-status-msg');
   const elapsed = document.getElementById('launch-elapsed');
@@ -1009,7 +1039,11 @@ async function launchBoard() {
     if (s.status === 'ready') {
       statusMsg.className = 'status-line success';
       statusMsg.textContent = '✓ Board is up. Redirecting…';
-      setTimeout(() => { window.location.href = s.board_url + '#tab=new'; }, 500);
+      // Pre-flight the board URL right before navigating — defends
+      // against a late crash of the subprocess that would otherwise
+      // land us on an ERR_CONNECTION_REFUSED. If the probe fails,
+      // keep polling instead of bailing.
+      _redirectWhenReachable(s.board_url + '#tab=new', statusMsg);
       return;
     }
     if (s.status === 'failed') {

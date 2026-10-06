@@ -357,6 +357,7 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
     def _poll_board_ready(self):
         deadline = time.time() + 900  # 15 min upper bound for first fetch
         board_url = self.launch_state["board_url"]
+        consecutive_ok = 0
         while time.time() < deadline:
             # Dead subprocess means the board failed early (bad config,
             # port conflict, …). Surface it as a failure instead of
@@ -370,14 +371,29 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
                         "run `make run` in a terminal to see the error"
                     )
                 return
+            ok = False
             try:
                 with urllib.request.urlopen(board_url, timeout=1) as r:
-                    if 200 <= r.status < 500:
-                        with self.launch_lock:
-                            self.launch_state["status"] = "ready"
-                        return
+                    ok = 200 <= r.status < 500
             except (urllib.error.URLError, ConnectionRefusedError, OSError):
-                pass
+                ok = False
+            if ok:
+                consecutive_ok += 1
+                # Only mark "ready" after TWO consecutive successful
+                # responses, 1.5 s apart. This defends against a race
+                # where our new subprocess auto-kills a stale previous
+                # jobs.py (via its pre-flight check): during the kill,
+                # the dying server may still accept one request before
+                # it fully exits — if we trusted that single response,
+                # the browser would redirect and see ERR_CONNECTION_REFUSED
+                # while our new subprocess is still fetching.
+                if consecutive_ok >= 2:
+                    with self.launch_lock:
+                        self.launch_state["status"] = "ready"
+                    return
+                time.sleep(1.5)
+                continue
+            consecutive_ok = 0
             time.sleep(1.0)
         with self.launch_lock:
             self.launch_state["status"] = "failed"
@@ -426,11 +442,13 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
             state["elapsed"] = self._elapsed(state)
             self._json(200, state)
             # When ready, schedule shutdown so the user doesn't leave a
-            # zombie port behind. A short grace lets the browser read
-            # this reply before the connection drops.
+            # zombie port behind. 5 s is enough for the browser to read
+            # this reply, run its own 500 ms grace, and complete the
+            # redirect — longer than before to defend against slow
+            # networks / tab-wake-from-background scenarios.
             if state["status"] in ("ready", "failed"):
                 threading.Timer(
-                    1.5, lambda: self.server.done_event.set()
+                    5.0, lambda: self.server.done_event.set()
                 ).start()
             return
         if self.path == "/cancel":

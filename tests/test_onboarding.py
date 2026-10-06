@@ -335,8 +335,9 @@ class TestHttpWizard(unittest.TestCase):
                     data = json.loads(r.read())
                 self.assertEqual(data["status"], "ready")
                 self.assertGreaterEqual(data["elapsed"], 6)
-                # done_event fires ~1.5 s after /launch-status reports ready
-                self.assertTrue(done.wait(timeout=3),
+                # done_event fires ~5 s after /launch-status reports ready
+                # (grace was bumped to let the browser redirect reliably).
+                self.assertTrue(done.wait(timeout=8),
                                 "server should auto-shutdown once ready")
             finally:
                 self._stop(server)

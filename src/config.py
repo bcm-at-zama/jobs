@@ -600,33 +600,30 @@ COMPANY_INFO = {
 
     # --- Added via catalog expansion 2026-10-06 ---------------------------
     # AI Startups
-    "Covariant":        {"blurb": "Robotic foundation models — warehouse / fulfilment picking. Berkeley HQ. Core team moved to Amazon in 2024.", "employees": "~100", "revenue": "n/a"},
-    "Harvey":           {"blurb": "Generative-AI copilot for lawyers — contracts, case research, drafting. SF HQ. Used by top-100 US + UK firms.",      "employees": "~400", "revenue": "~$70M ARR"},
     "Imbue":            {"blurb": "Reasoning agents for software (ex-Generally Intelligent). SF HQ.",                                                    "employees": "~40",  "revenue": "pre-revenue"},
-    "Luma AI":          {"blurb": "Text-to-video / 3D generation (Dream Machine, Genie). Palo Alto HQ.",                                                 "employees": "~70",  "revenue": "~$20M ARR"},
-    "Writer":           {"blurb": "Enterprise generative-AI platform — custom LLMs for internal content + workflows. SF HQ.",                            "employees": "~400", "revenue": "~$100M ARR"},
     # Security Companies
     "Netskope":         {"blurb": "Cloud security — SASE / SSE / CASB. Santa Clara HQ. Public filing on hold; late-stage.",                              "employees": "~3,000", "revenue": "~$500M ARR"},
     "PQShield":         {"blurb": "Post-quantum cryptography IP + libraries (NIST PQC standards). Oxford, UK HQ.",                                       "employees": "~80",    "revenue": "n/a"},
-    "Secureframe":      {"blurb": "Compliance automation — SOC 2, ISO 27001, HIPAA, GDPR. SF HQ.",                                                       "employees": "~200",   "revenue": "~$40M ARR"},
     "Tailscale":        {"blurb": "WireGuard-based mesh VPN / zero-trust networking. Toronto HQ.",                                                       "employees": "~150",   "revenue": "~$50M ARR"},
     # Other — dev tools / SaaS / fintech
     "Brex":             {"blurb": "Corporate cards + banking / expense mgmt for startups. SF HQ.",                                                        "employees": "~1,000", "revenue": "~$400M"},
-    "Clay":             {"blurb": "AI data enrichment + outbound sales automation. NYC HQ.",                                                              "employees": "~150",   "revenue": "~$30M ARR"},
-    "Clerk":            {"blurb": "Authentication + user-management SaaS for web apps. SF HQ.",                                                           "employees": "~80",    "revenue": "~$10M ARR"},
     "Figma":            {"blurb": "Collaborative design & prototyping. SF HQ. Public (IPO 2025).",                                                        "employees": "~1,500", "revenue": "~$900M ARR"},
     "Grafana Labs":     {"blurb": "Observability — Grafana, Loki, Mimir, Tempo, Pyroscope. NYC + remote-first.",                                           "employees": "~1,100", "revenue": "~$300M ARR"},
     "Hex":              {"blurb": "Collaborative data notebooks (SQL + Python + viz). SF HQ.",                                                             "employees": "~250",   "revenue": "~$40M ARR"},
     "Linear":           {"blurb": "Issue tracking + project mgmt for software teams. Remote-first (Europe heavy).",                                        "employees": "~70",    "revenue": "~$50M ARR"},
     "Mercury":          {"blurb": "Banking + treasury for startups. SF HQ.",                                                                               "employees": "~800",   "revenue": "~$500M"},
-    "Modern Treasury":  {"blurb": "Payment-operations infrastructure (ACH, wires, ledger). SF HQ.",                                                        "employees": "~200",   "revenue": "~$30M ARR"},
-    "Notion":           {"blurb": "Docs + wiki + databases + Notion AI. SF HQ.",                                                                           "employees": "~700",   "revenue": "~$500M ARR"},
-    "Ramp":             {"blurb": "Corporate cards + expense + AP automation. NYC HQ.",                                                                    "employees": "~1,000", "revenue": "~$700M ARR"},
-    "Retool":           {"blurb": "Low-code builder for internal tools + workflows. SF HQ.",                                                               "employees": "~400",   "revenue": "~$100M ARR"},
-    "Supabase":         {"blurb": "Open-source Firebase alternative — Postgres + auth + storage + edge functions. Remote-first.",                           "employees": "~80",    "revenue": "~$30M ARR"},
     "Vercel":           {"blurb": "Hosting + edge network built around Next.js. SF HQ.",                                                                   "employees": "~500",   "revenue": "~$200M ARR"},
-    "WorkOS":           {"blurb": "Enterprise-SSO, SCIM, Directory Sync as a service. SF HQ.",                                                             "employees": "~100",   "revenue": "~$20M ARR"},
-    "Zapier":           {"blurb": "No-code automation + integrations across 7,000+ apps. Fully remote.",                                                   "employees": "~800",   "revenue": "~$300M ARR"},
+    # --- Added 2026-10-06 (batch 2) ---------------------------------------
+    # AI Startups
+    "Reka":             {"blurb": "Multimodal frontier models (Reka Core, Flash). SF HQ, ex-DeepMind founders.",                                            "employees": "~50",    "revenue": "pre-revenue"},
+    "Lightning AI":     {"blurb": "PyTorch Lightning + Lightning Studio IDE for AI. NYC HQ.",                                                               "employees": "~80",    "revenue": "~$15M ARR"},
+    "Observe AI":       {"blurb": "AI-powered conversation intelligence for contact centers. SF HQ.",                                                       "employees": "~500",   "revenue": "~$60M ARR"},
+    # Security Companies
+    "Drata":            {"blurb": "Compliance automation + continuous monitoring. San Diego HQ.",                                                           "employees": "~500",   "revenue": "~$80M ARR"},
+    # Other
+    "Fivetran":         {"blurb": "Automated data pipelines (ELT) into data warehouses. Oakland HQ.",                                                       "employees": "~1,300", "revenue": "~$350M ARR"},
+    "MongoDB":          {"blurb": "Document database + Atlas managed service. NYC HQ. Public (MDB).",                                                       "employees": "~5,500", "revenue": "~$1.9B"},
+    "Reddit":           {"blurb": "Social news + discussion platform. SF HQ. Public (RDDT).",                                                               "employees": "~2,000", "revenue": "~$1.3B"},
 }
 
 # Merge in the long-form blurbs kept in config_blurbs.py. Any name present in
@@ -830,64 +827,30 @@ GROUP_OF = {
 
     # --- Added via catalog expansion 2026-10-06 -------------------------
     # AI Startups
-    "Covariant":           "AI Startups",
-    "Harvey":              "AI Startups",
     "Imbue":               "AI Startups",
-    "Luma AI":             "AI Startups",
-    "Writer":              "AI Startups",
     # Security Companies
     "Netskope":            "Security Companies",
     "PQShield":            "Security Companies",
-    "Secureframe":         "Security Companies",
     "Tailscale":           "Security Companies",
     # Other (dev-tools / SaaS / fintech)
     "Brex":                "Other",
-    "Clay":                "Other",
-    "Clerk":               "Other",
     "Figma":               "Other",
     "Grafana Labs":        "Other",
     "Hex":                 "Other",
     "Linear":              "Other",
     "Mercury":             "Other",
-    "Modern Treasury":     "Other",
-    "Notion":              "Other",
-    "Ramp":                "Other",
-    "Retool":              "Other",
-    "Supabase":            "Other",
     "Vercel":              "Other",
-    "WorkOS":              "Other",
-    "Zapier":              "Other",
-
     # --- Added 2026-10-06 (batch 2) --------------------------------------
     # AI Startups
-    "Jasper":              "AI Startups",
     "Reka":                "AI Startups",
-    "Weights & Biases":    "AI Startups",
-    "You.com":             "AI Startups",
     "Lightning AI":        "AI Startups",
     "Observe AI":          "AI Startups",
     # Security Companies
-    "Vanta":               "Security Companies",
     "Drata":               "Security Companies",
-    "Material Security":   "Security Companies",
-    "Teleport":            "Security Companies",
-    "Trail of Bits":       "Security Companies",
     # Other
-    "Confluent":           "Other",
-    "dbt Labs":            "Other",
-    "Deel":                "Other",
     "Fivetran":            "Other",
-    "Front":               "Other",
-    "Loom":                "Other",
     "MongoDB":             "Other",
-    "Netlify":             "Other",
-    "Plaid":               "Other",
-    "Postman":             "Other",
-    "Pulumi":              "Other",
     "Reddit":              "Other",
-    "Rippling":            "Other",
-    "Sourcegraph":         "Other",
-    "Spotify":             "Other",
 }
 
 # =============================================================================
