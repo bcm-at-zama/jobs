@@ -43,3 +43,7 @@
 - Complex Claims Manager
 - Policy Manager, Consults and Escalations
 - Global PR & Influencer Manager (m/f/d)
+- ASIC Engineering Technical Leader
+- Hardware Tech Lead -Optomechanical Engineer
+- Hardware Engineer - Board Design | 5 - 8 yrs
+- Temporary Less 6 Month Fixed Salary

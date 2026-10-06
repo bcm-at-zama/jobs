@@ -6793,12 +6793,15 @@ function _collectVisibleJobUrls() {
     const url = li.querySelector('button.like, button.reject')?.dataset.url;
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   });
-  // Include EVERY ✉ Spontaneous row (one per source) so the AI button
-  // can score the company-level "introduce yourself" / "general
-  // application" link, regardless of the current tab or hide-spontaneous
-  // state. Spontaneous rows are a small fixed set (one per source) so
-  // this doesn't balloon the batch.
-  document.querySelectorAll('.spontaneous-row').forEach(row => {
+  // Only include ✉ Spontaneous rows the user has already liked
+  // (or moved further through the pipeline). The vast majority of
+  // "general application" links are low-signal placeholders, not worth
+  // paying for an LLM round-trip — only score the ones the user
+  // explicitly flagged.
+  document.querySelectorAll(
+    '.spontaneous-row.liked, .spontaneous-row.toapply, '
+    + '.spontaneous-row.applied, .spontaneous-row.app-rejected'
+  ).forEach(row => {
     const url = row.querySelector('button.spontaneous-like')?.dataset.url;
     if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
   });
@@ -9186,7 +9189,12 @@ def _check_serve_port_free():
     import signal as _signal
 
     def _try_bind():
+        # Mirror what http.server.ThreadingHTTPServer does — otherwise
+        # a stale TIME_WAIT socket from a just-killed server makes the
+        # pre-flight bind fail even though the real server would reuse
+        # the port fine.
         with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as s:
+            s.setsockopt(_sock.SOL_SOCKET, _sock.SO_REUSEADDR, 1)
             try:
                 s.bind((SERVE_HOST, SERVE_PORT))
                 return True
