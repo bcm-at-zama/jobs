@@ -4072,18 +4072,18 @@ def render_html_tabs():
         '    <div class="tab-actions">\n'
         '      <button type="button" class="refresh-btn" id="refresh-btn" '
         'title="Re-fetch all sources (equivalent to --clear-cache list), then reload the page." aria-label="Refresh">'
-        '<span class="refresh-icon" aria-hidden="true">R</span></button>\n'
+        '<span class="mi refresh-icon" aria-hidden="true">refresh</span></button>\n'
         '      <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" '
         'title="Ask your LLM to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="AI fit scores">'
-        '<span aria-hidden="true">AI</span></button>\n'
+        '<span class="mi" aria-hidden="true">auto_awesome</span></button>\n'
         '      <button type="button" class="refresh-btn edit-sources-btn" id="edit-sources-setup" '
-        'title="Edit the companies you track (same picker as the onboarding wizard). The badge counts new companies added to the catalog since you last opened this dialog." aria-label="Edit companies">'
-        '<span aria-hidden="true">\U0001F3E2</span>'
+        'title="Edit the companies you track. The badge counts new companies added to the catalog since you last saved." aria-label="Edit companies">'
+        '<span class="mi" aria-hidden="true">domain</span>'
         '<span class="new-companies-badge" id="new-companies-badge" style="display:none">0</span>'
         '</button>\n'
         '      <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" '
-        'title="Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …). If set, the AI button opens THAT chat (so previous permissions carry over) and copies the prompt to clipboard. Click to set / change / clear." aria-label="Set chat URL">'
-        '<span aria-hidden="true">\u2699</span></button>\n'
+        'title="Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …). If set, the AI button opens THAT chat and copies the prompt to clipboard." aria-label="Settings">'
+        '<span class="mi" aria-hidden="true">settings</span></button>\n'
         '    </div>'
     )
     return (
@@ -4281,7 +4281,33 @@ HTML_TEMPLATE = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <title>Jobs</title>
+  <!-- Google Material Symbols — used for the top-right action buttons
+       (refresh / AI / 🏢 edit / ⚙ settings). Loaded with display=block
+       so the page doesn't flicker swapping emojis to real icons. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0&display=block">
   <style>
+    /* Google Material Symbols helper. Applied to the <span class="mi">…</span>
+       elements inside action buttons so we get crisp vector icons at
+       any zoom. The font ligatures turn plain words like "refresh" or
+       "settings" into the right glyph automatically. */
+    .mi {
+      font-family: 'Material Symbols Rounded', sans-serif;
+      font-weight: 500;
+      font-style: normal;
+      font-size: 1.25rem;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: 'liga';
+      vertical-align: middle;
+    }
     /* GitHub light palette */
     :root {
       color-scheme: light;
@@ -4874,17 +4900,19 @@ HTML_TEMPLATE = """<!doctype html>
     .claude-chat-url-btn:hover { background: #8ce99a; color: #1b5e20; }
     .claude-chat-url-btn.has-url { background: #2b8a3e; color: #ffffff; }
     .claude-chat-url-btn.has-url:hover { background: #1b5e20; }
-    /* Edit-companies button (🏢) — orange, with a floating red badge
+    /* Edit-companies button — orange, with a floating red badge
        counting new companies added to src/catalog.py since the user last
-       opened the editor. Badge hidden when count = 0. */
+       saved from the editor. Badge hidden when count = 0. */
     .edit-sources-btn {
       margin-left: 0.4rem;
       background: #ffd8a8;
       color: #cc5500;
-      font-size: 1.15rem;
       position: relative;
     }
     .edit-sources-btn:hover { background: #ffa94d; color: #ffffff; }
+    /* Centre the material icon inside the circular action buttons. */
+    .refresh-btn .mi { font-size: 1.15rem; }
+    .claude-c-btn .mi { font-size: 1.2rem; }
     .new-companies-badge {
       position: absolute;
       top: -4px;
@@ -4979,13 +5007,48 @@ HTML_TEMPLATE = """<!doctype html>
       grid-template-columns: repeat(3, 1fr);
       gap: 0.2rem 1rem;
     }
-    .edit-sources-grid label {
+    /* Beat the generic `.modal label { display: block }` rule below —
+       grab the modal id for extra specificity. Without this the
+       checkbox stacks on top of the company name instead of sitting
+       inline on its left. */
+    .modal #es-body .edit-sources-grid label {
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      justify-content: flex-start;
+      gap: 0.4rem;
       padding: 0.12rem 0;
+      margin-bottom: 0;
       cursor: pointer;
       font-size: 0.9rem;
+      color: var(--fg);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* The generic .modal input rule forces width:100% + padding on
+       every input, which blows up our checkboxes into huge filled
+       rectangles and pushes the company name to the other end of the
+       cell. Reset them to native sizes. */
+    .modal #es-body .edit-sources-grid input[type="checkbox"] {
+      width: auto;
+      height: auto;
+      padding: 0;
+      margin: 0;
+      flex: 0 0 auto;
+      accent-color: var(--accent-emphasis);
+    }
+    /* Same reset for the "Only new" checkbox in the footer. */
+    .modal-foot .es-only-new input[type="checkbox"] {
+      width: auto;
+      height: auto;
+      padding: 0;
+      margin: 0;
+      accent-color: var(--accent-emphasis);
+    }
+    /* Search input: strip the padding override so its height matches
+       the rest of the footer controls. */
+    .modal-foot input.es-search {
+      margin: 0;
     }
     .edit-sources-grid .new-tag {
       font-size: 0.65rem;
@@ -4998,7 +5061,7 @@ HTML_TEMPLATE = """<!doctype html>
     }
     .modal-foot .es-search {
       flex: 1;
-      max-width: 320px;
+      max-width: 280px;
       padding: 0.4rem 0.6rem;
       border: 1px solid var(--border);
       border-radius: 5px;
@@ -5007,6 +5070,19 @@ HTML_TEMPLATE = """<!doctype html>
     .modal-foot .es-counter {
       font-weight: 600;
     }
+    .modal-foot .es-only-new {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.9rem;
+      color: var(--fg);
+      cursor: pointer;
+      user-select: none;
+    }
+    /* Any label the "only new" filter hides. Applied by _esFilter. */
+    .edit-sources-grid label.es-hide { display: none; }
+    /* Collapse groups that have zero visible labels while filtering. */
+    .edit-sources-group.es-collapsed { display: none; }
     .dump-btn.total-btn { background: #fb8500; border-color: #000; cursor: default; }
     .dump-btn.total-btn:hover { background: #d97400; }
     /* "Total New" — red like the NEW badge, so the visual link is obvious. */
@@ -7859,6 +7935,7 @@ function openEditCompaniesModal() {
       '  <div class="modal-body" id="es-body"></div>' +
       '  <div class="modal-foot">' +
       '    <input type="text" class="es-search" id="es-search" placeholder="Filter companies…">' +
+      '    <label class="es-only-new"><input type="checkbox" id="es-only-new" checked> Only new</label>' +
       '    <span class="es-counter"><span id="es-count">0</span> selected</span>' +
       '    <span class="spacer" style="flex:1"></span>' +
       '    <button type="button" id="es-cancel">Cancel</button>' +
@@ -7883,15 +7960,14 @@ function openEditCompaniesModal() {
   modal.querySelector('#es-save').onclick = async () => {
     await _esSave(modal);
   };
-  modal.querySelector('#es-search').oninput = (e) => {
-    _esFilter(modal, e.target.value);
-  };
-
-  // Mark the catalog as "seen" now that the user has opened the editor
-  // — the badge resets to 0 until a future catalog addition.
-  const newSeen = new Set(CATALOG_FOR_EDIT.map(e => e.name));
-  _saveSeenCatalog(newSeen);
-  _refreshNewCompaniesBadge();
+  modal.querySelector('#es-search').oninput = () => _esFilter(modal);
+  modal.querySelector('#es-only-new').onchange = () => _esFilter(modal);
+  // Apply the default "Only new" filter on first paint.
+  _esFilter(modal);
+  // NOTE: we do NOT touch the "seen catalog" watermark here. The badge
+  // only resets after a successful Save (see _esSave) — Cancel means
+  // the user still owes themselves a decision on the new companies,
+  // so the (N) badge should stick around.
 }
 
 function _buildEditSourcesContent(modal, selected, effectiveSeen) {
@@ -7930,6 +8006,8 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
     for (const e of entries) {
       const label = document.createElement('label');
       label.dataset.name = e.name.toLowerCase();
+      const isNew = !effectiveSeen.has(e.name);
+      if (isNew) label.dataset.isNew = '1';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.className = 'es-cb';
@@ -7938,7 +8016,7 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
       cb.addEventListener('change', () => _esRefreshGroup(details));
       label.appendChild(cb);
       label.appendChild(document.createTextNode(' ' + e.name));
-      if (!effectiveSeen.has(e.name)) {
+      if (isNew) {
         const tag = document.createElement('span');
         tag.className = 'new-tag';
         tag.textContent = 'NEW';
@@ -7979,18 +8057,21 @@ function _esRefreshFooter() {
   modal.querySelector('#es-save').disabled = (n === 0);
 }
 
-function _esFilter(modal, q) {
-  q = (q || '').trim().toLowerCase();
+function _esFilter(modal) {
+  const q = (modal.querySelector('#es-search')?.value || '').trim().toLowerCase();
+  const onlyNew = modal.querySelector('#es-only-new')?.checked;
+  const anyFilter = !!q || !!onlyNew;
   for (const label of modal.querySelectorAll('.edit-sources-grid label')) {
-    const match = !q || (label.dataset.name || '').includes(q);
-    label.style.display = match ? '' : 'none';
+    let visible = true;
+    if (onlyNew && label.dataset.isNew !== '1') visible = false;
+    if (visible && q && !(label.dataset.name || '').includes(q)) visible = false;
+    label.classList.toggle('es-hide', !visible);
   }
-  // Auto-expand groups that have at least one visible match while
-  // filtering (fold the empty ones).
   for (const g of modal.querySelectorAll('.edit-sources-group')) {
-    if (!q) { g.open = true; continue; }
-    const anyVisible = [...g.querySelectorAll('label')].some(l => l.style.display !== 'none');
-    g.open = anyVisible;
+    const anyVisible = [...g.querySelectorAll('label')]
+      .some(l => !l.classList.contains('es-hide'));
+    g.classList.toggle('es-collapsed', anyFilter && !anyVisible);
+    g.open = anyVisible || !anyFilter;
   }
 }
 
@@ -8008,25 +8089,19 @@ async function _esSave(modal) {
       body: JSON.stringify({names}),
     });
     if (!r.ok) throw new Error('http ' + r.status);
-    const data = await r.json();
-    saveBtn.textContent = '✓ Saved';
-    // Replace the whole modal content with a success screen so the
-    // user knows what happens next.
-    const bodyEl = modal.querySelector('#es-body');
-    bodyEl.innerHTML =
-      '<div style="padding:2rem 1rem; text-align:center">' +
-      '  <h3 style="font-size:1.2rem; margin-bottom:0.6rem">✓ Config saved</h3>' +
-      '  <p>Wrote <code>' + (data.path || 'data/user_config.py') + '</code>' +
-         ' (' + data.n + ' companies).</p>' +
-      (data.backup
-        ? '  <p style="color:var(--fg-muted); font-size:0.9rem">Backup: <code>' + data.backup + '</code></p>'
-        : '') +
-      '  <p style="margin-top:1rem">Click <strong>R</strong> (top right) to re-fetch, or close this dialog ' +
-      '  and refresh later.</p>' +
-      '</div>';
-    modal.querySelector('#es-search').style.display = 'none';
-    saveBtn.style.display = 'none';
-    modal.querySelector('#es-cancel').textContent = 'Close';
+    await r.json();
+    // Save succeeded → the user has acknowledged the current catalog
+    // state (whether they added the new companies or chose not to).
+    // Reset the badge watermark now.
+    _saveSeenCatalog(new Set(CATALOG_FOR_EDIT.map(e => e.name)));
+    _refreshNewCompaniesBadge();
+    // Close the modal and trigger a refresh (same flow as clicking the
+    // R button) so the board rebuilds against the new SOURCES. The
+    // refresh handler polls /refresh-status and reloads the page when
+    // done — no further user action needed.
+    modal.classList.remove('visible');
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn && !refreshBtn.disabled) refreshBtn.click();
   } catch (e) {
     saveBtn.textContent = originalText;
     saveBtn.disabled = false;
@@ -8967,12 +9042,144 @@ def _parse_cli():
     return ap.parse_args()
 
 
+def _port_holder():
+    """Return (pid:int, command:str, full_cmdline:str) of the process
+    bound to SERVE_PORT in LISTEN state, or (None, '', '') when we
+    can't tell (lsof missing, nothing listening, permission denied)."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-nP", "-iTCP:" + str(SERVE_PORT), "-sTCP:LISTEN"],
+            capture_output=True, text=True, timeout=3,
+        )
+    except Exception:
+        return (None, "", "")
+    if out.returncode != 0 or not out.stdout:
+        return (None, "", "")
+    for line in out.stdout.splitlines()[1:]:
+        parts = line.split(None, 2)
+        if len(parts) < 2:
+            continue
+        cmd, pid_str = parts[0], parts[1]
+        try:
+            pid = int(pid_str)
+        except ValueError:
+            continue
+        full = ""
+        try:
+            ps = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "command="],
+                capture_output=True, text=True, timeout=3,
+            )
+            full = (ps.stdout or "").strip()
+        except Exception:
+            pass
+        return (pid, cmd, full)
+    return (None, "", "")
+
+
+def _looks_like_our_jobs_py(full_cmdline):
+    """Decide whether a given process cmdline is a prior instance of
+    this very script. Being conservative here matters — we're about to
+    SIGTERM the owner."""
+    if not full_cmdline:
+        return False
+    cl = full_cmdline.lower()
+    return ("jobs.py" in cl) and ("python" in cl)
+
+
+def _check_serve_port_free():
+    """Fail fast if the HTTP serve port is already in use. Called at the
+    very top of main() so a stale previous server doesn't make us waste
+    30-90 s on a fetch before the OSError surfaces during server bind.
+
+    Auto-reclaim: when the port holder is a stale `jobs.py` subprocess
+    (typical after `make onboarding → Save and launch` + closed tab),
+    we SIGTERM it ourselves and continue. For any other process we
+    print an actionable error with the PID and bail — safer than
+    killing something we don't recognise.
+
+    Skipped when --no-serve is set (that mode doesn't bind the port)."""
+    import socket as _sock
+    import signal as _signal
+
+    def _try_bind():
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as s:
+            try:
+                s.bind((SERVE_HOST, SERVE_PORT))
+                return True
+            except OSError:
+                return False
+
+    if _try_bind():
+        return
+
+    pid, cmd, full = _port_holder()
+    if pid and _looks_like_our_jobs_py(full):
+        sys.stdout.write(
+            f"[preflight] port {SERVE_PORT} held by stale jobs.py (PID {pid}) "
+            f"— sending SIGTERM.\n"
+        )
+        try:
+            os.kill(pid, _signal.SIGTERM)
+        except ProcessLookupError:
+            pass  # already gone — probably won a race
+        except PermissionError:
+            err(
+                f"\nPort {SERVE_PORT} is held by jobs.py PID {pid} but we "
+                f"lack permission to kill it. Try:\n"
+                f"\n    sudo kill {pid}\n"
+            )
+            sys.exit(1)
+        # Wait up to 5 s for the socket to become free.
+        for _ in range(50):
+            time.sleep(0.1)
+            if _try_bind():
+                sys.stdout.write("[preflight] port reclaimed.\n")
+                return
+        # Escalate to SIGKILL as a last resort.
+        try:
+            os.kill(pid, _signal.SIGKILL)
+            time.sleep(0.3)
+        except Exception:
+            pass
+        if _try_bind():
+            sys.stdout.write("[preflight] port reclaimed (after SIGKILL).\n")
+            return
+
+    # Either not our process, or we failed to free the port.
+    err(f"\nPort {SERVE_PORT} is already in use.")
+    if pid:
+        err(f"Held by: {cmd} (PID {pid})")
+        if full:
+            err(f"         {full}")
+        err("")
+        if _looks_like_our_jobs_py(full):
+            err("That's a stale jobs.py — we tried to free it but SIGTERM failed.")
+        else:
+            err("Not a jobs.py process — refusing to kill it blindly.")
+    else:
+        err("Something is listening on that port but lsof couldn't name it.")
+    err("")
+    err("Free it with:")
+    err(f"    make kill            # kills whatever listens on {SERVE_PORT}")
+    err(f"    lsof -ti:{SERVE_PORT} | xargs kill   # same thing, no make")
+    err("")
+    err("Then re-run  make run.")
+    sys.exit(1)
+
+
 def main():
     args = _parse_cli()
     if args.onboard:
         # Lazy import so a plain run doesn't pull in the catalog.
         import onboarding
         sys.exit(onboarding.run_wizard(os.environ.get("JOBS_DATA_DIR", "data")))
+
+    # Pre-flight: refuse to start if the HTTP port is already taken.
+    # Catches the common "forgot to kill the previous `make run`" case
+    # before we spend 30-90 s re-fetching every source.
+    if not args.no_serve:
+        _check_serve_port_free()
 
     if args.clear_cache:
         # Accept singular / plural / minor typos.

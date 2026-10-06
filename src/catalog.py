@@ -42,7 +42,6 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Deepgram', 'kind': 'ashby', 'slug': 'deepgram', 'group': 'AI Startups'},
  {'name': 'Etched', 'kind': 'ashby', 'slug': 'etched', 'group': 'AI Startups'},
  {'name': 'Fireworks AI', 'kind': 'ashby', 'slug': 'fireworks', 'group': 'AI Startups'},
- {'name': 'Groq', 'kind': 'greenhouse', 'slug': 'groq', 'group': 'AI Startups'},
  {'name': 'H', 'kind': 'ashby', 'slug': 'hcompany', 'group': 'AI Startups'},
  {'name': 'Harvey', 'kind': 'greenhouse', 'slug': 'harvey', 'group': 'AI Startups'},
  {'name': 'Imbue', 'kind': 'greenhouse', 'slug': 'imbue', 'group': 'AI Startups'},

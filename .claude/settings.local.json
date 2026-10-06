@@ -20,7 +20,8 @@
       "Bash(awk '/^SOURCES = \\\\[/,/^\\\\]/{print NR\": \"$0}' /workspace/src/config.py)",
       "Bash(grep -nB1 -A4 \"^_LOC_SPLIT_RE\\\\s*=\")",
       "Bash(grep -nB1 -A4 \"^_JR_ID_RE\\\\s*=\")",
-      "Bash(make help *)"
+      "Bash(make help *)",
+      "Bash(grep \"Ran \\\\|OK$\\\\|FAIL\")"
     ]
   }
 }

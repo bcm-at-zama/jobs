@@ -1,7 +1,7 @@
 # Default target: show what's available.
 .DEFAULT_GOAL := help
 
-.PHONY: help install onboarding test test-verbose run commit pdf html clean-pdf
+.PHONY: help install onboarding test test-verbose run kill commit pdf html clean-pdf
 
 # Virtualenv lives at ./venv-macos. If it exists, use its python3; else
 # fall back to system python3. Lets `make test` / `make run` work both
@@ -23,6 +23,10 @@ help:
 	@echo "  make run         Full pipeline: fetch every source, render the HTML,"
 	@echo "                   open the browser, keep serving. Pass extra flags"
 	@echo "                   via ARGS, e.g.  make run ARGS=\"--only Anthropic\"."
+	@echo ""
+	@echo "  make kill        Kill whatever process is listening on port 8765."
+	@echo "                   Rarely needed — make run auto-reclaims stale jobs.py"
+	@echo "                   subprocesses on its own."
 	@echo ""
 	@echo "  make test        Run the full unittest suite (~70 tests, ~50 ms)."
 	@echo "  make test-verbose    Same, verbose."
@@ -65,6 +69,24 @@ test-verbose:
 #   make run ARGS="--skip-llm --only Anthropic,OpenAI"
 run:
 	PYTHONPATH=src $(PYTHON) src/jobs.py $(ARGS)
+
+# `make kill` → nuke anything bound to the serve port (8765). Useful
+# when the pre-flight check in `make run` finds a non-jobs.py process
+# squatting on the port and refuses to kill it on its own.
+kill:
+	@pids=$$(lsof -ti:8765 2>/dev/null); \
+	 if [ -z "$$pids" ]; then \
+	   echo "  Nothing listening on :8765."; \
+	 else \
+	   echo "  Killing PIDs: $$pids"; \
+	   kill $$pids 2>/dev/null || true; \
+	   sleep 0.3; \
+	   remaining=$$(lsof -ti:8765 2>/dev/null); \
+	   if [ -n "$$remaining" ]; then \
+	     echo "  Still up — sending SIGKILL to: $$remaining"; \
+	     kill -9 $$remaining 2>/dev/null || true; \
+	   fi; \
+	 fi
 
 # `make commit` → forwards to script/push.sh (git add + commit + push).
 commit:

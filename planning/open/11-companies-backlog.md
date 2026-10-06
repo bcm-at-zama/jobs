@@ -37,7 +37,7 @@ step-by-step recipe per ATS.
 | Arnica           | [??] | Israeli appsec |
 | Latacora         | [??] | US security consultancy |
 | NCC Group        | [W]  | UK security consultancy — unlockable now |
-| ~~Groq~~         | ~~[GH]~~ | DONE 2026-10-06 — added as `greenhouse` / `groq` |
+| Groq             | ??   | 2026-10-06 — my `greenhouse` / `groq` guess returned 0 jobs. Need user to click an actual job on groq.com and send the real URL (ATS + slug visible in the destination domain). |
 | Sakana AI        | [W]  | Tokyo AI lab — flaky Workable, keep an eye on it |
 
 ## MEDIUM VALUE (music tech — Benoit's founder space)
