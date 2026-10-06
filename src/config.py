@@ -857,6 +857,37 @@ GROUP_OF = {
     "Vercel":              "Other",
     "WorkOS":              "Other",
     "Zapier":              "Other",
+
+    # --- Added 2026-10-06 (batch 2) --------------------------------------
+    # AI Startups
+    "Jasper":              "AI Startups",
+    "Reka":                "AI Startups",
+    "Weights & Biases":    "AI Startups",
+    "You.com":             "AI Startups",
+    "Lightning AI":        "AI Startups",
+    "Observe AI":          "AI Startups",
+    # Security Companies
+    "Vanta":               "Security Companies",
+    "Drata":               "Security Companies",
+    "Material Security":   "Security Companies",
+    "Teleport":            "Security Companies",
+    "Trail of Bits":       "Security Companies",
+    # Other
+    "Confluent":           "Other",
+    "dbt Labs":            "Other",
+    "Deel":                "Other",
+    "Fivetran":            "Other",
+    "Front":               "Other",
+    "Loom":                "Other",
+    "MongoDB":             "Other",
+    "Netlify":             "Other",
+    "Plaid":               "Other",
+    "Postman":             "Other",
+    "Pulumi":              "Other",
+    "Reddit":              "Other",
+    "Rippling":            "Other",
+    "Sourcegraph":         "Other",
+    "Spotify":             "Other",
 }
 
 # =============================================================================
