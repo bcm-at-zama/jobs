@@ -9430,9 +9430,32 @@ def main():
         # Guard: a job you already +1'd or rejected can NEVER be NEW — you
         # must have interacted with it in a prior run. This also gracefully
         # handles the first-run case where seen.json doesn't exist yet.
+        #
+        # Second guard: when a company was just added to SOURCES, EVERY
+        # one of its URLs is "unseen" — flagging all of them as NEW turns
+        # the next run into a wall of thousands of fake-new jobs. Detect
+        # this per-source: if zero URLs from this source overlap with
+        # `seen`, treat the whole batch as a baseline instead of new.
+        source_urls = {j["url"] for j in all_jobs if j.get("url")}
+        src_first_visit = (
+            len(source_urls) >= 5
+            and source_urls.isdisjoint(seen)
+            and source_urls.isdisjoint(liked)
+            and source_urls.isdisjoint(rejected)
+        )
+        if src_first_visit:
+            sys.stdout.write(
+                f"[{src['name']}] first visit — "
+                f"{len(source_urls)} jobs added to baseline (no NEW badge)\n"
+            )
         for j in all_jobs:
             u = j["url"]
-            j["is_new"] = u not in seen and u not in liked and u not in rejected
+            j["is_new"] = (
+                not src_first_visit
+                and u not in seen
+                and u not in liked
+                and u not in rejected
+            )
             j["is_orphan"] = False
             # Remember this job in the persistent index so we can render it
             # later if it disappears from the board.
@@ -9578,9 +9601,14 @@ def main():
     has_none = None in found_labels
     found_labels.discard(None)
     seniority_labels = [l for l in canonical_order if l in found_labels]
-    # dedup while preserving order
-    seen = set()
-    seniority_labels = [l for l in seniority_labels if not (l in seen or seen.add(l))]
+    # dedup while preserving order. CAREFUL: the local variable name
+    # `seen` would shadow (actually mutate, since set is a reference)
+    # the module-level `seen` loaded at the top of main() to track URLs.
+    # Using a different name keeps our URL tracker intact — otherwise
+    # we end up persisting seniority labels into seen.json alongside
+    # the real job URLs.
+    _dedup = set()
+    seniority_labels = [l for l in seniority_labels if not (l in _dedup or _dedup.add(l))]
     # Jobs without a detected seniority are always visible (no "None"
     # checkbox in the filter bar). They can still be hidden via the title
     # or text filters if needed.
