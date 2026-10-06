@@ -160,6 +160,37 @@
     /* Company search */
     .search-row { position: relative; margin: 0.4rem 0 1rem; }
     .search-input { max-width: none; }
+
+    /* Bulk-action bar above the per-group list — one click to flip the
+       whole catalog or (col)expand every group at once. */
+    .bulk-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+      margin: 0 0 0.8rem;
+    }
+    .bulk-actions button {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.8rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--fg);
+    }
+    .bulk-actions button:hover {
+      background: var(--bg-inset);
+      border-color: var(--fg-subtle);
+    }
+    .bulk-actions .bulk-sep {
+      display: inline-block;
+      width: 1px;
+      height: 1.2rem;
+      background: var(--border);
+      margin: 0 0.3rem;
+    }
     .search-results {
       position: absolute;
       top: 100%;
@@ -397,6 +428,13 @@
              placeholder="Search a company (e.g. Anthropic, Spotify, Snyk)…"
              autocomplete="off">
       <div id="company-search-results" class="search-results"></div>
+    </div>
+    <div class="bulk-actions">
+      <button type="button" data-bulk="check-all">Check all</button>
+      <button type="button" data-bulk="uncheck-all">Uncheck all</button>
+      <span class="bulk-sep"></span>
+      <button type="button" data-bulk="expand-all">Expand all groups</button>
+      <button type="button" data-bulk="collapse-all">Collapse all groups</button>
     </div>
     <div id="groups-container"></div>
   </div>
@@ -659,6 +697,32 @@ function _wireCompanySearch() {
     } else if (ev.key === 'Escape') {
       dropdown.classList.remove('visible');
     }
+  });
+}
+
+/* ---- Bulk actions: check/uncheck all + expand/collapse all --------- */
+
+function _wireBulkActions() {
+  const groupsEl = document.getElementById('groups-container');
+  const refreshAllGroupCounters = () => {
+    groupsEl.querySelectorAll('details.group').forEach(d => _refreshCompanyCounters(d));
+  };
+  document.querySelectorAll('.bulk-actions button[data-bulk]').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const act = btn.dataset.bulk;
+      if (act === 'check-all') {
+        groupsEl.querySelectorAll('.company-cb').forEach(cb => { cb.checked = true; });
+        refreshAllGroupCounters();
+      } else if (act === 'uncheck-all') {
+        groupsEl.querySelectorAll('.company-cb').forEach(cb => { cb.checked = false; });
+        refreshAllGroupCounters();
+      } else if (act === 'expand-all') {
+        groupsEl.querySelectorAll('details.group').forEach(d => { d.open = true; });
+      } else if (act === 'collapse-all') {
+        groupsEl.querySelectorAll('details.group').forEach(d => { d.open = false; });
+      }
+    });
   });
 }
 
@@ -1061,6 +1125,7 @@ async function launchBoard() {
 
 renderGroups();
 _wireCompanySearch();
+_wireBulkActions();
 renderTitlePacks();
 kwPicker  = _ChipPicker('kw',  PRESETS.highlights || []);
 locPicker = _GroupedChipPicker('loc', PRESETS.location_groups || {});
