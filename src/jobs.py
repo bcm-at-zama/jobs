@@ -3418,6 +3418,20 @@ def collect(source):
         source_kind = "fresh"
         dt = time.perf_counter() - t_start
         timing(f"[{source['name']:22}] fresh fetch → {dt:.1f}s")
+    # Re-apply the per-source `queries` filter even on a cache hit. The
+    # fetcher applies it at fetch time, but if the user tightens queries
+    # between runs (or if the cache was populated when queries=[] by a
+    # bug — this really happened once with the edit-companies modal), a
+    # cache-hit must not bypass the filter and dump the full unfiltered
+    # board on the user.
+    _q = source.get("queries") or []
+    if _q and result.get("jobs"):
+        before = len(result["jobs"])
+        result = dict(result)
+        result["jobs"] = [j for j in result["jobs"] if matches(j, _q)]
+        after = len(result["jobs"])
+        if after < before:
+            timing(f"[{source['name']:22}] queries filter: {before} → {after}")
     raw_jobs = result["jobs"]
     # Per-source URL rewrites — applied on every run (cache-hit or fresh) so
     # stale cached URLs also get fixed. BeyondTrust's Greenhouse page hides
@@ -8850,6 +8864,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 # Preserve the user's existing filter lists so editing
                 # companies doesn't wipe out blacklists / highlights.
                 hl, tb, lb = HIGHLIGHTS[:], TITLE_BLACKLIST[:], LOCATION_BLACKLIST[:]
+                # Also preserve per-source `queries` — the catalog
+                # doesn't carry those (they're user-tunable), and
+                # dropping them silently would unleash the full
+                # unfiltered firehose of e.g. Salesforce (1500+ jobs).
+                existing_q = {s["name"]: s.get("queries") or []
+                              for s in SOURCES if s.get("name")}
                 backup = None
                 if os.path.isfile(out_path):
                     backup = onboarding._backup_path(out_path)
@@ -8860,6 +8880,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     highlights=hl,
                     title_blacklist=tb,
                     location_blacklist=lb,
+                    existing_queries=existing_q,
                 )
                 os.makedirs(data_dir, exist_ok=True)
                 with open(out_path, "w", encoding="utf-8") as f:

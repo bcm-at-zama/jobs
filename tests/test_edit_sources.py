@@ -111,6 +111,34 @@ class TestWriteUserConfigEndpoint(unittest.TestCase):
         status, body = self._invoke("/write-user-config", {"names": []})
         self.assertEqual(status, 400)
 
+    def test_write_preserves_existing_per_source_queries(self):
+        """REGRESSION — the edit-companies modal must NOT reset the
+        per-source `queries` filter. Before this test shipped, saving
+        from the modal rewrote every source with queries=[], unleashing
+        the full firehose of workday-sized boards (Salesforce = 1500+
+        jobs instead of ~50 filtered). Pin the invariant."""
+        # Seed a jobs.SOURCES in-memory that mimics a real user with
+        # non-empty queries on Anthropic.
+        with mock.patch.object(jobs, "SOURCES", [
+            {"name": "Anthropic", "kind": "greenhouse", "slug": "anthropic",
+             "queries": ["security", "cryptography", "CTO", "VP"]},
+            {"name": "OpenAI", "kind": "ashby", "slug": "openai",
+             "queries": ["security"]},
+        ]):
+            status, _ = self._invoke(
+                "/write-user-config",
+                {"names": ["Anthropic", "OpenAI"]},
+            )
+        self.assertEqual(status, 200)
+        out = os.path.join(self.data, "user_config.py")
+        spec = importlib.util.spec_from_file_location("_uc", out)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        by_name = {s["name"]: s for s in mod.SOURCES}
+        self.assertEqual(by_name["Anthropic"]["queries"],
+                         ["security", "cryptography", "CTO", "VP"])
+        self.assertEqual(by_name["OpenAI"]["queries"], ["security"])
+
 
 if __name__ == "__main__":
     unittest.main()
