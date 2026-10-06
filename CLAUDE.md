@@ -29,6 +29,20 @@ Before adding a value to a `src/` file, ask yourself: "would this be
 awkward if a stranger ran this exact file?" If yes, the value belongs
 in `data/`.
 
+## No geeky details in user-facing UI
+
+The browser UI is for the user, not the implementer. Keep internal
+file paths, implementation notes, backup suffixes, env-var names,
+class names and other plumbing OUT of visible text (titles, modals,
+status lines, tooltips the user actually reads).
+
+- Bad: "Changes save to `data/user_config.py` (with a timestamped
+  backup). Click `R` to re-fetch."
+- Good: "Your board rebuilds automatically after you save."
+
+Those details still belong in code comments, docstrings, `CLAUDE.md`
+and `planning/`. Just not where the user sees them.
+
 ## Run `make test` after every edit, and grow the suite
 
 **This is non-negotiable, and pre-authorized.** After any edit to

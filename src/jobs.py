@@ -5037,17 +5037,48 @@ HTML_TEMPLATE = """<!doctype html>
       flex: 0 0 auto;
       accent-color: var(--accent-emphasis);
     }
-    /* Same reset for the "Only new" checkbox in the footer. */
-    .modal-foot .es-only-new input[type="checkbox"] {
-      width: auto;
-      height: auto;
-      padding: 0;
-      margin: 0;
-      accent-color: var(--accent-emphasis);
+    /* Toolbar in the modal header: segmented mode pills + search. */
+    .modal-head .es-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
     }
-    /* Search input: strip the padding override so its height matches
-       the rest of the footer controls. */
-    .modal-foot input.es-search {
+    .es-mode {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      padding: 2px;
+      gap: 2px;
+    }
+    .es-mode button {
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      border: none;
+      background: transparent;
+      color: var(--fg-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .es-mode button:hover:not(.active) {
+      background: var(--bg-subtle);
+      color: var(--fg);
+    }
+    .es-mode button.active {
+      background: var(--accent);
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .modal-head input.es-search {
+      flex: 1;
+      max-width: 300px;
+      padding: 0.4rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
       margin: 0;
     }
     .edit-sources-grid .new-tag {
@@ -5059,30 +5090,16 @@ HTML_TEMPLATE = """<!doctype html>
       border-radius: 3px;
       margin-left: 0.3rem;
     }
-    .modal-foot .es-search {
-      flex: 1;
-      max-width: 280px;
-      padding: 0.4rem 0.6rem;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      font-size: 0.9rem;
-    }
     .modal-foot .es-counter {
       font-weight: 600;
-    }
-    .modal-foot .es-only-new {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.9rem;
       color: var(--fg);
-      cursor: pointer;
-      user-select: none;
     }
-    /* Any label the "only new" filter hides. Applied by _esFilter. */
-    .edit-sources-grid label.es-hide { display: none; }
+    /* Any label the filter hides. Applied by _esFilter. The modal-id
+       prefix is required to beat the `.modal #es-body …label { display:
+       flex }` rule above — without it, es-hide would be ignored. */
+    .modal #es-body .edit-sources-grid label.es-hide { display: none; }
     /* Collapse groups that have zero visible labels while filtering. */
-    .edit-sources-group.es-collapsed { display: none; }
+    .modal #es-body .edit-sources-group.es-collapsed { display: none; }
     .dump-btn.total-btn { background: #fb8500; border-color: #000; cursor: default; }
     .dump-btn.total-btn:hover { background: #d97400; }
     /* "Total New" — red like the NEW badge, so the visual link is obvious. */
@@ -7927,16 +7944,21 @@ function openEditCompaniesModal() {
       '<div class="modal">' +
       '  <div class="modal-head">' +
       '    <h3 style="margin:0 0 0.3rem">Edit companies</h3>' +
-      '    <div class="subtitle" style="color:var(--fg-muted); font-size:0.9rem">' +
-      '      Pick which companies to scrape. Changes save to <code>data/user_config.py</code> ' +
-      '      (with a timestamped backup). Click <strong>R</strong> after saving to re-fetch.' +
+      '    <div class="subtitle" style="color:var(--fg-muted); font-size:0.9rem; margin-bottom:0.8rem">' +
+      '      Pick which companies you want to track. Your board rebuilds automatically after you save.' +
+      '    </div>' +
+      '    <div class="es-toolbar">' +
+      '      <div class="es-mode" role="tablist" aria-label="Show">' +
+      '        <button type="button" data-mode="all">All</button>' +
+      '        <button type="button" data-mode="new" class="active">Only new</button>' +
+      '        <button type="button" data-mode="missing">Only missing</button>' +
+      '      </div>' +
+      '      <input type="text" class="es-search" id="es-search" placeholder="Filter…">' +
       '    </div>' +
       '  </div>' +
       '  <div class="modal-body" id="es-body"></div>' +
       '  <div class="modal-foot">' +
-      '    <input type="text" class="es-search" id="es-search" placeholder="Filter companies…">' +
-      '    <label class="es-only-new"><input type="checkbox" id="es-only-new" checked> Only new</label>' +
-      '    <span class="es-counter"><span id="es-count">0</span> selected</span>' +
+      '    <span class="es-counter" id="es-counter"></span>' +
       '    <span class="spacer" style="flex:1"></span>' +
       '    <button type="button" id="es-cancel">Cancel</button>' +
       '    <button type="button" class="primary" id="es-save" style="background:var(--success); color:#fff; border-color:var(--success-emphasis)">Save</button>' +
@@ -7961,7 +7983,13 @@ function openEditCompaniesModal() {
     await _esSave(modal);
   };
   modal.querySelector('#es-search').oninput = () => _esFilter(modal);
-  modal.querySelector('#es-only-new').onchange = () => _esFilter(modal);
+  modal.querySelectorAll('.es-mode button').forEach(b => {
+    b.onclick = () => {
+      modal.querySelectorAll('.es-mode button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      _esFilter(modal);
+    };
+  });
   // Apply the default "Only new" filter on first paint.
   _esFilter(modal);
   // NOTE: we do NOT touch the "seen catalog" watermark here. The badge
@@ -8013,7 +8041,16 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
       cb.className = 'es-cb';
       cb.dataset.name = e.name;
       if (selected.has(e.name)) cb.checked = true;
-      cb.addEventListener('change', () => _esRefreshGroup(details));
+      cb.addEventListener('change', () => {
+        _esRefreshGroup(details);
+        // "Only missing" filter is dynamic — ticking a box should
+        // hide it immediately. Only reflows if that mode is active.
+        const modeInput = document.querySelector('input[name="es-mode"]:checked');
+        if (modeInput && modeInput.value === 'missing') {
+          const modal = document.getElementById('edit-sources-modal');
+          if (modal) _esFilter(modal);
+        }
+      });
       label.appendChild(cb);
       label.appendChild(document.createTextNode(' ' + e.name));
       if (isNew) {
@@ -8052,18 +8089,42 @@ function _esRefreshGroup(details) {
 function _esRefreshFooter() {
   const modal = document.getElementById('edit-sources-modal');
   if (!modal) return;
-  const n = modal.querySelectorAll('.es-cb:checked').length;
-  modal.querySelector('#es-count').textContent = n;
-  modal.querySelector('#es-save').disabled = (n === 0);
+  const nSel = modal.querySelectorAll('.es-cb:checked').length;
+  const total = modal.querySelectorAll('.es-cb').length;
+  const nNew = modal.querySelectorAll('.edit-sources-grid label[data-is-new="1"]').length;
+  const nMissing = total - nSel;
+  const mode = _currentEsMode(modal);
+  const counter = modal.querySelector('#es-counter');
+  if (counter) {
+    if (mode === 'new') {
+      counter.textContent = nNew + (nNew === 1 ? ' new' : ' new') +
+        ' · ' + nSel + ' selected';
+    } else if (mode === 'missing') {
+      counter.textContent = nMissing + ' missing · ' + nSel + ' selected';
+    } else {
+      counter.textContent = nSel + ' / ' + total + ' selected';
+    }
+  }
+  const saveBtn = modal.querySelector('#es-save');
+  if (saveBtn) saveBtn.disabled = (nSel === 0);
+}
+
+function _currentEsMode(modal) {
+  const active = modal.querySelector('.es-mode button.active');
+  return (active && active.dataset.mode) || 'all';
 }
 
 function _esFilter(modal) {
   const q = (modal.querySelector('#es-search')?.value || '').trim().toLowerCase();
-  const onlyNew = modal.querySelector('#es-only-new')?.checked;
-  const anyFilter = !!q || !!onlyNew;
+  const mode = _currentEsMode(modal);
+  const anyFilter = !!q || mode !== 'all';
   for (const label of modal.querySelectorAll('.edit-sources-grid label')) {
     let visible = true;
-    if (onlyNew && label.dataset.isNew !== '1') visible = false;
+    if (mode === 'new' && label.dataset.isNew !== '1') visible = false;
+    if (mode === 'missing') {
+      const cb = label.querySelector('.es-cb');
+      if (!cb || cb.checked) visible = false;
+    }
     if (visible && q && !(label.dataset.name || '').includes(q)) visible = false;
     label.classList.toggle('es-hide', !visible);
   }
@@ -8073,6 +8134,7 @@ function _esFilter(modal) {
     g.classList.toggle('es-collapsed', anyFilter && !anyVisible);
     g.open = anyVisible || !anyFilter;
   }
+  _esRefreshFooter();
 }
 
 async function _esSave(modal) {
