@@ -4874,6 +4874,139 @@ HTML_TEMPLATE = """<!doctype html>
     .claude-chat-url-btn:hover { background: #8ce99a; color: #1b5e20; }
     .claude-chat-url-btn.has-url { background: #2b8a3e; color: #ffffff; }
     .claude-chat-url-btn.has-url:hover { background: #1b5e20; }
+    /* Edit-companies button (🏢) — orange, with a floating red badge
+       counting new companies added to src/catalog.py since the user last
+       opened the editor. Badge hidden when count = 0. */
+    .edit-sources-btn {
+      margin-left: 0.4rem;
+      background: #ffd8a8;
+      color: #cc5500;
+      font-size: 1.15rem;
+      position: relative;
+    }
+    .edit-sources-btn:hover { background: #ffa94d; color: #ffffff; }
+    .new-companies-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 1.3rem;
+      height: 1.3rem;
+      padding: 0 0.3rem;
+      background: var(--danger);
+      color: #ffffff;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      line-height: 1.3rem;
+      font-weight: 700;
+      box-sizing: border-box;
+      box-shadow: 0 0 0 2px var(--bg);
+    }
+    /* Edit-companies modal: wider than the default modal, body
+       scrolls while header + footer stay pinned. */
+    .modal-backdrop.wide .modal {
+      width: min(900px, 95vw);
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+    .modal-head {
+      padding: 1rem 1.3rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-body {
+      padding: 0.8rem 1.3rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-foot {
+      padding: 0.8rem 1.3rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      background: var(--bg-subtle);
+      border-radius: 0 0 8px 8px;
+    }
+    .edit-sources-group {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin: 0.5rem 0;
+      padding: 0 0.8rem;
+      background: var(--bg-subtle);
+    }
+    .edit-sources-group[open] { padding-bottom: 0.8rem; }
+    .edit-sources-group > summary {
+      cursor: pointer;
+      padding: 0.6rem 0;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      list-style: none;
+    }
+    .edit-sources-group > summary::-webkit-details-marker { display: none; }
+    .edit-sources-group > summary::before {
+      content: '▶';
+      display: inline-block;
+      transition: transform 0.15s;
+      color: var(--fg-muted);
+      font-size: 0.7rem;
+    }
+    .edit-sources-group[open] > summary::before { transform: rotate(90deg); }
+    .edit-sources-group .group-count {
+      margin-left: auto;
+      font-weight: normal;
+      color: var(--fg-muted);
+      font-size: 0.85rem;
+    }
+    .edit-sources-group .group-count.has-picks { color: var(--success); font-weight: 600; }
+    .edit-sources-group .group-actions {
+      padding: 0.2rem 0 0.5rem;
+      display: flex;
+      gap: 0.4rem;
+    }
+    .edit-sources-group .group-actions button {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.6rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .edit-sources-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.2rem 1rem;
+    }
+    .edit-sources-grid label {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.12rem 0;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .edit-sources-grid .new-tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #ffffff;
+      background: var(--danger);
+      padding: 0.05rem 0.35rem;
+      border-radius: 3px;
+      margin-left: 0.3rem;
+    }
+    .modal-foot .es-search {
+      flex: 1;
+      max-width: 320px;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 0.9rem;
+    }
+    .modal-foot .es-counter {
+      font-weight: 600;
+    }
     .dump-btn.total-btn { background: #fb8500; border-color: #000; cursor: default; }
     .dump-btn.total-btn:hover { background: #d97400; }
     /* "Total New" — red like the NEW badge, so the visual link is obvious. */
@@ -5796,6 +5929,9 @@ HTML_TEMPLATE = """<!doctype html>
 __BODY__
 <script>
 const HIGHLIGHTS = __HIGHLIGHTS__;
+// Edit-companies dialog: catalog (menu) + current config (pre-check).
+const CATALOG_FOR_EDIT = __CATALOG_FOR_EDIT__;
+const SOURCES_NAMES = __SOURCES_NAMES__;
 const SERVER_URL = '__SERVER_URL__';
 // Server-side Claude fit cache (claude_fit_cache.json) for jobs currently
 // visible. Hydrated into localStorage on load so badges render on open.
@@ -7654,6 +7790,253 @@ document.getElementById('claude-chat-url-setup')?.addEventListener('click', asyn
   _setClaudeLang(answers.lang);
 });
 
+/* ------------------------------------------------------------------
+   Edit-companies modal (🏢 button).
+
+   Opens a wide modal that mirrors the onboarding wizard's company
+   picker: 6 groups collapsible, "All in group" / "None in group"
+   buttons, pre-checked from the user's current SOURCES, with a NEW
+   tag on companies added since the last time this dialog was opened.
+   Save → POST /write-user-config → reload. The server writes
+   data/user_config.py (+ timestamped backup) and preserves the
+   existing HIGHLIGHTS / TITLE_BLACKLIST / LOCATION_BLACKLIST.
+   ------------------------------------------------------------------ */
+
+const _CATALOG_SEEN_KEY = 'jobs:catalog-seen:v1';
+
+function _getSeenCatalog() {
+  try {
+    const raw = localStorage.getItem(_CATALOG_SEEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) { return new Set(); }
+}
+function _saveSeenCatalog(set) {
+  try { localStorage.setItem(_CATALOG_SEEN_KEY, JSON.stringify([...set])); }
+  catch (e) {}
+}
+
+function _refreshNewCompaniesBadge() {
+  const badge = document.getElementById('new-companies-badge');
+  if (!badge) return;
+  const seen = _getSeenCatalog();
+  // On the very first page load (seen = empty) we don't want to flag
+  // every company as "new" — that defeats the point. We treat the
+  // user's current SOURCES as implicitly seen too.
+  let effectiveSeen = seen;
+  if (seen.size === 0) {
+    effectiveSeen = new Set(SOURCES_NAMES);
+  }
+  const n = CATALOG_FOR_EDIT.filter(e => !effectiveSeen.has(e.name)).length;
+  if (n > 0) {
+    badge.textContent = n;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function openEditCompaniesModal() {
+  // Build the modal lazily on first open.
+  let modal = document.getElementById('edit-sources-modal');
+  const selected = new Set(SOURCES_NAMES);
+  const seen = _getSeenCatalog();
+  const effectiveSeen = seen.size === 0 ? new Set(SOURCES_NAMES) : seen;
+
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'edit-sources-modal';
+    modal.className = 'modal-backdrop wide';
+    modal.innerHTML =
+      '<div class="modal">' +
+      '  <div class="modal-head">' +
+      '    <h3 style="margin:0 0 0.3rem">Edit companies</h3>' +
+      '    <div class="subtitle" style="color:var(--fg-muted); font-size:0.9rem">' +
+      '      Pick which companies to scrape. Changes save to <code>data/user_config.py</code> ' +
+      '      (with a timestamped backup). Click <strong>R</strong> after saving to re-fetch.' +
+      '    </div>' +
+      '  </div>' +
+      '  <div class="modal-body" id="es-body"></div>' +
+      '  <div class="modal-foot">' +
+      '    <input type="text" class="es-search" id="es-search" placeholder="Filter companies…">' +
+      '    <span class="es-counter"><span id="es-count">0</span> selected</span>' +
+      '    <span class="spacer" style="flex:1"></span>' +
+      '    <button type="button" id="es-cancel">Cancel</button>' +
+      '    <button type="button" class="primary" id="es-save" style="background:var(--success); color:#fff; border-color:var(--success-emphasis)">Save</button>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    _buildEditSourcesContent(modal, selected, effectiveSeen);
+  } else {
+    // Re-sync pre-checks + NEW tags each time (user may have refreshed
+    // between opens and the config / catalog could have shifted).
+    modal.querySelector('#es-body').innerHTML = '';
+    _buildEditSourcesContent(modal, selected, effectiveSeen);
+  }
+
+  _esRefreshFooter();
+  modal.classList.add('visible');
+
+  modal.querySelector('#es-cancel').onclick = () => {
+    modal.classList.remove('visible');
+  };
+  modal.querySelector('#es-save').onclick = async () => {
+    await _esSave(modal);
+  };
+  modal.querySelector('#es-search').oninput = (e) => {
+    _esFilter(modal, e.target.value);
+  };
+
+  // Mark the catalog as "seen" now that the user has opened the editor
+  // — the badge resets to 0 until a future catalog addition.
+  const newSeen = new Set(CATALOG_FOR_EDIT.map(e => e.name));
+  _saveSeenCatalog(newSeen);
+  _refreshNewCompaniesBadge();
+}
+
+function _buildEditSourcesContent(modal, selected, effectiveSeen) {
+  const body = modal.querySelector('#es-body');
+  // Group by `group`, sort groups by size DESC (matches onboarding UX).
+  const grouped = new Map();
+  for (const e of CATALOG_FOR_EDIT) {
+    if (!grouped.has(e.group)) grouped.set(e.group, []);
+    grouped.get(e.group).push(e);
+  }
+  const sortedGroups = [...grouped.entries()].sort((a, b) => b[1].length - a[1].length);
+
+  for (const [groupName, entries] of sortedGroups) {
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    const details = document.createElement('details');
+    details.className = 'edit-sources-group';
+    details.dataset.group = groupName;
+    details.open = true;
+
+    const summary = document.createElement('summary');
+    summary.innerHTML =
+      '<span class="group-name"></span>' +
+      '<span class="group-count"><span class="n-on">0</span>/' + entries.length + '</span>';
+    summary.querySelector('.group-name').textContent = groupName;
+    details.appendChild(summary);
+
+    const actions = document.createElement('div');
+    actions.className = 'group-actions';
+    actions.innerHTML =
+      '<button type="button" data-act="all">All in group</button>' +
+      '<button type="button" data-act="none">None in group</button>';
+    details.appendChild(actions);
+
+    const grid = document.createElement('div');
+    grid.className = 'edit-sources-grid';
+    for (const e of entries) {
+      const label = document.createElement('label');
+      label.dataset.name = e.name.toLowerCase();
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'es-cb';
+      cb.dataset.name = e.name;
+      if (selected.has(e.name)) cb.checked = true;
+      cb.addEventListener('change', () => _esRefreshGroup(details));
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + e.name));
+      if (!effectiveSeen.has(e.name)) {
+        const tag = document.createElement('span');
+        tag.className = 'new-tag';
+        tag.textContent = 'NEW';
+        label.appendChild(tag);
+      }
+      grid.appendChild(label);
+    }
+    details.appendChild(grid);
+
+    actions.querySelector('[data-act="all"]').onclick = (ev) => {
+      ev.preventDefault();
+      details.querySelectorAll('.es-cb').forEach(cb => { cb.checked = true; });
+      _esRefreshGroup(details);
+    };
+    actions.querySelector('[data-act="none"]').onclick = (ev) => {
+      ev.preventDefault();
+      details.querySelectorAll('.es-cb').forEach(cb => { cb.checked = false; });
+      _esRefreshGroup(details);
+    };
+
+    body.appendChild(details);
+    _esRefreshGroup(details);
+  }
+}
+
+function _esRefreshGroup(details) {
+  const on = details.querySelectorAll('.es-cb:checked').length;
+  details.querySelector('.n-on').textContent = on;
+  details.querySelector('.group-count').classList.toggle('has-picks', on > 0);
+  _esRefreshFooter();
+}
+
+function _esRefreshFooter() {
+  const modal = document.getElementById('edit-sources-modal');
+  if (!modal) return;
+  const n = modal.querySelectorAll('.es-cb:checked').length;
+  modal.querySelector('#es-count').textContent = n;
+  modal.querySelector('#es-save').disabled = (n === 0);
+}
+
+function _esFilter(modal, q) {
+  q = (q || '').trim().toLowerCase();
+  for (const label of modal.querySelectorAll('.edit-sources-grid label')) {
+    const match = !q || (label.dataset.name || '').includes(q);
+    label.style.display = match ? '' : 'none';
+  }
+  // Auto-expand groups that have at least one visible match while
+  // filtering (fold the empty ones).
+  for (const g of modal.querySelectorAll('.edit-sources-group')) {
+    if (!q) { g.open = true; continue; }
+    const anyVisible = [...g.querySelectorAll('label')].some(l => l.style.display !== 'none');
+    g.open = anyVisible;
+  }
+}
+
+async function _esSave(modal) {
+  const names = [...modal.querySelectorAll('.es-cb:checked')].map(cb => cb.dataset.name);
+  const saveBtn = modal.querySelector('#es-save');
+  const originalText = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+  try {
+    const base = location.protocol === 'file:' ? SERVER_URL : '';
+    const r = await fetch(base + '/write-user-config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({names}),
+    });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const data = await r.json();
+    saveBtn.textContent = '✓ Saved';
+    // Replace the whole modal content with a success screen so the
+    // user knows what happens next.
+    const bodyEl = modal.querySelector('#es-body');
+    bodyEl.innerHTML =
+      '<div style="padding:2rem 1rem; text-align:center">' +
+      '  <h3 style="font-size:1.2rem; margin-bottom:0.6rem">✓ Config saved</h3>' +
+      '  <p>Wrote <code>' + (data.path || 'data/user_config.py') + '</code>' +
+         ' (' + data.n + ' companies).</p>' +
+      (data.backup
+        ? '  <p style="color:var(--fg-muted); font-size:0.9rem">Backup: <code>' + data.backup + '</code></p>'
+        : '') +
+      '  <p style="margin-top:1rem">Click <strong>R</strong> (top right) to re-fetch, or close this dialog ' +
+      '  and refresh later.</p>' +
+      '</div>';
+    modal.querySelector('#es-search').style.display = 'none';
+    saveBtn.style.display = 'none';
+    modal.querySelector('#es-cancel').textContent = 'Close';
+  } catch (e) {
+    saveBtn.textContent = originalText;
+    saveBtn.disabled = false;
+    alert('Save failed: ' + e.message);
+  }
+}
+
+document.getElementById('edit-sources-setup')?.addEventListener('click', openEditCompaniesModal);
+_refreshNewCompaniesBadge();
+
 // Open claude.ai with the prompt pre-filled when it fits in the URL,
 // otherwise copy to clipboard and open a bare tab. If the user has pinned
 // a chat URL (via ⚙), always open that chat (prompt copied — no ?q= on
@@ -8239,6 +8622,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/to-review",
             "/refresh", "/refresh-status",
             "/claude-fit-paste",
+            "/write-user-config",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -8306,6 +8690,54 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "elapsed": int(time.time() - started) if started else 0,
             }).encode()
             self.send_response(200); self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/write-user-config":
+            # Edit-companies modal save: persist the new SOURCES list to
+            # data/user_config.py (with a timestamped backup of the
+            # existing file). HIGHLIGHTS / TITLE_BLACKLIST /
+            # LOCATION_BLACKLIST are preserved from the current config —
+            # the editor only changes companies.
+            names = [str(n) for n in (payload.get("names") or [])]
+            if not names:
+                body = json.dumps({"error": "no company names"}).encode()
+                self.send_response(400); self._cors()
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers(); self.wfile.write(body); return
+            try:
+                import onboarding  # lazy; keeps a plain run cheap
+                data_dir = os.environ.get("JOBS_DATA_DIR", "data")
+                out_path = os.path.join(data_dir, "user_config.py")
+                # Preserve the user's existing filter lists so editing
+                # companies doesn't wipe out blacklists / highlights.
+                hl, tb, lb = HIGHLIGHTS[:], TITLE_BLACKLIST[:], LOCATION_BLACKLIST[:]
+                backup = None
+                if os.path.isfile(out_path):
+                    backup = onboarding._backup_path(out_path)
+                    import shutil
+                    shutil.copy2(out_path, backup)
+                content = onboarding._build_user_config(
+                    set(names),
+                    highlights=hl,
+                    title_blacklist=tb,
+                    location_blacklist=lb,
+                )
+                os.makedirs(data_dir, exist_ok=True)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                sys.stdout.write(f"write-user-config: {len(names)} companies → {out_path}\n")
+                body = json.dumps({
+                    "ok": True, "path": out_path,
+                    "backup": backup, "n": len(names),
+                }).encode()
+                self.send_response(200)
+            except Exception as e:
+                err(f"/write-user-config crashed: {e}")
+                body = json.dumps({"error": str(e)[:300]}).encode()
+                self.send_response(500)
+            self._cors()
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers(); self.wfile.write(body); return
@@ -9107,12 +9539,21 @@ def main():
     # waiting for a user click. Only visible URLs so the payload stays small.
     _fit_cache = _load_claude_fit_cache()
     _fit_subset = {j["url"]: _fit_cache[j["url"]] for j in all_visible if j["url"] in _fit_cache}
+    # Edit-companies modal: the catalog + the user's currently-tracked
+    # names are inlined so the dialog opens instantly, no round-trip.
+    try:
+        from catalog import CATALOG as _CATALOG_FOR_EDIT
+    except Exception:
+        _CATALOG_FOR_EDIT = []
+    _sources_names = sorted({s.get("name") for s in SOURCES if s.get("name")})
     html_output = (
         HTML_TEMPLATE
         .replace("__BODY__", html_body)
         .replace("__SERVER_URL__", server_url)
         .replace("__HIGHLIGHTS__", json.dumps(HIGHLIGHTS))
         .replace("__CLAUDE_FITS__", json.dumps(_fit_subset))
+        .replace("__CATALOG_FOR_EDIT__", json.dumps(_CATALOG_FOR_EDIT))
+        .replace("__SOURCES_NAMES__", json.dumps(_sources_names))
     )
 
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
