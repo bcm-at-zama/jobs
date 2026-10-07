@@ -116,6 +116,31 @@ verify from a dump or a probe output, produce a probe script and stop until
 the user runs it. The only edits allowed without verification are those the
 user has explicitly authorized in the current message.
 
+## Never remove what doesn't work — FIX it
+
+**When something is broken (wrong slug, dead URL, failed scrape, 0-job
+company, missing API endpoint, …): fix the root cause. Do not silently
+delete the entry and declare victory.** This has happened too many
+times:
+
+- Wrong WTJ slug → I removed the catalog entry instead of searching
+  Algolia by name to find the real one.
+- A scraper returned 0 jobs → I dropped the source instead of
+  diagnosing (wait selector, link regex, pagination).
+
+Removal is a last-resort action, taken only when:
+- The company genuinely no longer exists on that platform (verified
+  from multiple angles — Algolia search by name, Google, their own
+  domain), AND
+- The user explicitly approves the removal in the current message.
+
+Default playbook when something is broken:
+1. Produce a probe that pinpoints WHERE it breaks (which call fails,
+   which selector misses, which slug 404s).
+2. Try alternatives (name-based lookup, variant slugs, different API
+   endpoint, longer wait selector, scroll trigger, …).
+3. Report findings + propose the fix. Removal is NOT a fix.
+
 ## Probes are always .py scripts under debug/
 
 Any time I need you to run something from your Mac — fetching a URL,
