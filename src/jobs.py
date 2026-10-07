@@ -591,6 +591,16 @@ def matches(job, queries):
 import config as _cfg
 RUNAWAY_TIMEOUT_S = 60
 
+# collect() skips the list_cache write when a fresh fetch returned fewer
+# than CACHE_MIN_JOBS. Rationale: a partial / failed fetch (Playwright
+# flake, incomplete scroll, 403) would otherwise sit in cache for the
+# full LIST_CACHE_TTL_HOURS (default 6 h), silently zeroing out that
+# source until the TTL expired. See the Zama post-mortem in
+# tests/test_collect_cache_queries.py::TestCollectRefusesToCacheEmpty.
+# 5 is low enough that small-but-real boards (e.g. Zama's 3 jobs) retry
+# cheaply, high enough that a half-scrolled 50-job board doesn't poison.
+CACHE_MIN_JOBS = 5
+
 # Flipped on by --interactive-runaway (passed in by /refresh). Module-global
 # so fetchers running in the thread pool don't need the flag threaded
 # through their signatures.
@@ -3695,11 +3705,28 @@ def collect(source):
         "raw_fetched": len(raw_jobs),
     }
     if source_kind == "fresh":
-        _save_list_cache(source, {
-            "jobs": raw_jobs,
-            "spontaneous_url": result.get("spontaneous_url"),
-            "total_board": result.get("total_board"),
-        })
+        # Don't cache a tiny result — a transient Playwright flake / 403
+        # / incomplete scroll was silently poisoning the cache for the
+        # full 6 h TTL. First spotted on Zama (dump had 3 links but
+        # list_cache/zama.json was []). The threshold also catches the
+        # partial-fetch mode where a scrolled board stopped at 3 jobs
+        # instead of 50.
+        # API sources (greenhouse/ashby) are ~500 ms so re-fetching a
+        # small board every run is free; pw sources that LEGITIMATELY
+        # have 1-4 jobs re-fetch at ~3-5 s, also acceptable. The cost
+        # of a wrong cache (6 h of 0 or near-0 jobs) massively outweighs
+        # the cost of a few seconds of re-fetch.
+        if len(raw_jobs) >= CACHE_MIN_JOBS:
+            _save_list_cache(source, {
+                "jobs": raw_jobs,
+                "spontaneous_url": result.get("spontaneous_url"),
+                "total_board": result.get("total_board"),
+            })
+        else:
+            timing(
+                f"[{source['name']:22}] fetched {len(raw_jobs)} jobs "
+                f"(< {CACHE_MIN_JOBS}) — NOT caching, will retry next run"
+            )
     return final
 
 

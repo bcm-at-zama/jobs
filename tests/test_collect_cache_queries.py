@@ -89,5 +89,79 @@ class TestCollectReappliesQueries(unittest.TestCase):
             self.assertEqual(len(result["jobs"]), 5)
 
 
+class TestCollectRefusesToCacheEmpty(unittest.TestCase):
+    """REGRESSION — a transient Playwright flake used to cache [] for 6 h,
+    silently zero-ing out any affected source until the TTL expired
+    (first spotted on Zama: raw HTML had 3 real jobs, cache said 0).
+    `collect()` now skips the cache write when `len(raw_jobs) <
+    CACHE_MIN_JOBS` (default 5) — covers both the empty-cache and the
+    half-scrolled-partial-cache failure modes."""
+
+    def _fake_fetcher(self, jobs_list):
+        """Build a FETCHERS-style fetcher that returns a canned result."""
+        return lambda src: {
+            "jobs": list(jobs_list),
+            "spontaneous_url": None,
+            "total_board": None,
+        }
+
+    def _run_collect(self, tmp, jobs_list):
+        source = {
+            "name": "FlakeyCorp", "kind": "greenhouse", "slug": "flakeycorp",
+            "queries": [],
+        }
+        cache_dir = os.path.join(tmp, "list_cache")
+        with mock.patch.object(jobs, "LIST_CACHE_DIR", cache_dir), \
+             mock.patch.dict(jobs.FETCHERS,
+                             {"greenhouse": self._fake_fetcher(jobs_list)}):
+            jobs.collect(source)
+        return os.path.join(cache_dir, "flakeycorp.json")
+
+    @staticmethod
+    def _canned_jobs(n):
+        return [
+            {"title": f"Engineer {i}", "locations": ["Paris"],
+             "url": f"https://x.com/{i}", "description": "",
+             "blob": f"Engineer {i}"}
+            for i in range(n)
+        ]
+
+    def test_empty_fetch_is_not_cached(self):
+        """Fetcher returned 0 jobs → no cache file on disk → next run
+        re-fetches instead of serving the stale zero."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = self._run_collect(tmp, [])
+            self.assertFalse(
+                os.path.isfile(cache_path),
+                f"empty fetch should NOT create {cache_path}",
+            )
+
+    def test_below_threshold_fetch_is_not_cached(self):
+        """Partial-fetch mode: scroll loaded 3 of 50 — don't cache that
+        either, next run retries. 3 < CACHE_MIN_JOBS (5) → no cache."""
+        with mock.patch.object(jobs, "CACHE_MIN_JOBS", 5), \
+             tempfile.TemporaryDirectory() as tmp:
+            cache_path = self._run_collect(tmp, self._canned_jobs(3))
+            self.assertFalse(
+                os.path.isfile(cache_path),
+                "partial fetch (3 jobs < threshold 5) should NOT cache",
+            )
+
+    def test_at_threshold_fetch_is_cached(self):
+        """Boundary: exactly CACHE_MIN_JOBS → cached."""
+        with mock.patch.object(jobs, "CACHE_MIN_JOBS", 5), \
+             tempfile.TemporaryDirectory() as tmp:
+            cache_path = self._run_collect(tmp, self._canned_jobs(5))
+            self.assertTrue(os.path.isfile(cache_path))
+            with open(cache_path) as f:
+                self.assertEqual(len(json.load(f)["jobs"]), 5)
+
+    def test_above_threshold_fetch_is_cached(self):
+        """Sanity check — healthy fetch (10 jobs) gets cached."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = self._run_collect(tmp, self._canned_jobs(10))
+            self.assertTrue(os.path.isfile(cache_path))
+
+
 if __name__ == "__main__":
     unittest.main()
