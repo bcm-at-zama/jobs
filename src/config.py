@@ -651,11 +651,14 @@ GROUP_ORDER = [
     "Blockchain",
     "Cars",
     "Media",
+    "Welcome to the Jungle",
     "Other",
     "Music Companies",
 ]
 # name → group. Missing entries fall back to "Other".
 GROUP_OF = {
+    # Welcome to the Jungle (via WTJ API)
+    "Elaia": "Welcome to the Jungle",
     # Major AI Companies — well-funded frontier labs and category leaders
     "OpenAI": "Major AI Companies",
     "Anthropic": "Major AI Companies",

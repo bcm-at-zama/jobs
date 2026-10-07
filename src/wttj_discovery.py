@@ -167,6 +167,112 @@ def fetch_candidates(sector_facets: list = None, max_pages: int = 50) -> list:
     return out
 
 
+# =============================================================================
+# Per-company jobs via the WTJ public JSON API.
+# Reverse-engineered 2026-10-07 via debug/probe_wttj_company_api.py.
+# =============================================================================
+
+_WTTJ_API = "https://api.welcometothejungle.com"
+_WTTJ_API_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+        "Version/17.4 Safari/605.1.15"
+    ),
+    "Accept": "application/json, */*;q=0.5",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.5",
+    "Origin": "https://www.welcometothejungle.com",
+    "Referer": "https://www.welcometothejungle.com/",
+}
+
+
+def fetch_wttj_company_detail(slug: str) -> dict:
+    """GET /api/v1/organizations/<slug>. Returns a flat dict with the
+    external website URL + metadata. Raises on HTTP failure so
+    callers can decide to skip."""
+    url = f"{_WTTJ_API}/api/v1/organizations/{slug}"
+    req = urllib.request.Request(url, headers=_WTTJ_API_HEADERS)
+    with urllib.request.urlopen(req, timeout=15) as r:
+        payload = json.loads(r.read().decode())
+    org = payload.get("organization") or {}
+    return {
+        "slug": org.get("slug") or slug,
+        "name": org.get("name") or "",
+        # The external website — WTJ confusingly calls this
+        # media_website_url. For Zama this is "https://zama.ai".
+        "website_url": org.get("media_website_url") or "",
+        "sectors": [
+            s.get("name") for s in (org.get("sectors") or []) if s.get("name")
+        ],
+        "offices": [
+            {"city": o.get("city") or "", "country_code": o.get("country_code") or ""}
+            for o in (org.get("offices") or [])
+        ],
+        "nb_employees": org.get("nb_employees"),
+    }
+
+
+def fetch_wttj_jobs(slug: str, per_page: int = 100, lang: str = "fr") -> list:
+    """GET /api/v3/organizations/<slug>/jobs. Returns a list of job
+    dicts in the shape jobs.py's pipeline consumes:
+      {"title": …, "locations": [...], "url": …, "description": "",
+       "blob": …}
+    `lang` ("fr" or "en") only affects the public jobs URL we construct —
+    the API itself returns the same data either way."""
+    out = []
+    page = 1
+    while True:
+        url = (
+            f"{_WTTJ_API}/api/v3/organizations/{slug}/jobs"
+            f"?page={page}&per_page={per_page}"
+        )
+        req = urllib.request.Request(url, headers=_WTTJ_API_HEADERS)
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                data = json.loads(r.read().decode())
+        except Exception as e:
+            sys.stdout.write(f"[wttj_jobs] {slug!r} page={page} failed: {e}\n")
+            break
+        hits = data.get("data") or []
+        for j in hits:
+            job_slug = j.get("slug") or ""
+            if not job_slug:
+                continue
+            # offices[] is the authoritative location list; office{} is
+            # just the first one. Keep every office as a "City, CC" entry
+            # so our location blacklist + display behave uniformly.
+            locations = []
+            for o in j.get("offices") or []:
+                city = (o.get("city") or "").strip()
+                cc = (o.get("country_code") or "").strip()
+                if city and cc:
+                    locations.append(f"{city}, {cc}")
+                elif city:
+                    locations.append(city)
+            title = (j.get("name") or "").strip()
+            summary = j.get("company_summary") or ""
+            out.append({
+                "title": title,
+                "locations": locations,
+                "url": f"https://www.welcometothejungle.com/{lang}/companies/{slug}/jobs/{job_slug}",
+                "description": "",
+                "blob": " ".join(filter(None, [title, summary])),
+                # Carry WTJ-specific extras for the UI to display if it wants.
+                "contract_type": j.get("contract_type") or "",
+                "remote": j.get("remote") or "",
+                "salary_min": j.get("salary_min"),
+                "salary_max": j.get("salary_max"),
+                "salary_currency": j.get("salary_currency") or "",
+                "experience_min": j.get("experience_min"),
+            })
+        meta = data.get("metadata") or {}
+        total_pages = meta.get("page_count") or 1
+        if page >= total_pages:
+            break
+        page += 1
+    return out
+
+
 def cache_candidates(path: str, data: list) -> None:
     """Write to data/wttj_discovered.json atomically so a mid-write
     crash never leaves a half-file that fails to parse at read time."""

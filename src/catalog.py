@@ -361,6 +361,14 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Reddit', 'kind': 'greenhouse', 'slug': 'reddit', 'group': 'Other'},
  {'name': 'Snowflake', 'kind': 'ashby', 'slug': 'snowflake', 'group': 'Other'},
  {'name': 'Vercel', 'kind': 'greenhouse', 'slug': 'vercel', 'group': 'Other'},
+ # --- Welcome to the Jungle (via api.welcometothejungle.com/api/v3) -----
+ # Companies whose jobs are advertised on WTJ. slug is the WTJ
+ # organization slug (seen in /fr/companies/<slug>). More can be added
+ # via the "📡 Discovered on WTJ" section of the Edit-companies modal.
+ # Elaia is seeded as the proof-of-concept — 4 jobs verified 2026-10-07.
+ {'name': 'Elaia', 'kind': 'wttj_company', 'slug': 'elaia-partners',
+  'board': 'https://www.welcometothejungle.com/fr/companies/elaia-partners',
+  'group': 'Welcome to the Jungle'},
  {'name': '1Password', 'kind': 'ashby', 'slug': '1password', 'group': 'Security Companies'},
  {'name': 'Aisle',
   'kind': 'ashby',

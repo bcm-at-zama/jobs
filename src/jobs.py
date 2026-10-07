@@ -2757,6 +2757,28 @@ _QUERY_REQUIRED_KINDS = frozenset({
 })
 
 
+def fetch_wttj_company(source):
+    """Fetch all WTJ-advertised jobs for one company via the public
+    WTJ API (api.welcometothejungle.com/api/v3/organizations/<slug>/jobs).
+    No Playwright, no CloudFront challenge — just a JSON GET.
+
+    `source["slug"]` is the WTJ organization slug (e.g. "zama"). The
+    optional `queries` list filters titles client-side after fetch."""
+    slug = source.get("slug")
+    if not slug:
+        err(f"[{source.get('name') or '?'}] wttj_company source has no slug")
+        return {"jobs": [], "spontaneous_url": None}
+    try:
+        import wttj_discovery
+        jobs = wttj_discovery.fetch_wttj_jobs(slug)
+    except Exception as e:
+        err(f"[{source.get('name') or slug}] wttj API fetch failed: {e}")
+        return {"jobs": [], "spontaneous_url": None}
+    sys.stdout.write(f"[{source['name']}] wttj API returned {len(jobs)} jobs\n")
+    filtered = [j for j in jobs if matches(j, source.get("queries") or [])]
+    return {"jobs": filtered, "spontaneous_url": None}
+
+
 FETCHERS = {
     "ashby": fetch_ashby,
     "greenhouse": fetch_greenhouse,
@@ -2779,6 +2801,7 @@ FETCHERS = {
     "ableton": fetch_ableton,
     "lucca": fetch_lucca,
     "pw": fetch_pw_generic,
+    "wttj_company": fetch_wttj_company,
     "bamboohr": fetch_bamboohr,
     "pinpoint": fetch_pinpoint,
     "umantis": fetch_umantis,
