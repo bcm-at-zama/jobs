@@ -634,11 +634,15 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Contentsquare', 'kind': 'lever', 'slug': 'contentsquare',
   'board': 'https://contentsquare.com/careers/',
   'group': 'Welcome to the Jungle'},
- # Ashby slug 'getaround' is NOT their board (API 404); the earlier
- # probe false-positived on an embedded link. Back to the WTJ page
- # until we locate the real ATS. 0 jobs this week.
- {'name': 'Getaround', 'kind': 'wttj_company', 'slug': 'getaround',
-  'board': 'https://www.welcometothejungle.com/fr/companies/getaround',
+ # Getaround uses Polymer (jobs.polymer.co/getaround-<uuid>/...), not
+ # a supported ATS — scrape their careers page via kind=pw and pick
+ # up the polymer.co job URLs from the rendered HTML.
+ {'name': 'Getaround', 'kind': 'pw', 'slug': 'getaround',
+  'board': 'https://fr.getaround.com/careers',
+  'search_url': 'https://fr.getaround.com/careers',
+  'link_re': r'href="(https?://jobs\.polymer\.co/getaround[^"#?]+)"',
+  'origin': 'https://jobs.polymer.co',
+  'wait_selector': "a[href*='polymer.co']",
   'group': 'Welcome to the Jungle'},
  {'name': 'Pigment', 'kind': 'wttj_company', 'slug': 'pigment',
   'board': 'https://www.welcometothejungle.com/fr/companies/pigment',
@@ -647,11 +651,16 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'board': 'https://www.welcometothejungle.com/fr/companies/360learning',
   'group': 'Welcome to the Jungle'},
  # Slugs below currently 0-job — real slugs TBD (probe_wttj_slug_find.py).
- # Ashby API 404 for 'openclassrooms' — the probe false-positived.
- # Their jobs page lives at jobs.openclassrooms.com (teamtailor-
- # powered custom domain) — follow-up: add kind=pw with that URL.
- {'name': 'OpenClassrooms', 'kind': 'wttj_company', 'slug': 'openclassroom',
-  'board': 'https://www.welcometothejungle.com/fr/companies/openclassroom',
+ # OpenClassrooms uses Teamtailor on a custom domain
+ # (jobs.openclassrooms.com). The generic kind=teamtailor fetcher
+ # expects careers.<slug>.com; here we go via kind=pw since the
+ # custom domain doesn't match that pattern.
+ {'name': 'OpenClassrooms', 'kind': 'pw', 'slug': 'openclassrooms',
+  'board': 'https://jobs.openclassrooms.com/fr/jobs',
+  'search_url': 'https://jobs.openclassrooms.com/fr/jobs',
+  'link_re': r'href="(/fr/jobs/[0-9]+-[^"#?]+)"',
+  'origin': 'https://jobs.openclassrooms.com',
+  'wait_selector': "a[href*='/fr/jobs/']",
   'group': 'Welcome to the Jungle'},
  # Vestiaire Collective isn't on WTJ — hosted on Lever.
  {'name': 'Vestiaire Collective', 'kind': 'lever', 'slug': 'vestiairecollective',
@@ -670,11 +679,14 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Lifen', 'kind': 'wttj_company', 'slug': 'lifen',
   'board': 'https://www.welcometothejungle.com/fr/companies/lifen',
   'group': 'Welcome to the Jungle'},
- # Ashby API 404 for 'lydia' — probe false-positive. Lydia rebranded
- # to Sumeria in late 2024; their jobs may now live on a Sumeria
- # domain or Lydia Group HQ. Back to WTJ slug 'lydia-2' meanwhile.
- {'name': 'Lydia', 'kind': 'wttj_company', 'slug': 'lydia-2',
-  'board': 'https://www.welcometothejungle.com/fr/companies/lydia-2',
+ # Lydia (now Sumeria) uses Teamtailor on a custom domain
+ # (jobs.lydia-app.com). Scrape via kind=pw.
+ {'name': 'Lydia', 'kind': 'pw', 'slug': 'lydia',
+  'board': 'https://jobs.lydia-app.com/jobs',
+  'search_url': 'https://jobs.lydia-app.com/jobs',
+  'link_re': r'href="(/jobs/[0-9]+-[^"#?]+)"',
+  'origin': 'https://jobs.lydia-app.com',
+  'wait_selector': "a[href*='/jobs/']",
   'group': 'Welcome to the Jungle'},
  {'name': 'Fhenix',
   'kind': 'pw',
