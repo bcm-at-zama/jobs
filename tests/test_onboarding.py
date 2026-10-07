@@ -6,6 +6,7 @@ Run:  python3 -m unittest tests.test_onboarding
 import importlib.util
 import json
 import os
+import re
 import tempfile
 import threading
 import time
@@ -83,6 +84,58 @@ class TestBuildUserConfig(unittest.TestCase):
         content = onboarding._build_user_config({"Anthropic"})
         self.assertNotIn("'group'", content)
         self.assertNotIn('"group"', content)
+
+
+class TestOnboardingHidesVPCTO(unittest.TestCase):
+    """VP and CTO stay in user_config.py (deliberate per-company queries)
+    but must NOT appear in the wizard's preset chip row or as pre-selected
+    'initial' chips — the user doesn't want them cluttering onboarding."""
+
+    def _make_user_config(self, path, queries):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(
+                "SOURCES = [\n"
+                f"    {{'name': 'Anthropic', 'kind': 'greenhouse', 'slug': 'anthropic', 'queries': {queries!r}}},\n"
+                "]\n"
+                "HIGHLIGHTS = []\n"
+                "TITLE_BLACKLIST = []\n"
+                "LOCATION_BLACKLIST = []\n"
+            )
+
+    def test_hidden_terms_excluded_from_wizard(self):
+        with tempfile.TemporaryDirectory() as d:
+            uc_path = os.path.join(d, "user_config.py")
+            self._make_user_config(uc_path, ["security", "VP", "CTO", "cryptography"])
+            html = onboarding._load_html(d, uc_path).decode("utf-8")
+            # Extract just the inlined PRESETS JSON blob — this is what
+            # drives the chip row and pre-selected chips. We must NOT
+            # inspect queries_per_company (also inlined), because that
+            # legitimately keeps VP/CTO so they get written back to
+            # user_config.py on save.
+            m = re.search(r"const PRESETS\s*=\s*(\{.*?\});", html, re.DOTALL)
+            self.assertIsNotNone(m, "PRESETS blob not inlined into HTML")
+            presets = json.loads(m.group(1))
+            lowered_presets = [t.lower() for t in presets["query_presets"]]
+            lowered_initial = [t.lower() for t in presets["query_initial"]]
+            self.assertNotIn("vp", lowered_presets)
+            self.assertNotIn("cto", lowered_presets)
+            self.assertNotIn("vp", lowered_initial)
+            self.assertNotIn("cto", lowered_initial)
+            # Sanity: a kept term still appears.
+            self.assertIn("security", lowered_presets)
+
+    def test_user_config_file_untouched(self):
+        """The wizard must not rewrite user_config.py just by rendering."""
+        with tempfile.TemporaryDirectory() as d:
+            uc_path = os.path.join(d, "user_config.py")
+            self._make_user_config(uc_path, ["security", "VP", "CTO"])
+            with open(uc_path, encoding="utf-8") as f:
+                before = f.read()
+            onboarding._load_html(d, uc_path)
+            with open(uc_path, encoding="utf-8") as f:
+                after = f.read()
+            self.assertEqual(before, after,
+                             "rendering the wizard page must not modify user_config.py")
 
 
 class TestPickFreePort(unittest.TestCase):

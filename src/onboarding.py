@@ -63,6 +63,13 @@ QUERY_PRESETS = [
     "Senior", "Staff", "Principal",
 ]
 
+# Query terms the wizard must NEVER surface — neither as preset chips
+# nor as pre-selected ("initial") chips — even if they're present in the
+# user's existing user_config.py. The user keeps VP/CTO as per-company
+# queries deliberately, but doesn't want them cluttering the onboarding
+# chip rows. Compared case-insensitively.
+ONBOARDING_HIDDEN_QUERY_TERMS = frozenset({"vp", "cto"})
+
 # Grouped by continent so the wizard can show a <details> per group.
 # Includes a "Regions" group at the top for the common multi-country
 # aggregates (APAC, EMEA, LATAM, …). All UN member states are listed so
@@ -383,9 +390,13 @@ def _load_html(data_dir: str, out_path: str) -> bytes:
     # patterns as first-class chips. Dedupe case-insensitively, order:
     # user terms first (they're more relevant), then presets.
     user_terms = _dedupe_preserve_order(
-        [q for qs in prev_queries.values() for q in qs if q]
+        [q for qs in prev_queries.values() for q in qs
+         if q and q.strip().lower() not in ONBOARDING_HIDDEN_QUERY_TERMS]
     )
-    merged_query_presets = _dedupe_preserve_order(user_terms + QUERY_PRESETS)
+    merged_query_presets = _dedupe_preserve_order([
+        q for q in (user_terms + QUERY_PRESETS)
+        if q.strip().lower() not in ONBOARDING_HIDDEN_QUERY_TERMS
+    ])
     presets_json = json.dumps({
         "highlights": HIGHLIGHT_PRESETS,
         "location_groups": LOCATION_BLACKLIST_GROUPS,
