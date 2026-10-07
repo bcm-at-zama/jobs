@@ -603,9 +603,6 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  # are the ones used in https://www.welcometothejungle.com/fr/companies/<slug>.
  # Some may 404 (WTJ moved them / renamed them); those return 0 jobs
  # and should be removed from this list when spotted.
- {'name': 'Aircall', 'kind': 'wttj_company', 'slug': 'aircall',
-  'board': 'https://www.welcometothejungle.com/fr/companies/aircall',
-  'group': 'Welcome to the Jungle'},
  {'name': 'Back Market', 'kind': 'wttj_company', 'slug': 'back-market',
   'board': 'https://www.welcometothejungle.com/fr/companies/back-market',
   'group': 'Welcome to the Jungle'},

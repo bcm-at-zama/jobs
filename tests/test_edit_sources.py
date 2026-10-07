@@ -275,6 +275,125 @@ class TestUpdateQueriesEndpoint(unittest.TestCase):
         self.assertEqual(by_name["Anthropic"]["queries"], ["freshly-added"])
 
 
+class TestUnfollowEndpoint(unittest.TestCase):
+    """`/unfollow` drops a single company from SOURCES in
+    data/user_config.py. The remaining companies' per-source queries,
+    plus HIGHLIGHTS / TITLE_BLACKLIST / LOCATION_BLACKLIST, must survive
+    unchanged. The in-memory SOURCES list must also drop the entry so
+    the running process doesn't re-fetch the unfollowed company on the
+    next Refresh."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.data = self.tmp.name
+        existing = os.path.join(self.data, "user_config.py")
+        with open(existing, "w") as f:
+            f.write(
+                "HIGHLIGHTS = ['AI']\n"
+                "TITLE_BLACKLIST = ['Intern']\n"
+                "LOCATION_BLACKLIST = ['Dubai']\n"
+                "SOURCES = [\n"
+                "  {'name': 'Anthropic', 'kind': 'greenhouse', "
+                "'slug': 'anthropic', 'queries': ['security']},\n"
+                "  {'name': 'OpenAI', 'kind': 'ashby', "
+                "'slug': 'openai', 'queries': ['keep', 'me']},\n"
+                "]\n"
+            )
+        self.existing_path = existing
+        self._patches = [
+            mock.patch.dict(os.environ, {"JOBS_DATA_DIR": self.data}),
+            mock.patch.object(jobs, "HIGHLIGHTS", ["AI"]),
+            mock.patch.object(jobs, "TITLE_BLACKLIST", ["Intern"]),
+            mock.patch.object(jobs, "LOCATION_BLACKLIST", ["Dubai"]),
+            mock.patch.object(jobs, "SOURCES", [
+                {"name": "Anthropic", "kind": "greenhouse", "slug": "anthropic",
+                 "queries": ["security"]},
+                {"name": "OpenAI", "kind": "ashby", "slug": "openai",
+                 "queries": ["keep", "me"]},
+            ]),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in reversed(self._patches):
+            p.stop()
+        self.tmp.cleanup()
+
+    def _invoke(self, body_dict):
+        body = json.dumps(body_dict).encode()
+
+        class _Shim(jobs.Handler):
+            def __init__(self):
+                self.rfile = BytesIO(body)
+                self.wfile = BytesIO()
+                self.headers = {"Content-Length": str(len(body))}
+                self.path = "/unfollow"
+                self.command = "POST"
+                self._status = None
+
+            def send_response(self, code, msg=None):
+                self._status = code
+
+            def send_header(self, k, v): pass
+            def end_headers(self): pass
+            def log_message(self, *a, **kw): pass
+
+        shim = _Shim()
+        shim.do_POST()
+        return shim._status, shim.wfile.getvalue()
+
+    def _reload(self):
+        spec = importlib.util.spec_from_file_location("_uc", self.existing_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return {s["name"]: s for s in mod.SOURCES}, mod
+
+    def test_removes_single_source(self):
+        status, body = self._invoke({"name": "Anthropic"})
+        self.assertEqual(status, 200, body)
+        resp = json.loads(body)
+        self.assertTrue(resp["ok"])
+        self.assertEqual(resp["name"], "Anthropic")
+        self.assertTrue(resp["backup"], "backup path must be returned")
+        self.assertTrue(os.path.isfile(resp["backup"]))
+
+        by_name, mod = self._reload()
+        self.assertNotIn("Anthropic", by_name)
+        self.assertIn("OpenAI", by_name)
+        # Other source's queries + filter lists preserved.
+        self.assertEqual(by_name["OpenAI"]["queries"], ["keep", "me"])
+        self.assertEqual(mod.HIGHLIGHTS, ["AI"])
+        self.assertEqual(mod.TITLE_BLACKLIST, ["Intern"])
+        self.assertEqual(mod.LOCATION_BLACKLIST, ["Dubai"])
+
+    def test_in_memory_sources_drops_entry(self):
+        """REGRESSION guard — if the running server's SOURCES still
+        contains the unfollowed company, clicking Refresh immediately
+        would re-fetch its board. We mutate in-memory to avoid that."""
+        self._invoke({"name": "Anthropic"})
+        names = {s["name"] for s in jobs.SOURCES}
+        self.assertNotIn("Anthropic", names)
+        self.assertIn("OpenAI", names)
+
+    def test_rejects_unknown_source(self):
+        status, _ = self._invoke({"name": "NotRealCo"})
+        self.assertEqual(status, 400)
+
+    def test_rejects_missing_name(self):
+        status, _ = self._invoke({})
+        self.assertEqual(status, 400)
+        status, _ = self._invoke({"name": "   "})
+        self.assertEqual(status, 400)
+
+    def test_backup_contains_original(self):
+        status, body = self._invoke({"name": "Anthropic"})
+        self.assertEqual(status, 200)
+        resp = json.loads(body)
+        with open(resp["backup"]) as f:
+            self.assertIn("Anthropic", f.read())
+
+
 class TestNewCompaniesBadgeFallback(unittest.TestCase):
     """REGRESSION — the "new companies" red badge used to seed its
     first-load `effectiveSeen` from the user's current SOURCES only.
