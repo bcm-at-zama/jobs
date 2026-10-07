@@ -116,6 +116,29 @@ verify from a dump or a probe output, produce a probe script and stop until
 the user runs it. The only edits allowed without verification are those the
 user has explicitly authorized in the current message.
 
+## Commands must be ONE line
+
+Any command I give the user to run must fit on **a single line** with
+no backslash continuations and no embedded newlines. Multi-line shell
+commands are mis-copied in half of pastes (the user ends up running
+only the first line and getting a confusing error).
+
+Bad:
+```
+python3 debug/probe.py \\
+    https://a.com \\
+    https://b.com
+```
+
+Good:
+```
+python3 debug/probe.py https://a.com https://b.com
+```
+
+If a command would be too long for one line, wrap it in a `.py` under
+`debug/` instead (per the probe rule above) and give the user a
+one-liner that runs the script.
+
 ## Don't be lazy — automate before asking
 
 **When I'm about to ask the user to look something up by hand ("please

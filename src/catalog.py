@@ -634,9 +634,11 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Contentsquare', 'kind': 'lever', 'slug': 'contentsquare',
   'board': 'https://contentsquare.com/careers/',
   'group': 'Welcome to the Jungle'},
- # Getaround isn't on WTJ — hosted on Ashby.
- {'name': 'Getaround', 'kind': 'ashby', 'slug': 'getaround',
-  'board': 'https://jobs.ashbyhq.com/getaround',
+ # Ashby slug 'getaround' is NOT their board (API 404); the earlier
+ # probe false-positived on an embedded link. Back to the WTJ page
+ # until we locate the real ATS. 0 jobs this week.
+ {'name': 'Getaround', 'kind': 'wttj_company', 'slug': 'getaround',
+  'board': 'https://www.welcometothejungle.com/fr/companies/getaround',
   'group': 'Welcome to the Jungle'},
  {'name': 'Pigment', 'kind': 'wttj_company', 'slug': 'pigment',
   'board': 'https://www.welcometothejungle.com/fr/companies/pigment',
@@ -645,10 +647,11 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'board': 'https://www.welcometothejungle.com/fr/companies/360learning',
   'group': 'Welcome to the Jungle'},
  # Slugs below currently 0-job — real slugs TBD (probe_wttj_slug_find.py).
- # OpenClassrooms is on Ashby (jobs.ashbyhq.com/openclassrooms) — much
- # richer than the sparse WTJ page.
- {'name': 'OpenClassrooms', 'kind': 'ashby', 'slug': 'openclassrooms',
-  'board': 'https://jobs.ashbyhq.com/openclassrooms',
+ # Ashby API 404 for 'openclassrooms' — the probe false-positived.
+ # Their jobs page lives at jobs.openclassrooms.com (teamtailor-
+ # powered custom domain) — follow-up: add kind=pw with that URL.
+ {'name': 'OpenClassrooms', 'kind': 'wttj_company', 'slug': 'openclassroom',
+  'board': 'https://www.welcometothejungle.com/fr/companies/openclassroom',
   'group': 'Welcome to the Jungle'},
  # Vestiaire Collective isn't on WTJ — hosted on Lever.
  {'name': 'Vestiaire Collective', 'kind': 'lever', 'slug': 'vestiairecollective',
@@ -667,9 +670,11 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Lifen', 'kind': 'wttj_company', 'slug': 'lifen',
   'board': 'https://www.welcometothejungle.com/fr/companies/lifen',
   'group': 'Welcome to the Jungle'},
- # Lydia is on Ashby (jobs.ashbyhq.com/lydia).
- {'name': 'Lydia', 'kind': 'ashby', 'slug': 'lydia',
-  'board': 'https://jobs.ashbyhq.com/lydia',
+ # Ashby API 404 for 'lydia' — probe false-positive. Lydia rebranded
+ # to Sumeria in late 2024; their jobs may now live on a Sumeria
+ # domain or Lydia Group HQ. Back to WTJ slug 'lydia-2' meanwhile.
+ {'name': 'Lydia', 'kind': 'wttj_company', 'slug': 'lydia-2',
+  'board': 'https://www.welcometothejungle.com/fr/companies/lydia-2',
   'group': 'Welcome to the Jungle'},
  {'name': 'Fhenix',
   'kind': 'pw',
