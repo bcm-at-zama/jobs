@@ -469,10 +469,12 @@ class TestResolveQueries(unittest.TestCase):
         self.assertEqual(out["Anthropic"], ["security", "CTO"])
         self.assertEqual(out["OpenAI"], ["security", "CTO"])
 
-    def test_previous_preserved_including_empty(self):
-        """Returning user: previously-set queries are preserved — this
-        includes an explicit `[]` ("show every posting") which the user
-        asked us to respect."""
+    def test_previous_empty_preserved_nonempty_overridden(self):
+        """Returning user: previously-empty `[]` is preserved (respect
+        the "show every posting" choice). Previously-NON-empty queries
+        are NOT auto-preserved — whatever's in global wins. The UI
+        pre-populates global from the union of existing non-empty
+        queries so returning users still see their patterns."""
         prev = {"Anthropic": ["crypto"], "Suno": []}
         out = onboarding._resolve_queries(
             {"Anthropic", "Suno", "OpenAI"},
@@ -481,9 +483,9 @@ class TestResolveQueries(unittest.TestCase):
             queries_per_company={},
             previous=prev,
         )
-        self.assertEqual(out["Anthropic"], ["crypto"])  # preserved non-empty
-        self.assertEqual(out["Suno"], [])               # preserved empty (the ask)
-        self.assertEqual(out["OpenAI"], ["security", "CTO"])  # new pick → global
+        self.assertEqual(out["Anthropic"], ["security", "CTO"])  # global wins
+        self.assertEqual(out["Suno"], [])                        # preserved []
+        self.assertEqual(out["OpenAI"], ["security", "CTO"])     # new → global
 
     def test_group_override_beats_previous_and_global(self):
         g = self._group_of("Anthropic")
@@ -492,7 +494,7 @@ class TestResolveQueries(unittest.TestCase):
             queries_global=["global-only"],
             queries_per_group={g: ["group-override"]},
             queries_per_company={},
-            previous={"Anthropic": ["was-previous"]},
+            previous={"Anthropic": []},  # even "respect []" is beaten by group
         )
         self.assertEqual(out["Anthropic"], ["group-override"])
 
@@ -601,9 +603,12 @@ class TestOnboardingWritesQueries(unittest.TestCase):
             finally:
                 self._stop(server)
 
-    def test_previous_queries_preserved_on_resave(self):
-        """Returning user re-runs onboarding — prior per-company queries
-        (including empty) survive unless explicitly overridden."""
+    def test_previous_empty_preserved_on_resave(self):
+        """Returning user re-runs onboarding. Previously-empty queries
+        (`queries=[]` for Music Tech etc.) stay empty — the "respect []"
+        rule. Previously-non-empty queries are overridden by the current
+        global, since the UI pre-populates global from the user's union
+        so there's no surprise."""
         with tempfile.TemporaryDirectory() as tmp:
             existing = os.path.join(tmp, "user_config.py")
             with open(existing, "w") as f:
@@ -620,7 +625,7 @@ class TestOnboardingWritesQueries(unittest.TestCase):
                     "queries_global": ["security"],
                 })
                 by_name = self._load(existing)
-                self.assertEqual(by_name["Anthropic"]["queries"], ["crypto"])
+                self.assertEqual(by_name["Anthropic"]["queries"], ["security"])
                 self.assertEqual(by_name["Suno"]["queries"], [])
                 self.assertEqual(by_name["OpenAI"]["queries"], ["security"])
             finally:

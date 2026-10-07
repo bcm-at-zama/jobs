@@ -407,6 +407,72 @@
       font-size: 1.1rem;
       padding: 0 0.3rem;
     }
+    /* Step 2 — generic level (global/group/company) */
+    .qf-level {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.7rem 0.9rem;
+      margin: 0.6rem 0;
+      background: var(--bg);
+    }
+    .qf-level-head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .qf-level-head .spacer { flex: 1; }
+    .qf-level-head .meta {
+      font-weight: 500;
+      color: var(--fg-muted);
+      font-size: 0.85rem;
+    }
+    .qf-add-btn, .qf-clear-btn, .qf-remove-btn {
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-subtle);
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .qf-add-btn:hover { background: var(--accent); color: #ffffff; border-color: var(--accent-emphasis); }
+    .qf-clear-btn:hover { background: var(--bg-inset); }
+    .qf-remove-btn { color: var(--danger); }
+    .qf-remove-btn:hover { background: var(--danger); color: #ffffff; border-color: var(--danger-emphasis); }
+    .qf-add-panel {
+      margin-top: 0.6rem;
+      padding: 0.6rem 0.8rem;
+      background: var(--bg-subtle);
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+    }
+    .qf-add-panel .qf-suggest-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+    }
+    .qf-add-panel .qf-suggest-chip {
+      cursor: pointer;
+      padding: 0.2rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      font-size: 0.85rem;
+    }
+    .qf-add-panel .qf-suggest-chip:hover { background: var(--accent); color: #ffffff; border-color: var(--accent-emphasis); }
+    .qf-add-panel .qf-add-input-row {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .qf-add-panel .chip-input { flex: 1; margin: 0; }
+    .qf-current-empty {
+      font-style: italic;
+      color: var(--fg-muted);
+      font-size: 0.85rem;
+    }
 
     .sticky-footer {
       position: fixed;
@@ -510,27 +576,22 @@
   <!-- Step 2: Query filter (per-source title query) --------------------- -->
   <div class="page" id="page-2">
     <h2>Filter jobs by title <span class="optional-tag">optional</span></h2>
-    <p class="subtitle">Keywords applied as a title filter when fetching
-    each company. Pick a set once below and it applies to every company
-    you selected in Step 1; expand <strong>Customize per group</strong>
-    or <strong>Per-company override</strong> to go finer. Leave empty to
-    fetch every posting (recommended for small companies).</p>
-    <div><strong>Quick path — suggestions</strong> (click to toggle):</div>
-    <div class="chip-row" id="qf-presets"></div>
-    <div><strong>Your filter</strong> (type then press Enter):</div>
-    <input type="text" id="qf-input" class="chip-input"
-           placeholder="e.g. security, cryptography, Staff">
-    <div class="chip-row" id="qf-selected"></div>
 
-    <p class="subtitle" id="qf-preserve-note" style="margin-top:1rem"></p>
+    <div class="qf-level" id="qf-global-level">
+      <div class="qf-level-head">
+        <strong>Applies to all companies</strong>
+        <span class="spacer"></span>
+        <button type="button" class="qf-add-btn" data-level="global">+ Add</button>
+        <button type="button" class="qf-clear-btn" data-level="global">Clear all</button>
+      </div>
+      <div class="chip-row" id="qf-global-chips"></div>
+      <div class="qf-add-panel" id="qf-global-add-panel" hidden></div>
+    </div>
 
     <details class="qf-advanced">
       <summary><strong>Customize per group</strong>
         <span class="group-count"><span id="qf-group-overrides-count">0</span> overridden</span>
       </summary>
-      <p class="subtitle">Each row inherits the quick path above by default.
-      Tick a row to override — the chips you pick there apply to every
-      company in that group instead of the global set.</p>
       <div id="qf-groups-container"></div>
     </details>
 
@@ -538,8 +599,6 @@
       <summary><strong>Per-company override</strong>
         <span class="group-count"><span id="qf-company-overrides-count">0</span> overridden</span>
       </summary>
-      <p class="subtitle">Search for one of your selected companies and
-      give it a bespoke filter. Overrides win over group and quick-path.</p>
       <input type="text" id="qf-company-search" class="chip-input"
              placeholder="Search a company you picked in Step 1…">
       <div id="qf-company-search-results" class="search-results"></div>
@@ -979,29 +1038,28 @@ function _GroupedChipPicker(prefix, groups) {
   return {collect: () => [...state]};
 }
 
-let kwPicker, locPicker, qfQuickPicker;
+let kwPicker, locPicker;
 
 /* ========================================================================
    Step 2 — Filter jobs by title.
 
-   State:
-     - qfQuickPicker: the global chip picker (quick path).
-     - qfGroupOverrides: Map<groupName, {on: bool, chips: Set}>.
-     - qfCompanyOverrides: Map<companyName, Set>.
+   Uniform model: three independent chip sets.
+     - qfGlobalChips: Set<string> — "Applies to all companies"
+     - qfGroupChips: Map<group, Set<string>> — presence of key = override
+     - qfCompanyChips: Map<name, Set<string>> — presence of key = override
 
-   Resolution happens server-side; the UI only reports what the user
-   picked. Priority (highest wins) is per-company > per-group > previous
-   (preserved on resave) > global.
+   Server resolution: per-company > per-group > (previous==[] stays [])
+   > global. Previously-empty filters stay empty — honours "respect []".
    ======================================================================== */
 
-const qfGroupOverrides = new Map();   // groupName -> {on: bool, chips: Set<string>}
-const qfCompanyOverrides = new Map(); // companyName -> Set<string>
+const qfGlobalChips = new Set();
+const qfGroupChips = new Map();
+const qfCompanyChips = new Map();
 
 function _qfSelectedCompanyNames() {
   return new Set(collectCompanies());
 }
 function _qfSelectedGroups() {
-  // Groups with at least one selected company — order follows CATALOG insertion.
   const names = _qfSelectedCompanyNames();
   const seen = new Set();
   const out = [];
@@ -1018,35 +1076,107 @@ function _qfCompaniesInGroup(group) {
                 .map(e => e.name);
 }
 
-/* Lightweight chip editor: text input + a chip-row. No preset grid —
-   used inside the per-group / per-company override rows where space
-   is tight. */
-function _attachMiniChipEditor(input, chipRowEl, state, onChange) {
-  function render() {
-    chipRowEl.innerHTML = '';
-    for (const v of state) {
-      const chip = document.createElement('span');
-      chip.className = 'chip selected';
-      chip.appendChild(document.createTextNode(v));
-      const x = document.createElement('span');
-      x.className = 'chip-remove';
-      x.textContent = '×';
-      x.addEventListener('click', () => { state.delete(v); render(); onChange && onChange(); });
-      chip.appendChild(x);
-      chipRowEl.appendChild(chip);
-    }
+/* Shared chip-row renderer: shows every chip in `chipSet` with an × to
+   remove. Writing to chipSet elsewhere + calling this keeps the DOM in
+   sync. */
+function _qfRenderChipRow(container, chipSet, onChange) {
+  container.innerHTML = '';
+  if (chipSet.size === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'qf-current-empty';
+    empty.textContent = '(no filters — fetches every posting for these companies)';
+    container.appendChild(empty);
+    return;
   }
+  for (const v of chipSet) {
+    const chip = document.createElement('span');
+    chip.className = 'chip selected';
+    chip.appendChild(document.createTextNode(v));
+    const x = document.createElement('span');
+    x.className = 'chip-remove';
+    x.textContent = '×';
+    x.addEventListener('click', () => {
+      chipSet.delete(v);
+      _qfRenderChipRow(container, chipSet, onChange);
+      onChange && onChange();
+    });
+    chip.appendChild(x);
+    container.appendChild(chip);
+  }
+}
+
+/* [+ Add] panel: toggles visible; shows suggestion chips (from
+   PRESETS.query_presets minus already-selected) + a text input. Click
+   or Enter adds to chipSet and re-renders both the chip row and the
+   suggestions row. */
+function _qfRenderAddPanel(panel, chipSet, onChipRowChange) {
+  const suggestions = (PRESETS.query_presets || []).filter(p => !chipSet.has(p));
+  panel.innerHTML = '';
+  if (suggestions.length) {
+    const row = document.createElement('div');
+    row.className = 'qf-suggest-row';
+    for (const s of suggestions) {
+      const chip = document.createElement('span');
+      chip.className = 'qf-suggest-chip';
+      chip.textContent = '+ ' + s;
+      chip.addEventListener('click', () => {
+        chipSet.add(s);
+        onChipRowChange && onChipRowChange();
+        _qfRenderAddPanel(panel, chipSet, onChipRowChange);
+      });
+      row.appendChild(chip);
+    }
+    panel.appendChild(row);
+  }
+  const inputRow = document.createElement('div');
+  inputRow.className = 'qf-add-input-row';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'chip-input';
+  input.placeholder = 'Custom term — press Enter (comma-separated OK)';
+  inputRow.appendChild(input);
+  panel.appendChild(inputRow);
   input.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Enter') return;
     ev.preventDefault();
     const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
-    for (const p of parts) state.add(p);
+    for (const p of parts) chipSet.add(p);
     input.value = '';
-    render();
-    onChange && onChange();
+    onChipRowChange && onChipRowChange();
+    _qfRenderAddPanel(panel, chipSet, onChipRowChange);
+    input.focus();
   });
-  render();
+  input.focus();
 }
+
+/* ---- Global level ------------------------------------------------- */
+
+function _qfRenderGlobalLevel() {
+  const chipRow = document.getElementById('qf-global-chips');
+  const panel = document.getElementById('qf-global-add-panel');
+  const addBtn = document.querySelector('.qf-add-btn[data-level="global"]');
+  const clearBtn = document.querySelector('.qf-clear-btn[data-level="global"]');
+  const onChange = () => {
+    _qfRenderChipRow(chipRow, qfGlobalChips, onChange);
+    _qfRefreshCounters();
+  };
+  _qfRenderChipRow(chipRow, qfGlobalChips, onChange);
+  addBtn.onclick = () => {
+    if (panel.hasAttribute('hidden')) {
+      panel.removeAttribute('hidden');
+      _qfRenderAddPanel(panel, qfGlobalChips, onChange);
+    } else {
+      panel.setAttribute('hidden', '');
+    }
+  };
+  clearBtn.onclick = () => {
+    qfGlobalChips.clear();
+    onChange();
+    panel.setAttribute('hidden', '');
+  };
+}
+
+/* ---- Group level -------------------------------------------------- */
 
 function _qfRenderGroupRows() {
   const container = document.getElementById('qf-groups-container');
@@ -1058,83 +1188,122 @@ function _qfRenderGroupRows() {
     return;
   }
   for (const g of groups) {
-    const state = qfGroupOverrides.get(g) || {on: false, chips: new Set()};
-    qfGroupOverrides.set(g, state);
-    const row = document.createElement('div');
-    row.className = 'qf-group-row' + (state.on ? '' : ' off');
-
-    const head = document.createElement('div');
-    head.className = 'qf-group-head';
-    const toggle = document.createElement('input');
-    toggle.type = 'checkbox';
-    toggle.checked = state.on;
-    toggle.addEventListener('change', () => {
-      state.on = toggle.checked;
-      row.classList.toggle('off', !state.on);
-      _qfRefreshCounters();
+    const row = _buildLevelRow({
+      title: g,
+      meta: _qfCompaniesInGroup(g).length + ' companies',
+      hasChips: () => qfGroupChips.has(g),
+      ensureChips: () => {
+        if (!qfGroupChips.has(g)) qfGroupChips.set(g, new Set());
+        return qfGroupChips.get(g);
+      },
+      getChips: () => qfGroupChips.get(g) || new Set(),
+      clear: () => { qfGroupChips.delete(g); },
+      inheritedLabel: '(inherits from Applies to all companies)',
     });
-    head.appendChild(toggle);
-    const name = document.createElement('span');
-    name.textContent = g;
-    head.appendChild(name);
-    const nComp = document.createElement('span');
-    nComp.className = 'n-companies';
-    nComp.textContent = _qfCompaniesInGroup(g).length + ' companies in your picks';
-    head.appendChild(nComp);
-    row.appendChild(head);
-
-    const body = document.createElement('div');
-    body.className = 'qf-group-body';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'chip-input';
-    input.placeholder = 'e.g. security, Staff — press Enter';
-    body.appendChild(input);
-    const chips = document.createElement('div');
-    chips.className = 'chip-row';
-    body.appendChild(chips);
-    _attachMiniChipEditor(input, chips, state.chips, _qfRefreshCounters);
-    row.appendChild(body);
-
     container.appendChild(row);
   }
   _qfRefreshCounters();
 }
 
+/* ---- Company level ------------------------------------------------ */
+
 function _qfRenderCompanyOverrides() {
   const container = document.getElementById('qf-company-overrides');
   container.innerHTML = '';
-  for (const [name, chips] of qfCompanyOverrides) {
-    const row = document.createElement('div');
-    row.className = 'qf-company-row';
-    const label = document.createElement('span');
-    label.className = 'qf-company-name';
-    label.textContent = name;
-    row.appendChild(label);
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'chip-input';
-    input.placeholder = 'chip, chip — Enter';
-    input.style.flex = '0 0 14rem';
-    row.appendChild(input);
-    const chipRow = document.createElement('div');
-    chipRow.className = 'chip-row';
-    row.appendChild(chipRow);
-    _attachMiniChipEditor(input, chipRow, chips, _qfRefreshCounters);
-    const rm = document.createElement('button');
-    rm.type = 'button';
-    rm.className = 'chip-remove-row';
-    rm.textContent = '×';
-    rm.title = 'Remove this override';
-    rm.addEventListener('click', () => {
-      qfCompanyOverrides.delete(name);
-      _qfRenderCompanyOverrides();
-      _qfRefreshCounters();
+  for (const name of qfCompanyChips.keys()) {
+    const row = _buildLevelRow({
+      title: name,
+      meta: '',
+      hasChips: () => qfCompanyChips.has(name),
+      ensureChips: () => {
+        if (!qfCompanyChips.has(name)) qfCompanyChips.set(name, new Set());
+        return qfCompanyChips.get(name);
+      },
+      getChips: () => qfCompanyChips.get(name) || new Set(),
+      clear: () => { qfCompanyChips.delete(name); _qfRenderCompanyOverrides(); },
+      inheritedLabel: '(inherits from group / all)',
     });
-    row.appendChild(rm);
     container.appendChild(row);
   }
 }
+
+/* Shared row builder for group + company override levels. The row shows
+   either "(inherits …)" when the override doesn't exist yet or the
+   chip-row + +Add/Clear buttons when it does. Clicking +Add creates
+   the override on first use. */
+function _buildLevelRow({title, meta, hasChips, ensureChips, getChips, clear, inheritedLabel}) {
+  const row = document.createElement('div');
+  row.className = 'qf-level';
+
+  const head = document.createElement('div');
+  head.className = 'qf-level-head';
+  const titleEl = document.createElement('strong');
+  titleEl.textContent = title;
+  head.appendChild(titleEl);
+  if (meta) {
+    const metaEl = document.createElement('span');
+    metaEl.className = 'meta';
+    metaEl.textContent = meta;
+    head.appendChild(metaEl);
+  }
+  const spacer = document.createElement('span');
+  spacer.className = 'spacer';
+  head.appendChild(spacer);
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'qf-add-btn';
+  addBtn.textContent = '+ Add';
+  head.appendChild(addBtn);
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'qf-clear-btn';
+  clearBtn.textContent = 'Clear';
+  head.appendChild(clearBtn);
+  row.appendChild(head);
+
+  const chipRow = document.createElement('div');
+  chipRow.className = 'chip-row';
+  row.appendChild(chipRow);
+
+  const panel = document.createElement('div');
+  panel.className = 'qf-add-panel';
+  panel.setAttribute('hidden', '');
+  row.appendChild(panel);
+
+  const renderChips = () => {
+    if (hasChips()) {
+      _qfRenderChipRow(chipRow, getChips(), () => { renderChips(); _qfRefreshCounters(); });
+    } else {
+      chipRow.innerHTML = '';
+      const span = document.createElement('span');
+      span.className = 'qf-current-empty';
+      span.textContent = inheritedLabel;
+      chipRow.appendChild(span);
+    }
+  };
+  renderChips();
+
+  addBtn.addEventListener('click', () => {
+    if (panel.hasAttribute('hidden')) {
+      panel.removeAttribute('hidden');
+      const set = ensureChips();
+      _qfRenderAddPanel(panel, set, () => { renderChips(); _qfRefreshCounters(); });
+      renderChips();
+    } else {
+      panel.setAttribute('hidden', '');
+    }
+  });
+  clearBtn.addEventListener('click', () => {
+    clear();
+    renderChips();
+    panel.setAttribute('hidden', '');
+    _qfRefreshCounters();
+  });
+
+  return row;
+}
+
+/* ---- Company search gate ------------------------------------------ */
 
 function _qfWireCompanySearch() {
   const input = document.getElementById('qf-company-search');
@@ -1152,19 +1321,19 @@ function _qfWireCompanySearch() {
       return;
     }
     for (const n of matches) {
-      const row = document.createElement('div');
-      row.className = 'result-row';
+      const r = document.createElement('div');
+      r.className = 'result-row';
       const nameEl = document.createElement('span');
       nameEl.textContent = n;
-      row.appendChild(nameEl);
-      row.addEventListener('click', () => {
-        if (!qfCompanyOverrides.has(n)) qfCompanyOverrides.set(n, new Set());
+      r.appendChild(nameEl);
+      r.addEventListener('click', () => {
+        if (!qfCompanyChips.has(n)) qfCompanyChips.set(n, new Set());
         input.value = '';
         closeDropdown();
         _qfRenderCompanyOverrides();
         _qfRefreshCounters();
       });
-      results.appendChild(row);
+      results.appendChild(r);
     }
     results.classList.add('visible');
   });
@@ -1172,45 +1341,23 @@ function _qfWireCompanySearch() {
 }
 
 function _qfRefreshCounters() {
-  const nGroup = [...qfGroupOverrides.values()].filter(v => v.on && v.chips.size > 0).length;
-  const nCompany = [...qfCompanyOverrides.values()].filter(v => v.size > 0).length;
+  const nGroup = [...qfGroupChips.values()].filter(v => v.size > 0).length;
+  const nCompany = [...qfCompanyChips.values()].filter(v => v.size > 0).length;
   const gEl = document.getElementById('qf-group-overrides-count');
   const cEl = document.getElementById('qf-company-overrides-count');
   if (gEl) gEl.textContent = nGroup;
   if (cEl) cEl.textContent = nCompany;
-  _qfRefreshPreserveNote();
   refreshFooter();
 }
 
-function _qfRefreshPreserveNote() {
-  const note = document.getElementById('qf-preserve-note');
-  if (!note) return;
-  const picks = _qfSelectedCompanyNames();
-  const prev = (EXISTING && EXISTING.queries_per_company) || {};
-  let preserved = 0;
-  for (const name of picks) {
-    if (name in prev) preserved++;
-  }
-  if (preserved === 0) {
-    note.textContent = '';
-    note.style.display = 'none';
-  } else {
-    note.style.display = '';
-    note.textContent =
-      preserved + ' of your picks already have a filter in your current ' +
-      'config — those are preserved as-is unless you override at the group ' +
-      'or company level below.';
-  }
-}
-
 function _qfCollectPayload() {
-  const queries_global = qfQuickPicker ? qfQuickPicker.collect() : [];
+  const queries_global = [...qfGlobalChips];
   const queries_per_group = {};
-  for (const [g, v] of qfGroupOverrides) {
-    if (v.on) queries_per_group[g] = [...v.chips];
+  for (const [g, chips] of qfGroupChips) {
+    queries_per_group[g] = [...chips];
   }
   const queries_per_company = {};
-  for (const [n, chips] of qfCompanyOverrides) {
+  for (const [n, chips] of qfCompanyChips) {
     queries_per_company[n] = [...chips];
   }
   return {queries_global, queries_per_group, queries_per_company};
@@ -1496,9 +1643,10 @@ _wireBulkActions();
 renderTitlePacks();
 kwPicker  = _ChipPicker('kw',  PRESETS.highlights || []);
 locPicker = _GroupedChipPicker('loc', PRESETS.location_groups || {});
-qfQuickPicker = _ChipPicker('qf',
-  PRESETS.query_presets || [],
-  PRESETS.query_initial || []);
+// Step 2 — pre-populate the global chip set from the user's existing
+// non-empty query union, then render all three levels.
+for (const q of (PRESETS.query_initial || [])) qfGlobalChips.add(q);
+_qfRenderGlobalLevel();
 _qfWireCompanySearch();
 
 document.getElementById('cancel-btn').addEventListener('click', cancel);
@@ -1517,7 +1665,6 @@ document.getElementById('page-3').addEventListener('change', refreshFooter);
 document.getElementById('page-2').addEventListener('click', () => setTimeout(refreshFooter, 0));
 document.getElementById('page-4').addEventListener('click', () => setTimeout(refreshFooter, 0));
 document.getElementById('page-5').addEventListener('click', () => setTimeout(refreshFooter, 0));
-document.getElementById('qf-input').addEventListener('input', refreshFooter);
 
 showStep(1);
 </script>

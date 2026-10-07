@@ -253,14 +253,19 @@ def _resolve_queries(
     """Compute final per-company queries from Step 5 inputs.
 
     Priority (highest wins):
-      1. Per-company override (step 5 "advanced" panel).
-      2. Per-group override (step 5 accordion row for the company's group).
-      3. Previous queries if the company already existed in user_config.py
-         (any value, including `[]` — this is how we "respect catalog []":
-         a company the user had deliberately left unfiltered keeps that
-         semantics unless they explicitly override at the group/company
-         level).
-      4. Global queries (quick-path chips) — applies to brand-new picks.
+      1. Per-company override.
+      2. Per-group override (for the company's catalog group).
+      3. If the company previously had queries == [] in user_config.py,
+         keep it empty — this is the "respect []" rule: a company the
+         user had deliberately left unfiltered stays unfiltered unless
+         they explicitly override at the group/company level.
+      4. Global queries ("Applies to all companies").
+
+    Non-empty previous queries are NOT auto-preserved: whatever the user
+    submits as global wins. That matches the "Applies to all companies"
+    label literally — the UI pre-populates the global chip row from the
+    user's existing union, so returning users still see their patterns
+    without any surprise override.
 
     Returns {company_name: [queries]} for every name in `selected`.
     """
@@ -271,8 +276,8 @@ def _resolve_queries(
             qs = queries_per_company[name]
         elif name_to_group.get(name) in queries_per_group:
             qs = queries_per_group[name_to_group[name]]
-        elif name in previous:
-            qs = previous[name]
+        elif previous.get(name) == []:
+            qs = []
         else:
             qs = queries_global
         out[name] = _dedupe_preserve_order([str(q) for q in qs])
