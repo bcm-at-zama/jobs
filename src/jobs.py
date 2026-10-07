@@ -4435,12 +4435,12 @@ def render_html_tabs():
         '    </div>'
     )
     board_title_html = (
-        f'    <span class="board-title" id="board-title">'
-        f'{html.escape(_cfg.BOARD_TITLE)}</span>\n'
+        f'  <h1 class="board-title" id="board-title">'
+        f'{html.escape(_cfg.BOARD_TITLE)}</h1>\n'
     )
     return (
-        '  <nav class="tabs" id="tabs">\n'
-        + board_title_html
+        board_title_html
+        + '  <nav class="tabs" id="tabs">\n'
         + buttons + "\n"
         + actions + "\n"
         + '  </nav>'
@@ -4864,15 +4864,17 @@ HTML_TEMPLATE = """<!doctype html>
       padding-bottom: 0.4rem;
       border-bottom: 1px solid var(--border);
     }
-    /* User-configurable title at the far left of the tabs row. Set in
-       the ⚙ Settings page; persisted to data/user_config.py.
-       margin-right: 1.2rem opens breathing room before the tab buttons. */
-    .board-title {
+    /* User-configurable title shown as a page header above the tabs
+       row. Set in the ⚙ Settings page; persisted to data/user_config.py. */
+    h1.board-title {
+      display: block;
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 2.4rem;
       color: var(--fg);
-      margin-right: 1.2rem;
-      white-space: nowrap;
+      margin: 0 0 0.6rem;
+      padding: 0;
+      border: none;
+      line-height: 1.2;
     }
     /* R / AI / ⚙ action buttons live at the right end of the tabs
        row — margin-left: auto pushes them to the far right. */
