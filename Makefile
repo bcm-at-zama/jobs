@@ -3,12 +3,16 @@
 
 .PHONY: help install onboarding test test-verbose run kill commit pdf html clean-pdf
 
-# Virtualenv lives at ./venv-macos. If it exists, use its python3; else
-# fall back to system python3. Lets `make test` / `make run` work both
-# pre- and post-install without extra flags.
-VENV   := venv-macos
-PYTHON := $(shell test -x $(VENV)/bin/python3 && echo $(VENV)/bin/python3 || echo python3)
-PIP    := $(VENV)/bin/pip
+# Virtualenv lives at ./venv-macos or ./.venv-macos (dot variant is the
+# modern Python convention). If either exists, use its python3; else
+# fall back to system python3. Falling back silently was how the "Zama
+# shows 0 jobs" bug hid for weeks: Playwright lives in the venv, system
+# python3 doesn't have it, so every `pw` source returned [] without
+# a warning. Now we also loudly warn when neither venv is found.
+VENV   := $(shell test -x venv-macos/bin/python3 && echo venv-macos \
+                 || (test -x .venv-macos/bin/python3 && echo .venv-macos))
+PYTHON := $(if $(VENV),$(VENV)/bin/python3,python3)
+PIP    := $(if $(VENV),$(VENV)/bin/pip,pip)
 
 help:
 	@echo "jobs — Makefile targets:"

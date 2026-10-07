@@ -362,9 +362,9 @@ class TestRunawayPerQuery(unittest.TestCase):
             re.MULTILINE,
         )
         hits = pattern.findall(self.src)
-        self.assertGreaterEqual(len(hits), 4,
-                                "expected ≥4 runaway call sites (Apple, "
-                                "Microsoft, Phenom, WTTJ)")
+        self.assertGreaterEqual(len(hits), 3,
+                                "expected ≥3 runaway call sites (Apple, "
+                                "Microsoft, Phenom)")
         for indent, body in hits:
             with self.subTest(body=body):
                 self.assertTrue(

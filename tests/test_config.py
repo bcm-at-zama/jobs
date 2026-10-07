@@ -102,6 +102,45 @@ class TestCliPort(unittest.TestCase):
             self._parse(["--port", "notanint"])
 
 
+class TestGroupOfAutoFill(unittest.TestCase):
+    """REGRESSION — every catalog entry declares its `group`, but render
+    time looks it up via `config.GROUP_OF[name]`. Without the auto-fill
+    at the end of config.py, new companies silently landed in "Other"
+    and freshly-added group headings (FHE, Cars, Media, Blockchain,
+    Startups) rendered empty. Pin the invariant so a future refactor
+    can't resurrect the "I don't see Zama" bug."""
+
+    def test_every_catalog_entry_resolves_to_its_declared_group(self):
+        from catalog import CATALOG
+        drift = []
+        for e in CATALOG:
+            declared = e.get("group")
+            resolved = config.GROUP_OF.get(e["name"], "Other")
+            if declared and resolved != declared:
+                drift.append((e["name"], declared, resolved))
+        self.assertFalse(
+            drift,
+            "catalog group ≠ GROUP_OF resolution — these would render "
+            "under the wrong heading:\n  "
+            + "\n  ".join(f"{n}: catalog={d!r} resolved={r!r}"
+                          for n, d, r in drift),
+        )
+
+    def test_new_groups_are_in_group_order(self):
+        """Groups declared in the catalog must appear in GROUP_ORDER —
+        otherwise their heading renders at the end as a fallback and
+        the user doesn't see the intended ordering."""
+        from catalog import CATALOG
+        groups_in_catalog = {e["group"] for e in CATALOG if e.get("group")}
+        missing = groups_in_catalog - set(config.GROUP_ORDER)
+        self.assertFalse(
+            missing,
+            f"groups {sorted(missing)} are used in catalog but missing "
+            f"from GROUP_ORDER — add them to config.GROUP_ORDER so the "
+            f"nav renders them in the right slot",
+        )
+
+
 class TestSeniorityConfig(unittest.TestCase):
 
     def test_seniority_rank_covers_groups(self):

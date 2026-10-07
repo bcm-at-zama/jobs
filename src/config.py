@@ -417,7 +417,7 @@ SENIORITY_XP_DEFAULT = {
 # Each entry is a dict:
 #   name:     display name (shown in nav + section headings)
 #   kind:     picks the fetcher (ashby, greenhouse, workable, phenom, apple,
-#             google, microsoft, meta, ableton, lucca, wttj, pw)
+#             google, microsoft, meta, ableton, lucca, pw)
 #   slug:     ATS-specific slug or short identifier
 #   queries:  list of search terms; empty [] = show everything
 #   board:    (optional) public URL of the company's own careers page
@@ -549,7 +549,6 @@ COMPANY_INFO = {
     "Fastly":     {"blurb": "Edge CDN / compute",                                    "employees": "~1,100",  "revenue": "$544M (2024)"},
     "Owkin":      {"blurb": "Federated ML for pharma / biotech (Paris/NY)",          "employees": "~250",    "revenue": "n/a"},
     "Qonto":      {"blurb": "SME neo-bank (Paris)",                                  "employees": "~1,600",  "revenue": "~$250M"},
-    "Welcome to the Jungle": {"blurb": "French job board / media",                    "employees": "~350",    "revenue": "~$50M"},
 
     # --- Music Companies ---
     "Ableton":         {"blurb": "Ableton Live DAW (Berlin)",                         "employees": "~350",    "revenue": "~$100M"},
@@ -700,8 +699,6 @@ GROUP_OF = {
     "Arturia": "Music Companies",
     "Neural DSP": "Music Companies",
     "Steinberg": "Music Companies",
-    # Other
-    "Welcome to the Jungle": "Other",
 
     # --- Added via debug/ats_probe.py 2026-09-25 ---------------------------
     # AI Startups (Manager-or-Security filter applied)
@@ -915,3 +912,17 @@ else:
         "BLACKLIST defaults. Copy src/user_config.example.py to {} and edit "
         "to see any jobs.\n".format(_USER_CONFIG_PATH)
     )
+
+# Auto-fill GROUP_OF from the catalog so new companies land in their
+# declared group without a parallel edit here. Explicit entries above
+# win (lets a user override a catalog default). This fixed the "I added
+# Zama but it shows in Other and the FHE heading is empty" bug — before,
+# adding `'group': 'FHE'` to catalog.py did nothing at render time.
+try:
+    from catalog import CATALOG as _CATALOG
+except ImportError:
+    _CATALOG = []
+for _entry in _CATALOG:
+    _n, _g = _entry.get("name"), _entry.get("group")
+    if _n and _g and _n not in GROUP_OF:
+        GROUP_OF[_n] = _g

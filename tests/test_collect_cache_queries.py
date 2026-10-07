@@ -32,25 +32,25 @@ class TestCollectReappliesQueries(unittest.TestCase):
         return path
 
     def test_cache_hit_still_filters_by_queries(self):
-        """Seed a cache with 3 jobs; only 1 matches queries. collect()
-        must return just that one, not all three."""
+        """Seed a cache with 10 jobs; only 1 matches queries. collect()
+        must return just that one, not all ten. (10 is above
+        CACHE_MIN_JOBS so the read-side evict doesn't fire.)"""
         with tempfile.TemporaryDirectory() as tmp:
             # Build a fake source with a tight queries filter.
             source = {
                 "name": "FakeCorp", "kind": "greenhouse", "slug": "fakecorp",
                 "queries": ["security"],
             }
-            # 3 cached jobs: only the first matches "security".
+            # 10 cached jobs: only the first matches "security".
             cached_jobs = [
                 {"title": "Security Engineer", "locations": ["Paris"],
                  "url": "https://x.com/1", "description": "",
                  "blob": "Security Engineer"},
-                {"title": "Marketing Manager", "locations": ["London"],
-                 "url": "https://x.com/2", "description": "",
-                 "blob": "Marketing Manager"},
-                {"title": "Sales VP", "locations": ["NYC"],
-                 "url": "https://x.com/3", "description": "",
-                 "blob": "Sales VP"},
+            ] + [
+                {"title": f"Marketing Role {i}", "locations": ["London"],
+                 "url": f"https://x.com/{i}", "description": "",
+                 "blob": f"Marketing Role {i}"}
+                for i in range(2, 11)
             ]
             self._write_cache(tmp, "fakecorp", cached_jobs)
 
@@ -75,10 +75,11 @@ class TestCollectReappliesQueries(unittest.TestCase):
                 "name": "FakeCorp", "kind": "greenhouse", "slug": "fakecorp",
                 "queries": [],
             }
+            # 8 jobs — above CACHE_MIN_JOBS so the eviction doesn't trip.
             cached_jobs = [
                 {"title": f"Job {i}", "locations": [], "url": f"u{i}",
                  "description": "", "blob": f"Job {i}"}
-                for i in range(5)
+                for i in range(8)
             ]
             self._write_cache(tmp, "fakecorp", cached_jobs)
 
@@ -86,7 +87,7 @@ class TestCollectReappliesQueries(unittest.TestCase):
                                    os.path.join(tmp, "list_cache")):
                 result = jobs.collect(source)
 
-            self.assertEqual(len(result["jobs"]), 5)
+            self.assertEqual(len(result["jobs"]), 8)
 
 
 class TestCollectRefusesToCacheEmpty(unittest.TestCase):
@@ -104,6 +105,14 @@ class TestCollectRefusesToCacheEmpty(unittest.TestCase):
             "spontaneous_url": None,
             "total_board": None,
         }
+
+    def _write_cache(self, tmp, slug_, jobs_list):
+        cache_dir = os.path.join(tmp, "list_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        path = os.path.join(cache_dir, f"{slug_}.json")
+        with open(path, "w") as f:
+            json.dump({"jobs": jobs_list, "spontaneous_url": None}, f)
+        return path
 
     def _run_collect(self, tmp, jobs_list):
         source = {
@@ -161,6 +170,34 @@ class TestCollectRefusesToCacheEmpty(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             cache_path = self._run_collect(tmp, self._canned_jobs(10))
             self.assertTrue(os.path.isfile(cache_path))
+
+    def test_stale_small_cache_is_evicted_on_read(self):
+        """READ-side complement of the write guard — a cache written
+        BEFORE the write guard existed (or by a stale version of the
+        code) must be evicted on read. Without this, Zama's old
+        `list_cache/zama.json` with 0 jobs kept serving 0 jobs even
+        after we fixed the write path."""
+        with mock.patch.object(jobs, "CACHE_MIN_JOBS", 5), \
+             tempfile.TemporaryDirectory() as tmp:
+            cache_path = self._write_cache(tmp, "flakeycorp", self._canned_jobs(2))
+            self.assertTrue(os.path.isfile(cache_path), "setUp failed")
+            source = {
+                "name": "FlakeyCorp", "kind": "greenhouse",
+                "slug": "flakeycorp", "queries": [],
+            }
+            with mock.patch.object(jobs, "LIST_CACHE_DIR",
+                                   os.path.join(tmp, "list_cache")), \
+                 mock.patch.dict(jobs.FETCHERS,
+                                 {"greenhouse": self._fake_fetcher(
+                                     self._canned_jobs(42))}):
+                result = jobs.collect(source)
+            # The stale 2-job cache was evicted, the fresh 42-job fetch
+            # ran, and now the file is cached (because 42 >= 5).
+            self.assertEqual(len(result["jobs"]), 42)
+            # New cache was written by the healthy fetch.
+            self.assertTrue(os.path.isfile(cache_path))
+            with open(cache_path) as f:
+                self.assertEqual(len(json.load(f)["jobs"]), 42)
 
 
 if __name__ == "__main__":

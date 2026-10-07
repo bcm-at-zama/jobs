@@ -117,7 +117,6 @@ BLURBS = {
     "Fastly":     "Edge cloud / CDN / edge compute (Compute@Edge, WebAssembly). San Francisco HQ. Public. Competes with Cloudflare and Akamai. Strong developer brand and image / video optimization products.",
     "Owkin":      "Federated ML for pharma / biotech — trains models across hospital datasets without moving the data. Paris + NYC dual HQ. Backed by Sanofi and others. Strong applied-ML + biology talent pool.",
     "Qonto":      "European neobank for SMBs, self-employed and startups. Paris HQ. Serves France, Germany, Italy, Spain. ~$5B valuation. Strong compliance / risk / product engineering culture.",
-    "Welcome to the Jungle": "French job board and media company with a distinctive editorial + video approach to employer branding. Paris HQ. Serves mostly French and European tech / creative companies. Recently expanded internationally.",
 
     # --- Music Companies ---
     "Ableton":         "Berlin-based music software company behind Ableton Live (the DAW that powers most electronic music production and live performance) and Push (hardware controller). Independent, employee-owned. ~350 people, strong engineering culture with C++ audio DSP focus.",

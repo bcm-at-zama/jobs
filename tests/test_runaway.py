@@ -214,12 +214,12 @@ class TestRefreshDecisionEndpoint(unittest.TestCase):
         so the fetcher's _runaway_file() finds the same path."""
         status, _ = self._invoke(
             "/refresh-decision",
-            {"source": "Welcome to the Jungle", "action": "stop"},
+            {"source": "Scale AI", "action": "stop"},
         )
         self.assertEqual(status, 200)
         expected = os.path.join(
             self.tmp.name, ".runaway",
-            f"{jobs.slug('Welcome to the Jungle')}.decision.json",
+            f"{jobs.slug('Scale AI')}.decision.json",
         )
         self.assertTrue(os.path.isfile(expected))
 

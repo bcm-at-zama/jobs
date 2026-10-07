@@ -65,7 +65,7 @@ class TestTabShortcutDiscoverability(unittest.TestCase):
 
 
 class TestQueryRequiredIndicator(unittest.TestCase):
-    """Query-required sources (Apple/Microsoft/Meta/Phenom/WTTJ) iterate
+    """Query-required sources (Apple/Microsoft/Meta/Phenom) iterate
     `for q in queries` with no empty-string fallback — so queries=[]
     fetches literally zero jobs, silently. The red "⚠ keyword required"
     chip is driven by a `data-query-required="1"` attribute on the
@@ -81,8 +81,8 @@ class TestQueryRequiredIndicator(unittest.TestCase):
         )
         self.assertIn('data-query-required="1"', out)
 
-    def test_microsoft_meta_phenom_wttj_get_required_attr(self):
-        for kind in ("microsoft", "meta", "phenom", "wttj"):
+    def test_microsoft_meta_phenom_get_required_attr(self):
+        for kind in ("microsoft", "meta", "phenom"):
             out = jobs.render_html_section(
                 name=kind.title(), visible=[], rejected_count=0,
                 board_url="https://example.com", spontaneous_url=None,

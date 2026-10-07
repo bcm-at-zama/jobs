@@ -2201,64 +2201,15 @@ def fetch_phenom(source):
             "total_board": total_board}
 
 
-_WTTJ_JOB_RE = re.compile(
-    r'href="(/[a-z]{2}/companies/[^"#]+/jobs/[^"#?]+)"',
-    re.IGNORECASE,
-)
-
-
-def fetch_wttj(source):
-    if not HAS_PLAYWRIGHT:
-        err("[Welcome to the Jungle] Playwright not installed")
-        return {"jobs": [], "spontaneous_url": None}
-    out, seen = [], set()
-    p, browser, page = _open_browser()
-    try:
-        for q in source["queries"]:
-            q_jobs = 0
-            base = source.get("search_url") or f"https://www.welcometothejungle.com/fr/pages/emploi?query={urllib.parse.quote(q)}"
-            for pnum in range(1, 6):
-                sep = "&" if "?" in base else "?"
-                url = f"{base}{sep}page={pnum}"
-                debug = f"debug/debug-wttj-{q}-{pnum}.html" if pnum == 1 else None
-                text = _render(
-                    page, url,
-                    wait_selector='a[href*="/companies/"][href*="/jobs/"]',
-                    debug_path=debug,
-                )
-                paths = list(dict.fromkeys(_WTTJ_JOB_RE.findall(text)))
-                if pnum == 1:
-                    sys.stdout.write(
-                        f"[Welcome to the Jungle] q='{q}' rendered {len(text)}B, urls={len(paths)}\n"
-                    )
-                if not paths:
-                    break
-                added = 0
-                for path in paths:
-                    if path in seen:
-                        continue
-                    seen.add(path)
-                    tail = path.rstrip("/").rsplit("/", 1)[-1]
-                    title = _title_from_slug(tail)
-                    out.append({
-                        "title": title,
-                        "locations": [],
-                        "url": f"https://www.welcometothejungle.com{path}",
-                        "description": "",
-                        "blob": title,
-                    })
-                    added += 1
-                q_jobs += added
-                if added == 0:
-                    break
-                if check_runaway("Welcome to the Jungle", q, pnum, q_jobs):
-                    break  # per-query stop (see comment in fetch_apple)
-        filtered = [j for j in out if matches(j, source["queries"])]
-        _fetch_descriptions(page, filtered, "Welcome to the Jungle")
-    finally:
-        browser.close()
-        p.stop()
-    return {"jobs": filtered, "spontaneous_url": _pick_spontaneous(out)}
+# =============================================================================
+# NOTE: fetch_wttj (Welcome to the Jungle aggregator) was removed —
+# see planning/open/wtj-discovery.md. The aggregator never surfaced
+# `/fr/companies/<slug>/jobs/<slug>` URLs in its rendered HTML (jobs
+# were fetched client-side after Playwright's networkidle) AND
+# CloudFront's WAF blocks headless chromium with a 403. Individual
+# WTJ-hosted companies (e.g. Zama's jobs.zama.org — a different
+# domain, no WAF) still work fine as kind=pw entries.
+# =============================================================================
 
 
 # =============================================================================
@@ -2802,7 +2753,7 @@ _TRUSTED_REMOVAL_KINDS = frozenset({
 # `queries or [""]` so empty is fine; sources like Greenhouse/Ashby/
 # Workday fetch the whole board and filter — empty = fetch everything.
 _QUERY_REQUIRED_KINDS = frozenset({
-    "apple", "microsoft", "meta", "phenom", "wttj",
+    "apple", "microsoft", "meta", "phenom",
 })
 
 
@@ -2828,7 +2779,6 @@ FETCHERS = {
     "ableton": fetch_ableton,
     "lucca": fetch_lucca,
     "pw": fetch_pw_generic,
-    "wttj": fetch_wttj,
     "bamboohr": fetch_bamboohr,
     "pinpoint": fetch_pinpoint,
     "umantis": fetch_umantis,
@@ -3651,6 +3601,22 @@ def _save_list_cache(source, result):
 def collect(source):
     t_start = time.perf_counter()
     cached = _load_list_cache(source)
+    # Treat a tiny cached result (< CACHE_MIN_JOBS) as stale and
+    # re-fetch. This is the READ-side complement to the write-side
+    # guard added for the Zama bug: before this, if an earlier run had
+    # cached [] (pre-fix) or a partial scroll result, we'd keep serving
+    # it for the full 6 h TTL. Nuke the file too so subsequent runs
+    # don't keep re-checking the same stale blob.
+    if cached is not None and len(cached.get("jobs") or []) < CACHE_MIN_JOBS:
+        timing(
+            f"[{source['name']:22}] cached {len(cached.get('jobs') or [])} jobs "
+            f"(< {CACHE_MIN_JOBS}) — treating as stale, re-fetching"
+        )
+        try:
+            os.remove(_list_cache_path(source))
+        except OSError:
+            pass
+        cached = None
     if cached is not None:
         st = os.stat(_list_cache_path(source))
         age_min = (time.time() - st.st_mtime) / 60.0
@@ -4239,7 +4205,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         f'</span>'
         for q in (queries or [])
     )
-    # Sources that need queries to work (Apple/Microsoft/Meta/Phenom/WTTJ
+    # Sources that need queries to work (Apple/Microsoft/Meta/Phenom
     # iterate `for q in queries` with no fallback) get a data attribute
     # that drives a CSS-only "⚠ keyword required" chip when the pill
     # list is empty. Updates automatically as pills come and go — no JS
@@ -4758,7 +4724,7 @@ HTML_TEMPLATE = """<!doctype html>
     /* Red "keyword required" chip — rendered via ::before so it tracks
        the empty-pill state automatically (no JS). Only shown on sources
        whose fetcher iterates `for q in queries` with no empty-string
-       fallback: Apple, Microsoft, Meta, Phenom-based big-techs, WTTJ.
+       fallback: Apple, Microsoft, Meta, Phenom-based big-techs.
        An empty query list on those = 0 jobs fetched, silently. */
     .queries[data-query-required="1"]:not(:has(.query-pill))::before {
       content: "⚠ keyword required";
@@ -10196,6 +10162,33 @@ def main():
     if not args.no_serve:
         _check_serve_port_free()
 
+    # Pre-flight: if SOURCES references Playwright-only kinds and
+    # Playwright isn't importable, bail LOUDLY instead of silently
+    # returning [] from every pw/apple/microsoft/… fetcher. That silent
+    # failure was how the "Zama shows 0 jobs" bug hid for weeks when
+    # make run used system python3 instead of the venv's.
+    _PW_KINDS = frozenset({
+        "pw", "apple", "google", "microsoft", "meta", "phenom", "wttj",
+        "ableton", "lucca", "bose", "linkedin", "cisco", "ibm", "scale",
+        "checkmarx", "pixee", "github",
+    })
+    if not HAS_PLAYWRIGHT:
+        _pw_sources = [s["name"] for s in SOURCES
+                       if s.get("kind") in _PW_KINDS]
+        if _pw_sources:
+            err("\nPlaywright is not installed in this Python but SOURCES "
+                "contains Playwright-dependent companies:")
+            err(f"    {', '.join(_pw_sources[:12])}"
+                + (f" and {len(_pw_sources) - 12} more" if len(_pw_sources) > 12 else ""))
+            err("")
+            err(f"Current python: {sys.executable}")
+            err("Fix: activate your venv (venv-macos or .venv-macos) and")
+            err("re-run, or run `make install` to set it up.")
+            err("")
+            err("Refusing to proceed — every pw source would silently "
+                "return 0 jobs and poison nothing-is-wrong UI.")
+            sys.exit(1)
+
     if args.clear_cache:
         # Accept singular / plural / minor typos.
         _aliases = {
@@ -10264,7 +10257,7 @@ def main():
     only  = _split(args.only) or _split(os.environ.get("JOBS_ONLY", ""))
     skip  = _split(args.skip) or _split(os.environ.get("JOBS_SKIP", ""))
     skip_pw    = args.skip_playwright or os.environ.get("JOBS_SKIP_PLAYWRIGHT") == "1"
-    pw_kinds = {"apple", "google", "microsoft", "meta", "phenom", "scale", "github", "checkmarx", "pixee", "ableton", "lucca", "pw", "wttj"}
+    pw_kinds = {"apple", "google", "microsoft", "meta", "phenom", "scale", "github", "checkmarx", "pixee", "ableton", "lucca", "pw"}
     active_sources = [
         s for s in SOURCES
         if (not only or s["name"] in only)
