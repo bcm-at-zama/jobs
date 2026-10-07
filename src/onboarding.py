@@ -68,7 +68,7 @@ QUERY_PRESETS = [
 # user's existing user_config.py. The user keeps VP/CTO as per-company
 # queries deliberately, but doesn't want them cluttering the onboarding
 # chip rows. Compared case-insensitively.
-ONBOARDING_HIDDEN_QUERY_TERMS = frozenset({"vp", "cto"})
+ONBOARDING_HIDDEN_QUERY_TERMS = frozenset({"vp", "cto", "logic", "creative"})
 
 # Grouped by continent so the wizard can show a <details> per group.
 # Includes a "Regions" group at the top for the common multi-country

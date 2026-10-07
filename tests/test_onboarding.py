@@ -87,9 +87,10 @@ class TestBuildUserConfig(unittest.TestCase):
 
 
 class TestOnboardingHidesVPCTO(unittest.TestCase):
-    """VP and CTO stay in user_config.py (deliberate per-company queries)
-    but must NOT appear in the wizard's preset chip row or as pre-selected
-    'initial' chips — the user doesn't want them cluttering onboarding."""
+    """VP, CTO, Logic and Creative stay in user_config.py (deliberate
+    per-company queries) but must NOT appear in the wizard's preset
+    chip row or as pre-selected 'initial' chips — the user doesn't
+    want them cluttering onboarding."""
 
     def _make_user_config(self, path, queries):
         with open(path, "w", encoding="utf-8") as f:
@@ -105,7 +106,8 @@ class TestOnboardingHidesVPCTO(unittest.TestCase):
     def test_hidden_terms_excluded_from_wizard(self):
         with tempfile.TemporaryDirectory() as d:
             uc_path = os.path.join(d, "user_config.py")
-            self._make_user_config(uc_path, ["security", "VP", "CTO", "cryptography"])
+            self._make_user_config(uc_path,
+                ["security", "VP", "CTO", "Logic", "Creative", "cryptography"])
             html = onboarding._load_html(d, uc_path).decode("utf-8")
             # Extract just the inlined PRESETS JSON blob — this is what
             # drives the chip row and pre-selected chips. We must NOT
@@ -117,10 +119,10 @@ class TestOnboardingHidesVPCTO(unittest.TestCase):
             presets = json.loads(m.group(1))
             lowered_presets = [t.lower() for t in presets["query_presets"]]
             lowered_initial = [t.lower() for t in presets["query_initial"]]
-            self.assertNotIn("vp", lowered_presets)
-            self.assertNotIn("cto", lowered_presets)
-            self.assertNotIn("vp", lowered_initial)
-            self.assertNotIn("cto", lowered_initial)
+            for term in ("vp", "cto", "logic", "creative"):
+                with self.subTest(term=term):
+                    self.assertNotIn(term, lowered_presets)
+                    self.assertNotIn(term, lowered_initial)
             # Sanity: a kept term still appears.
             self.assertIn("security", lowered_presets)
 
