@@ -43,5 +43,25 @@ git ls-files \
   | tar -xf - -C "$TARGET"
 
 echo "  Exported clean snapshot → $TARGET"
+
+# Smoke test: the OSS clone must at minimum (1) import cleanly with an
+# empty user_config, (2) have a CLI that parses --help, (3) pass the
+# framework test suite in `tests/`. User-decision tests live in
+# `data/tests/` and are intentionally absent here — Makefile skips the
+# second suite when data/tests/ is missing.
+echo "  Running smoke test on exported snapshot..."
+(
+  cd "$TARGET"
+  PYTHONPATH=src python3 -c "import config, jobs"      >/dev/null
+  PYTHONPATH=src python3 src/jobs.py --help            >/dev/null
+  make test                                            >/dev/null 2>&1
+) || {
+  echo "  SMOKE TEST FAILED — $TARGET may be missing files or have broken imports." >&2
+  echo "  Re-run manually to see the error:" >&2
+  echo "    cd $TARGET && make test" >&2
+  exit 1
+}
+echo "  Smoke test passed (imports OK, --help OK, tests/ passing)."
+
 echo "  Next steps for the open-source copy:"
 echo "    cd $TARGET && git init && git add . && git commit -m 'Initial commit'"

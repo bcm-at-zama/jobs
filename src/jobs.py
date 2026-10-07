@@ -3955,12 +3955,30 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         )
     else:
         spontaneous = ""
-    query_pills = ""
-    if queries:
-        pills = "".join(
-            f'<span class="query-pill">{html.escape(q)}</span>' for q in queries
-        )
-        query_pills = f'<span class="queries" title="Board-side search queries">{pills}</span>'
+    # Query pills are editable: × on each pill removes it, the trailing +
+    # pops an inline input to add a new word. Changes POST to
+    # /update-queries which rewrites data/user_config.py; the new filter
+    # applies on the next refresh. We always render the .queries wrapper
+    # (even when the list is empty) so the + button is reachable for
+    # sources the user hasn't customised yet.
+    pills_html = "".join(
+        f'<span class="query-pill" data-q="{html.escape(q, quote=True)}">'
+        f'{html.escape(q)}'
+        f'<button class="query-remove" type="button" '
+        f'title="Remove this query word" aria-label="Remove">×</button>'
+        f'</span>'
+        for q in (queries or [])
+    )
+    query_pills = (
+        f'<span class="queries" data-source="{html.escape(name, quote=True)}" '
+        f'title="Board-side search queries. Add words to narrow what gets '
+        f'fetched for this company; empty = fetch everything. Changes save '
+        f'automatically — hit refresh to apply.">'
+        f'{pills_html}'
+        f'<button class="query-add" type="button" '
+        f'title="Add a query word" aria-label="Add query">+</button>'
+        f'</span>'
+    )
     # Tint the row with the highest-priority state, matching li.job classes
     # (app-rejected > applied > toapply > liked). Client keeps it in sync on
     # every state-button toggle — see wireStateButton.
@@ -4404,6 +4422,46 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--fg-muted);
       background: var(--bg-subtle);
       font-weight: normal;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .query-pill .query-remove {
+      background: transparent;
+      border: none;
+      color: var(--fg-muted);
+      cursor: pointer;
+      font-size: 0.95rem;
+      line-height: 1;
+      padding: 0;
+      margin-left: 0.1rem;
+      border-radius: 50%;
+    }
+    .query-pill .query-remove:hover { color: var(--danger); }
+    .queries .query-add {
+      padding: 0.05rem 0.5rem;
+      border: 1px dashed var(--border);
+      border-radius: 2em;
+      font-size: 0.75rem;
+      background: transparent;
+      color: var(--fg-muted);
+      cursor: pointer;
+      font-weight: normal;
+    }
+    .queries .query-add:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .queries .query-input {
+      font-size: 0.75rem;
+      padding: 0.05rem 0.5rem;
+      border: 1px solid var(--accent);
+      border-radius: 2em;
+      outline: none;
+      min-width: 6rem;
+      color: var(--fg);
+      background: var(--bg);
+      font-family: inherit;
     }
     .spontaneous-row {
       margin: 0.4rem 0 0.8rem;
@@ -8210,6 +8268,98 @@ async function _esSave(modal) {
 document.getElementById('edit-sources-setup')?.addEventListener('click', openEditCompaniesModal);
 _refreshNewCompaniesBadge();
 
+/* --- Per-source query pills (inline edit) -----------------------------
+ * Each company header has a .queries span with its current query words
+ * (= substrings jobs.py matches against to decide which postings to keep
+ * for that source). Clicking × on a pill removes it; clicking + pops an
+ * inline input to add a new word. Every change POSTs to /update-queries
+ * which rewrites data/user_config.py. The new filter applies on the
+ * next refresh — we don't live-filter the DOM because queries are
+ * applied server-side at fetch time.
+ */
+async function _saveQueries(sourceName, queries) {
+  const base = location.protocol === 'file:' ? SERVER_URL : '';
+  const res = await fetch(base + '/update-queries', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: sourceName, queries}),
+  });
+  if (!res.ok) {
+    console.error('/update-queries failed', {sourceName, queries, status: res.status});
+    throw new Error('http ' + res.status);
+  }
+}
+function _readQueryWords(wrapper) {
+  return [...wrapper.querySelectorAll('.query-pill')].map(p => p.dataset.q);
+}
+function _makeQueryPill(word) {
+  const pill = document.createElement('span');
+  pill.className = 'query-pill';
+  pill.dataset.q = word;
+  pill.textContent = word;
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.className = 'query-remove';
+  x.title = 'Remove this query word';
+  x.setAttribute('aria-label', 'Remove');
+  x.textContent = '×';
+  pill.appendChild(x);
+  return pill;
+}
+document.addEventListener('click', async (ev) => {
+  const removeBtn = ev.target.closest('.query-remove');
+  if (removeBtn) {
+    ev.preventDefault();
+    const pill = removeBtn.closest('.query-pill');
+    const wrapper = removeBtn.closest('.queries');
+    if (!pill || !wrapper) return;
+    pill.remove();
+    try { await _saveQueries(wrapper.dataset.source, _readQueryWords(wrapper)); }
+    catch (e) { /* already logged by _saveQueries */ }
+    return;
+  }
+  const addBtn = ev.target.closest('.query-add');
+  if (addBtn && !addBtn.dataset.editing) {
+    ev.preventDefault();
+    const wrapper = addBtn.closest('.queries');
+    if (!wrapper) return;
+    addBtn.dataset.editing = '1';
+    addBtn.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'query-input';
+    input.placeholder = 'word…';
+    input.setAttribute('aria-label', 'New query word');
+    addBtn.before(input);
+    input.focus();
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      input.remove();
+      addBtn.style.display = '';
+      delete addBtn.dataset.editing;
+    };
+    input.addEventListener('keydown', async (kev) => {
+      if (kev.key === 'Escape') { close(); return; }
+      if (kev.key !== 'Enter') return;
+      kev.preventDefault();
+      const raw = input.value.trim();
+      if (!raw) { close(); return; }
+      const existing = _readQueryWords(wrapper).map(s => s.toLowerCase());
+      if (existing.includes(raw.toLowerCase())) { close(); return; }
+      addBtn.before(_makeQueryPill(raw));
+      close();
+      try { await _saveQueries(wrapper.dataset.source, _readQueryWords(wrapper)); }
+      catch (e) { /* already logged */ }
+    });
+    // Blur-without-Enter cancels silently. Setting a tiny timeout lets
+    // Enter's keydown-driven path finish first (otherwise blur fires and
+    // close() wipes the input before we read it).
+    input.addEventListener('blur', () => setTimeout(close, 50));
+  }
+});
+
 // Open claude.ai with the prompt pre-filled when it fits in the URL,
 // otherwise copy to clipboard and open a bare tab. If the user has pinned
 // a chat URL (via ⚙), always open that chat (prompt copied — no ?q= on
@@ -8795,7 +8945,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/to-review",
             "/refresh", "/refresh-status",
             "/claude-fit-paste",
-            "/write-user-config",
+            "/write-user-config", "/update-queries",
             "/save-probe", "/save-open-selected",
         ):
             self.send_response(404)
@@ -8915,6 +9065,88 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
             except Exception as e:
                 err(f"/write-user-config crashed: {e}")
+                body = json.dumps({"error": str(e)[:300]}).encode()
+                self.send_response(500)
+            self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/update-queries":
+            # Inline-edit a single source's `queries` list from the board
+            # (× / + pills on each company header). We rebuild
+            # data/user_config.py with the SAME companies and filter lists
+            # as before, overriding `queries` just for the named source —
+            # this reuses onboarding._build_user_config so the file stays
+            # structurally identical to what the wizard emits. Changes
+            # apply on the next refresh (queries filter runs server-side
+            # at fetch time).
+            name = (payload.get("name") or "").strip()
+            raw_queries = payload.get("queries") or []
+            if not name or not isinstance(raw_queries, list):
+                body = json.dumps({"error": "name + queries list required"}).encode()
+                self.send_response(400); self._cors()
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers(); self.wfile.write(body); return
+            # Dedupe case-insensitively, strip whitespace, preserve order.
+            cleaned, seen_lc = [], set()
+            for q in raw_queries:
+                qs = str(q).strip()
+                if not qs:
+                    continue
+                k = qs.lower()
+                if k in seen_lc:
+                    continue
+                seen_lc.add(k)
+                cleaned.append(qs)
+            try:
+                import onboarding  # lazy; keeps a plain run cheap
+                data_dir = os.environ.get("JOBS_DATA_DIR", "data")
+                out_path = os.path.join(data_dir, "user_config.py")
+                names = {s["name"] for s in SOURCES if s.get("name")}
+                if name not in names:
+                    body = json.dumps({"error": f"unknown source: {name}"}).encode()
+                    self.send_response(400); self._cors()
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers(); self.wfile.write(body); return
+                existing_q = {s["name"]: list(s.get("queries") or [])
+                              for s in SOURCES if s.get("name")}
+                existing_q[name] = cleaned
+                hl, tb, lb = HIGHLIGHTS[:], TITLE_BLACKLIST[:], LOCATION_BLACKLIST[:]
+                backup = None
+                if os.path.isfile(out_path):
+                    backup = onboarding._backup_path(out_path)
+                    import shutil
+                    shutil.copy2(out_path, backup)
+                content = onboarding._build_user_config(
+                    names,
+                    highlights=hl,
+                    title_blacklist=tb,
+                    location_blacklist=lb,
+                    existing_queries=existing_q,
+                )
+                os.makedirs(data_dir, exist_ok=True)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                # Keep the running process's SOURCES in sync so if the
+                # user clicks Refresh immediately, the new filter is used
+                # by any code path that reads SOURCES before the
+                # subprocess finishes reloading the file.
+                for s in SOURCES:
+                    if s.get("name") == name:
+                        s["queries"] = list(cleaned)
+                        break
+                sys.stdout.write(
+                    f"update-queries: {name} → {cleaned} ({out_path})\n"
+                )
+                body = json.dumps({
+                    "ok": True, "name": name, "queries": cleaned,
+                    "path": out_path, "backup": backup,
+                }).encode()
+                self.send_response(200)
+            except Exception as e:
+                err(f"/update-queries crashed: {e}")
                 body = json.dumps({"error": str(e)[:300]}).encode()
                 self.send_response(500)
             self._cors()

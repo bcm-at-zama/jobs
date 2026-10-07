@@ -140,5 +140,140 @@ class TestWriteUserConfigEndpoint(unittest.TestCase):
         self.assertEqual(by_name["OpenAI"]["queries"], ["security"])
 
 
+class TestUpdateQueriesEndpoint(unittest.TestCase):
+    """`/update-queries` is the in-place pill editor on each company
+    header. It mutates ONE source's `queries` list and preserves
+    everything else (companies set, highlights, blacklists, other
+    sources' queries)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.data = self.tmp.name
+        existing = os.path.join(self.data, "user_config.py")
+        with open(existing, "w") as f:
+            f.write(
+                "HIGHLIGHTS = ['AI']\n"
+                "TITLE_BLACKLIST = ['Intern']\n"
+                "LOCATION_BLACKLIST = ['Dubai']\n"
+                "SOURCES = [\n"
+                "  {'name': 'Anthropic', 'kind': 'greenhouse', "
+                "'slug': 'anthropic', 'queries': ['security']},\n"
+                "  {'name': 'OpenAI', 'kind': 'ashby', "
+                "'slug': 'openai', 'queries': ['keep', 'me']},\n"
+                "]\n"
+            )
+        self.existing_path = existing
+        self._patches = [
+            mock.patch.dict(os.environ, {"JOBS_DATA_DIR": self.data}),
+            mock.patch.object(jobs, "HIGHLIGHTS", ["AI"]),
+            mock.patch.object(jobs, "TITLE_BLACKLIST", ["Intern"]),
+            mock.patch.object(jobs, "LOCATION_BLACKLIST", ["Dubai"]),
+            mock.patch.object(jobs, "SOURCES", [
+                {"name": "Anthropic", "kind": "greenhouse", "slug": "anthropic",
+                 "queries": ["security"]},
+                {"name": "OpenAI", "kind": "ashby", "slug": "openai",
+                 "queries": ["keep", "me"]},
+            ]),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in reversed(self._patches):
+            p.stop()
+        self.tmp.cleanup()
+
+    def _invoke(self, path, body_dict):
+        body = json.dumps(body_dict).encode()
+
+        class _Shim(jobs.Handler):
+            def __init__(self):
+                self.rfile = BytesIO(body)
+                self.wfile = BytesIO()
+                self.headers = {"Content-Length": str(len(body))}
+                self.path = path
+                self.command = "POST"
+                self._status = None
+
+            def send_response(self, code, msg=None):
+                self._status = code
+
+            def send_header(self, k, v): pass
+            def end_headers(self): pass
+            def log_message(self, *a, **kw): pass
+
+        shim = _Shim()
+        shim.do_POST()
+        return shim._status, shim.wfile.getvalue()
+
+    def _reload(self):
+        spec = importlib.util.spec_from_file_location("_uc", self.existing_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return {s["name"]: s for s in mod.SOURCES}, mod
+
+    def test_add_and_replace_queries(self):
+        status, body = self._invoke(
+            "/update-queries",
+            {"name": "Anthropic", "queries": ["security", "cryptography", "CTO", "VP"]},
+        )
+        self.assertEqual(status, 200, body)
+        resp = json.loads(body)
+        self.assertTrue(resp["ok"])
+        self.assertEqual(resp["queries"],
+                         ["security", "cryptography", "CTO", "VP"])
+        by_name, mod = self._reload()
+        self.assertEqual(by_name["Anthropic"]["queries"],
+                         ["security", "cryptography", "CTO", "VP"])
+        # Other source untouched.
+        self.assertEqual(by_name["OpenAI"]["queries"], ["keep", "me"])
+        # Filter lists preserved.
+        self.assertEqual(mod.HIGHLIGHTS, ["AI"])
+        self.assertEqual(mod.TITLE_BLACKLIST, ["Intern"])
+        self.assertEqual(mod.LOCATION_BLACKLIST, ["Dubai"])
+
+    def test_empty_queries_clears_source(self):
+        status, _ = self._invoke(
+            "/update-queries", {"name": "Anthropic", "queries": []},
+        )
+        self.assertEqual(status, 200)
+        by_name, _ = self._reload()
+        self.assertEqual(by_name["Anthropic"]["queries"], [])
+
+    def test_dedupes_case_insensitive_and_trims(self):
+        status, body = self._invoke(
+            "/update-queries",
+            {"name": "Anthropic",
+             "queries": ["  security  ", "Security", "  ", "SECURITY", "crypto"]},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["queries"], ["security", "crypto"])
+
+    def test_rejects_unknown_source(self):
+        status, _ = self._invoke(
+            "/update-queries", {"name": "NotRealCo", "queries": ["x"]},
+        )
+        self.assertEqual(status, 400)
+
+    def test_rejects_missing_fields(self):
+        status, _ = self._invoke("/update-queries", {"queries": ["x"]})
+        self.assertEqual(status, 400)
+        status, _ = self._invoke("/update-queries", {"name": "Anthropic"})
+        # Missing queries key → defaults to [] → cleared; this is valid.
+        self.assertEqual(status, 200)
+
+    def test_in_memory_sources_sync_with_file(self):
+        """REGRESSION guard — if the running server's SOURCES isn't
+        updated, clicking Refresh immediately after a pill edit would
+        use stale queries until the subprocess reloads from disk. We
+        mutate in-memory to avoid that window."""
+        self._invoke(
+            "/update-queries",
+            {"name": "Anthropic", "queries": ["freshly-added"]},
+        )
+        by_name = {s["name"]: s for s in jobs.SOURCES}
+        self.assertEqual(by_name["Anthropic"]["queries"], ["freshly-added"])
+
+
 if __name__ == "__main__":
     unittest.main()

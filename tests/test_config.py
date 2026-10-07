@@ -12,8 +12,8 @@ import jobs
 
 class TestSourcesIntegrity(unittest.TestCase):
 
-    def test_sources_list_non_empty(self):
-        self.assertTrue(config.SOURCES, "config.SOURCES is empty")
+    # `test_sources_list_non_empty` lives in data/tests/test_user_decisions.py
+    # — it fails on a stock OSS clone with no user_config yet.
 
     def test_every_kind_is_registered(self):
         unknown = []

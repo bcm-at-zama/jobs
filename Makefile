@@ -75,11 +75,23 @@ PORT_ARG := $(if $(PORT_SET),--port $(PORT))
 onboarding:
 	PYTHONPATH=src $(PYTHON) src/jobs.py --onboard $(PORT_ARG)
 
+# `make test` runs two suites:
+#   - tests/        framework behaviour (ships in OSS; passes on empty config).
+#   - data/tests/   user-specific regression guards (private; skipped when
+#                   absent, so a stock OSS clone just runs the first suite).
 test:
-	PYTHONPATH=src $(PYTHON) -m unittest discover tests
+	@PYTHONPATH=src $(PYTHON) -m unittest discover tests
+	@if [ -d data/tests ]; then \
+	  echo "--- user-decision tests (data/tests/) ---"; \
+	  PYTHONPATH=src $(PYTHON) -m unittest discover data/tests; \
+	fi
 
 test-verbose:
-	PYTHONPATH=src $(PYTHON) -m unittest discover tests -v
+	@PYTHONPATH=src $(PYTHON) -m unittest discover tests -v
+	@if [ -d data/tests ]; then \
+	  echo "--- user-decision tests (data/tests/) ---"; \
+	  PYTHONPATH=src $(PYTHON) -m unittest discover data/tests -v; \
+	fi
 
 # `make run` → full pipeline: fetch every source, score, render HTML,
 # open the browser, keep serving. Extra flags can be passed through:
