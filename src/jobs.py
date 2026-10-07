@@ -3131,6 +3131,13 @@ def _looks_like_location(s):
         return False
     if s.lower().strip() in _DEPARTMENT_WORDS:
         return False
+    # Prose stuffed into a location field — e.g. PQShield's Greenhouse feed
+    # emits "Spain. Some travel to our offices (Oxford/London/Paris) will be
+    # required from time-to-time, UK". Real locations in the corpus top out
+    # around 42 chars; 60 gives safe margin and still catches sentence-length
+    # garbage before it taints country grouping.
+    if len(s) > 60:
+        return False
     # Timezone-only strings like "Remote (UTC-5) to UTC+2" are not locations.
     if re.search(r"\butc\s*[+-−–—]?\s*\d", s, re.IGNORECASE):
         return False
@@ -9323,6 +9330,24 @@ def _run_refresh_subprocess(mode="refresh"):
             _refresh_state["error"] = str(e)[:500]
 
 
+def _render_settings_html():
+    """Load src/settings.html and inline __SERVER_URL__ + __RUNAWAY_THRESHOLD__.
+
+    Rendered on every GET /settings (not cached) so a mid-session
+    /set-settings POST shows the new value when the user reopens the
+    page. The file is small (~10kB) — rebuilding costs microseconds."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(here, "settings.html"), "r", encoding="utf-8") as f:
+        html = f.read()
+    server_url = f"http://{SERVE_HOST}:{SERVE_PORT}"
+    html = (
+        html
+        .replace("__SERVER_URL__", server_url)
+        .replace("__RUNAWAY_THRESHOLD__", json.dumps(_cfg.RUNAWAY_THRESHOLD))
+    )
+    return html.encode("utf-8")
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -9349,9 +9374,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
-        else:
-            self.send_response(404)
+            return
+        if self.path in ("/settings", "/settings.html"):
+            try:
+                data = _render_settings_html()
+            except FileNotFoundError:
+                self.send_response(404); self.end_headers(); return
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
             self.end_headers()
+            self.wfile.write(data)
+            return
+        self.send_response(404)
+        self.end_headers()
 
     def do_POST(self):
         if self.path not in (

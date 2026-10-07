@@ -119,6 +119,21 @@ class TestFlattenLocations(unittest.TestCase):
             self.assertNotIn("&nbsp;", x)
             self.assertNotIn("&amp;", x)
 
+    def test_prose_stuffed_into_location_is_dropped(self):
+        # PQShield's Greenhouse feed shipped a sentence as a location name.
+        # The flattener must drop it so it doesn't end up grouped under UK.
+        prose = (
+            "Spain. Some travel to our offices (Oxford/London/Paris) "
+            "will be required from time-to-time, UK"
+        )
+        out = jobs._flatten_locations([prose, "Finland", "France"])
+        self.assertNotIn(prose, out)
+        for x in out:
+            self.assertNotIn("Some travel", x)
+            self.assertNotIn("will be required", x)
+        self.assertIn("Finland", out)
+        self.assertIn("France", out)
+
 
 class TestGroupLocations(unittest.TestCase):
     """_group_locations buckets flattened locs by country for the report."""

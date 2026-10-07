@@ -648,6 +648,7 @@ GROUP_ORDER = [
     "AI Startups",
     "Startups",
     "Security Companies",
+    "FHE",
     "Blockchain",
     "Cars",
     "Media",

@@ -485,6 +485,21 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Mozilla', 'kind': 'greenhouse', 'slug': 'mozilla', 'group': 'Startups'},
  {'name': 'Instacart', 'kind': 'greenhouse', 'slug': 'instacart', 'group': 'Startups'},
 
+ # FHE
+ # Zama runs a hand-rolled static board at jobs.zama.org — no Ashby/
+ # Greenhouse backend (probe_zama.py verified: 200 w/ /jobs/<slug>
+ # anchors, no ATS fingerprint). We scrape the shell with Playwright
+ # and let the per-source `queries` filter narrow results.
+ {'name': 'Zama',
+  'kind': 'pw',
+  'slug': 'zama',
+  'board': 'https://jobs.zama.org/',
+  'search_url': 'https://jobs.zama.org/',
+  'link_re': 'href="(/jobs/[^"#?]+)"',
+  'origin': 'https://jobs.zama.org',
+  'wait_selector': "a[href*='/jobs/']",
+  'group': 'FHE'},
+
  # Blockchain / crypto
  {'name': 'Coinbase', 'kind': 'greenhouse', 'slug': 'coinbase', 'group': 'Blockchain'},
  {'name': 'Fireblocks', 'kind': 'greenhouse', 'slug': 'fireblocks', 'group': 'Blockchain'},

@@ -116,6 +116,39 @@ verify from a dump or a probe output, produce a probe script and stop until
 the user runs it. The only edits allowed without verification are those the
 user has explicitly authorized in the current message.
 
+## Probes are always .py scripts under debug/
+
+Any time I need you to run something from your Mac — fetching a URL,
+checking an ATS slug, dumping a page, confirming a selector, probing
+anything — I MUST ship it as a Python script under `debug/` and point
+you at it. Never paste a bare `curl` / `grep` / shell one-liner for you
+to copy. Reasons:
+
+- A `.py` file is reviewable and re-runnable. Shell one-liners pasted
+  in prose rot the moment the chat scrolls.
+- It lives in `debug/` (per the repo layout rule), with a module
+  docstring explaining what it does and what to look for in the output.
+- It stays stdlib-only (`urllib`, `json`, `re`, `sys`) so you can run
+  it with plain `python3 debug/probe_foo.py` — no venv activation, no
+  deps, no surprises.
+- It should print a clear human summary AND a machine-readable
+  (JSON-fenced) block at the bottom so pasting the result back is
+  mechanical, not a search-and-copy exercise.
+
+Minimum shape:
+
+```python
+#!/usr/bin/env python3
+"""Probe <what> — explain why, note any sandbox-blocked endpoints,
+mention which group / scraper this feeds, and what to paste back."""
+# stdlib only; prints progress + a ```json block at the end.
+```
+
+Exception: once a probe already exists for the exact thing you need
+(e.g. `debug/probe_broken_sources.py`), reuse it instead of writing a
+new one. "Shell one-liner" is NOT the exception — build or extend a
+probe.
+
 ## Related principles
 
 - Prefer editing existing scrapers over cloning new ones — if a slug is
@@ -130,6 +163,24 @@ user has explicitly authorized in the current message.
   fallback kicks in (~5y Senior / ~8y Staff / ~12y+ Principal), which is
   fine for startups but misleading for a big company with atypical bands.
   Startups: don't invent entries — rely on the fallback.
+
+## Ask one thing at a time
+
+When I need an input from you, I MUST ask ONE question per turn. Not
+three. Not "A, B, or C — also D?". One question, scoped, with a clear
+default where sensible.
+
+Why: when I pile several questions into one message, the ones at the
+end get missed. The dialog devolves into "you asked three things, I
+answered one". Serialising keeps us in sync.
+
+If I have multiple pending questions, pick the one that unblocks the
+most work and ask it. Keep the others as a mental TODO; raise them in
+later turns, one by one, as earlier questions get answered.
+
+Exception: when the questions are truly a single multi-choice decision
+("stop / continue / cancel?"), that's one question with options — fine.
+What's NOT fine is "do you want X? Also Y? Also Z?".
 
 ## When you need something from me — ask explicitly, and remind
 

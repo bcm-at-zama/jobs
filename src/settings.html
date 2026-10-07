@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Settings — Jobs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0&display=block">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --bg-subtle: #f6f8fa;
+      --bg-inset: #eaeef2;
+      --border: #d0d7de;
+      --border-muted: #d8dee4;
+      --fg: #1f2328;
+      --fg-muted: #656d76;
+      --fg-subtle: #6e7781;
+      --accent: #0969da;
+      --accent-emphasis: #0550ae;
+      --success: #1a7f37;
+      --danger: #d1242f;
+    }
+    html { scroll-behavior: smooth; font-size: 12px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      max-width: 720px;
+      margin: 2rem auto;
+      padding: 0 1rem 3rem;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.5;
+    }
+    .mi {
+      font-family: 'Material Symbols Rounded', sans-serif;
+      font-weight: 500;
+      font-size: 1.1rem;
+      line-height: 1;
+      vertical-align: -0.2rem;
+      font-feature-settings: 'liga';
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header.page-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+      margin-bottom: 1.5rem;
+    }
+    header.page-head h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    .back-link {
+      font-size: 0.9rem;
+      color: var(--fg-muted);
+    }
+    .back-link:hover { color: var(--accent); }
+
+    section.settings-section {
+      margin-bottom: 1.8rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      background: var(--bg);
+    }
+    section.settings-section h2 {
+      margin: 0 0 0.3rem;
+      font-size: 1.05rem;
+      color: var(--fg);
+    }
+    section.settings-section .section-hint {
+      margin: 0 0 0.9rem;
+      font-size: 0.85rem;
+      color: var(--fg-muted);
+    }
+
+    .toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.5rem 1.2rem;
+    }
+    .toggle-grid label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .toggle-grid input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .field {
+      display: block;
+      margin-bottom: 1rem;
+    }
+    .field:last-child { margin-bottom: 0; }
+    .field > label.field-label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--fg);
+      margin-bottom: 0.3rem;
+    }
+    .field .field-hint {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--fg-muted);
+      margin-top: 0.3rem;
+    }
+    .field input[type="text"],
+    .field input[type="number"] {
+      box-sizing: border-box;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--bg);
+      color: var(--fg);
+      font: inherit;
+    }
+    .field input[type="text"]  { width: 100%; }
+    .field input[type="number"] { width: 8rem; }
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+    }
+
+    .radio-row {
+      display: flex;
+      gap: 1.2rem;
+      align-items: center;
+    }
+    .radio-row label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    .saved-flash {
+      display: inline-block;
+      margin-left: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--success);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .saved-flash.visible { opacity: 1; }
+    .saved-flash.error { color: var(--danger); }
+
+    .shortcut-hint {
+      margin-top: 2rem;
+      font-size: 0.82rem;
+      color: var(--fg-muted);
+      text-align: center;
+    }
+    kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85em;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.05rem 0.3rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="page-head">
+    <h1>Settings</h1>
+    <a class="back-link" href="/">← Back to jobs</a>
+  </header>
+
+  <section class="settings-section">
+    <h2>Row display</h2>
+    <p class="section-hint">What appears on each job row.</p>
+    <div class="toggle-grid">
+      <label><input type="checkbox" data-toggle="highlight"       data-class="no-highlights"> Highlight keywords</label>
+      <label><input type="checkbox" data-toggle="showSeniority"   data-class="hide-seniority"> Seniority</label>
+      <label><input type="checkbox" data-toggle="showScore"       data-class="hide-score"> Score</label>
+      <label><input type="checkbox" data-toggle="showSalary"      data-class="hide-salary"> Salary</label>
+      <label><input type="checkbox" data-toggle="showKeywords"    data-class="hide-keywords"> Keywords</label>
+      <label><input type="checkbox" data-toggle="showLocation"    data-class="hide-location"> Location</label>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>Section summaries</h2>
+    <p class="section-hint">Summary blocks shown above each company's jobs.</p>
+    <div class="toggle-grid">
+      <label><input type="checkbox" data-toggle="scoreSummary" data-class="hide-score-summary"> Score summary</label>
+      <label><input type="checkbox" data-toggle="roleSummary"  data-class="hide-role-summary"> Role summary</label>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>AI assistant</h2>
+    <p class="section-hint">Where fit-rating prompts open and what language replies come back in.</p>
+
+    <div class="field">
+      <label class="field-label" for="chat-url">Pinned chat conversation URL</label>
+      <input type="text" id="chat-url" placeholder="https://claude.ai/chat/… or https://chatgpt.com/c/…">
+      <span class="saved-flash" id="chat-url-flash">Saved</span>
+      <span class="field-hint">When set, the AI button reuses that conversation (so permissions you granted carry over) and the prompt is copied to the clipboard. Leave empty to open a fresh chat each time.</span>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Response language</span>
+      <div class="radio-row">
+        <label><input type="radio" name="lang" value="en"> English</label>
+        <label><input type="radio" name="lang" value="fr"> French</label>
+        <span class="saved-flash" id="lang-flash">Saved</span>
+      </div>
+      <span class="field-hint">Affects the notes and summaries the LLM writes back. The user interface stays in English.</span>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>Scraping</h2>
+    <p class="section-hint">How aggressively each source is paginated.</p>
+
+    <div class="field">
+      <label class="field-label" for="runaway">Per-query runaway threshold</label>
+      <input type="number" id="runaway" min="10" max="10000" step="10">
+      <span class="saved-flash" id="runaway-flash">Saved</span>
+      <span class="field-hint">Maximum matching jobs accepted per query before pagination stops. Lower is faster but may miss postings; higher scrapes more pages. Default 300.</span>
+    </div>
+  </section>
+
+  <p class="shortcut-hint">
+    Shortcuts: <kbd>⌘,</kbd> (or <kbd>Ctrl ,</kbd>) opens this page from the board. <kbd>Esc</kbd> or the back link returns you to the jobs list.
+  </p>
+
+<script>
+  const STORAGE_KEY = 'jobs:filters:v1';
+  const CLAUDE_CHAT_URL_KEY = 'jobs:claude-chat-url:v1';
+  const CLAUDE_LANG_KEY = 'jobs:claude-lang:v1';
+  const SERVER_URL = '__SERVER_URL__';
+  const RUNAWAY_THRESHOLD = __RUNAWAY_THRESHOLD__;
+
+  // The main board's loadFilters() reads the SAME blob and applies body
+  // classes on load, so changes here propagate the moment the user
+  // navigates back. Defaults match loadFilters so toggling a never-seen
+  // key still produces the right UI state.
+  const TOGGLE_DEFAULTS = {
+    highlight: true, scoreSummary: true, roleSummary: true,
+    showSeniority: true, showScore: true, showSalary: true,
+    showKeywords: true, showLocation: true,
+  };
+
+  function readFilters() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function writeFilters(patch) {
+    const cur = readFilters();
+    const next = Object.assign({}, cur, patch);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
+    catch (e) {}
+  }
+
+  function flash(id, msg, ok) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg || 'Saved';
+    el.classList.toggle('error', !ok);
+    el.classList.add('visible');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('visible'), 1200);
+  }
+
+  // ---- Row display + summaries (toggles write back into the shared blob) ----
+  const filters = readFilters();
+  document.querySelectorAll('input[data-toggle]').forEach(cb => {
+    const key = cb.dataset.toggle;
+    const def = TOGGLE_DEFAULTS[key] ?? true;
+    cb.checked = (key in filters) ? !!filters[key] : def;
+    cb.addEventListener('change', () => {
+      writeFilters({[key]: cb.checked});
+    });
+  });
+
+  // ---- AI assistant: chat URL (localStorage, save on blur) ----
+  const urlInput = document.getElementById('chat-url');
+  urlInput.value = (localStorage.getItem(CLAUDE_CHAT_URL_KEY) || '').trim();
+  urlInput.addEventListener('blur', () => {
+    const v = urlInput.value.trim();
+    try {
+      if (v) localStorage.setItem(CLAUDE_CHAT_URL_KEY, v);
+      else   localStorage.removeItem(CLAUDE_CHAT_URL_KEY);
+      flash('chat-url-flash', v ? 'Saved' : 'Cleared', true);
+    } catch (e) {
+      flash('chat-url-flash', 'Save failed', false);
+    }
+  });
+
+  // ---- AI assistant: language (localStorage, instant) ----
+  const curLang = ((localStorage.getItem(CLAUDE_LANG_KEY) || '').trim().toLowerCase() === 'fr') ? 'fr' : 'en';
+  document.querySelectorAll('input[name="lang"]').forEach(r => {
+    r.checked = (r.value === curLang);
+    r.addEventListener('change', () => {
+      if (!r.checked) return;
+      try {
+        localStorage.setItem(CLAUDE_LANG_KEY, r.value === 'fr' ? 'fr' : 'en');
+        flash('lang-flash', 'Saved', true);
+      } catch (e) {
+        flash('lang-flash', 'Save failed', false);
+      }
+    });
+  });
+
+  // ---- Scraping: runaway threshold (server, save on blur) ----
+  const runawayInput = document.getElementById('runaway');
+  runawayInput.value = RUNAWAY_THRESHOLD;
+  let runawayLast = RUNAWAY_THRESHOLD;
+  runawayInput.addEventListener('blur', async () => {
+    const v = parseInt(runawayInput.value, 10);
+    if (!Number.isFinite(v) || v < 10 || v > 10000) {
+      runawayInput.value = runawayLast;
+      flash('runaway-flash', 'Invalid (10–10000)', false);
+      return;
+    }
+    if (v === runawayLast) return;
+    try {
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const r = await fetch(base + '/set-settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({runaway_threshold: v}),
+      });
+      if (!r.ok) throw new Error('http ' + r.status);
+      runawayLast = v;
+      flash('runaway-flash', 'Saved', true);
+    } catch (e) {
+      flash('runaway-flash', 'Save failed', false);
+    }
+  });
+
+  // Esc returns to the board — matches the shortcut hint at the bottom.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      location.href = '/';
+    }
+  });
+</script>
+</body>
+</html>
