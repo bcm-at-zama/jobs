@@ -651,14 +651,13 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'board': 'https://www.welcometothejungle.com/fr/companies/360learning',
   'group': 'Welcome to the Jungle'},
  # Slugs below currently 0-job — real slugs TBD (probe_wttj_slug_find.py).
- # OpenClassrooms uses Teamtailor on a custom domain
- # (jobs.openclassrooms.com). The generic kind=teamtailor fetcher
- # expects careers.<slug>.com; here we go via kind=pw since the
- # custom domain doesn't match that pattern.
+ # OpenClassrooms uses Teamtailor on a custom domain. Hrefs are
+ # absolute URLs (verified via debug/probe_fix_link_re.py 2026-10-07),
+ # so link_re captures the full URL.
  {'name': 'OpenClassrooms', 'kind': 'pw', 'slug': 'openclassrooms',
   'board': 'https://jobs.openclassrooms.com/fr/jobs',
   'search_url': 'https://jobs.openclassrooms.com/fr/jobs',
-  'link_re': r'href="(/fr/jobs/[0-9]+-[^"#?]+)"',
+  'link_re': r'href="(https?://jobs\.openclassrooms\.com/fr/jobs/[0-9]+-[^"#?]+)"',
   'origin': 'https://jobs.openclassrooms.com',
   'wait_selector': "a[href*='/fr/jobs/']",
   'group': 'Welcome to the Jungle'},
@@ -679,12 +678,12 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Lifen', 'kind': 'wttj_company', 'slug': 'lifen',
   'board': 'https://www.welcometothejungle.com/fr/companies/lifen',
   'group': 'Welcome to the Jungle'},
- # Lydia (now Sumeria) uses Teamtailor on a custom domain
- # (jobs.lydia-app.com). Scrape via kind=pw.
+ # Lydia (now Sumeria) uses Teamtailor on a custom domain. Hrefs
+ # are absolute URLs (verified via debug/probe_fix_link_re.py).
  {'name': 'Lydia', 'kind': 'pw', 'slug': 'lydia',
   'board': 'https://jobs.lydia-app.com/jobs',
   'search_url': 'https://jobs.lydia-app.com/jobs',
-  'link_re': r'href="(/jobs/[0-9]+-[^"#?]+)"',
+  'link_re': r'href="(https?://jobs\.lydia-app\.com/jobs/[0-9]+-[^"#?]+)"',
   'origin': 'https://jobs.lydia-app.com',
   'wait_selector': "a[href*='/jobs/']",
   'group': 'Welcome to the Jungle'},

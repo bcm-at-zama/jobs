@@ -139,6 +139,46 @@ If a command would be too long for one line, wrap it in a `.py` under
 `debug/` instead (per the probe rule above) and give the user a
 one-liner that runs the script.
 
+## TEST before claiming it works
+
+**Every time I ship a catalog edit, slug fix, scraper tweak, or ATS
+rewiring, I MUST verify end-to-end that it actually produces jobs —
+before telling the user "done, try it".**
+
+Two acceptable ways to verify:
+
+1. **I run the test myself** (unit tests via `make test`, pure-Python
+   validation, mocked HTTP). Sufficient when the change is purely
+   local and the sandbox can reach what it needs.
+
+2. **I ship a test `.py` under `debug/` that the user runs** — a
+   one-liner that exercises the touched entries end-to-end (actually
+   calls the fetcher, actually hits the live API, reports ✓/✗ per
+   entry). Required when the sandbox can't reach the ATS / WTJ API /
+   whatever external thing matters.
+
+Not acceptable:
+- "Should work, try it" (then user runs `make run`, finds 7 sources
+  silently return 0 jobs, has to tell me each time).
+- "The slug probably matches, I verified via HTML 200" (HTML 200 is
+  not an answer — ATS APIs give the real answer).
+
+Pattern to follow for ATS/scraper edits:
+- Hit the ATS's native API (`api.ashbyhq.com/posting-api/...`,
+  `boards-api.greenhouse.io/v1/boards/...`, `api.lever.co/v0/postings/...`,
+  `apply.workable.com/api/v3/accounts/...`) to confirm the slug returns
+  a real job board, not a 200 empty page.
+- For Playwright-based fetchers (`kind=pw`, `kind=wttj_company`, etc.),
+  mimic the actual fetcher in the test probe so the test catches
+  wait_selector / link_re / networkidle drift.
+- Report per-entry: ✓ (jobs > 0), ✗ (zero jobs — probable bug), ⚠
+  (fetcher errored). User scans the summary; one glance = one answer.
+
+Rationale: breaking the same thing in different ways in consecutive
+rounds is the single most frustrating interaction pattern. Catching
+it in a test probe BEFORE handing off saves the user from reporting
+breakage, saves me from pretending surprise, saves rounds.
+
 ## Don't be lazy — automate before asking
 
 **When I'm about to ask the user to look something up by hand ("please
