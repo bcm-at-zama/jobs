@@ -1606,6 +1606,7 @@ async function launchBoard() {
     if (p && p.total) {
       parts.push(p.done_count + ' / ' + p.total + ' companies fetched');
       if (p.last_done) parts.push('latest: ' + p.last_done);
+      if (p.currently_working) parts.push('working on: ' + p.currently_working);
     }
     elapsed.textContent = parts.join(' · ');
   }

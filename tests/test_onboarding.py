@@ -140,6 +140,70 @@ class TestOnboardingHidesVPCTO(unittest.TestCase):
                              "rendering the wizard page must not modify user_config.py")
 
 
+class TestLaunchProgressCurrentlyWorking(unittest.TestCase):
+    """`_launch_progress` must return a 'currently_working' field: the
+    first still-pending source in SOURCES order. Lets the wizard's
+    progress panel show both 'latest done: X' and 'working on: Y'."""
+
+    def _build_server(self, tmpdir, source_names):
+        """Spin up a server pre-populated with a slug map (as spawn_board
+        would do), without actually fetching anything."""
+        port = onboarding._pick_free_port()
+        done = threading.Event()
+        server = onboarding._OnboardingServer(
+            ("127.0.0.1", port), onboarding._OnboardingHandler,
+            data_dir=tmpdir,
+            out_path=os.path.join(tmpdir, "user_config.py"),
+            done_event=done,
+        )
+        server._n_total_sources = len(source_names)
+        server._slug_to_name = {
+            onboarding._OnboardingServer._slug(n): n for n in source_names
+        }
+        return server
+
+    def _touch_cache(self, tmpdir, slug):
+        cache_dir = os.path.join(tmpdir, "list_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        path = os.path.join(cache_dir, f"{slug}.json")
+        with open(path, "w") as f:
+            f.write("{}")
+        # Ensure strictly increasing mtimes across successive writes so
+        # the "oldest → newest" sort in _launch_progress is deterministic.
+        time.sleep(0.01)
+        return path
+
+    def test_currently_working_is_first_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            server = self._build_server(tmp, ["Apple", "Microsoft", "Google"])
+            try:
+                prog = server._launch_progress()
+                # Nothing done yet → first in SOURCES order is pending.
+                self.assertEqual(prog["currently_working"], "Apple")
+                self.assertEqual(prog["done_count"], 0)
+                self.assertIsNone(prog["last_done"])
+
+                # Finish Apple → currently_working advances to Microsoft.
+                self._touch_cache(tmp, "apple")
+                prog = server._launch_progress()
+                self.assertEqual(prog["currently_working"], "Microsoft")
+                self.assertEqual(prog["last_done"], "Apple")
+
+                # Finish Microsoft → currently_working advances to Google.
+                self._touch_cache(tmp, "microsoft")
+                prog = server._launch_progress()
+                self.assertEqual(prog["currently_working"], "Google")
+                self.assertEqual(prog["last_done"], "Microsoft")
+
+                # Everything done → currently_working is None.
+                self._touch_cache(tmp, "google")
+                prog = server._launch_progress()
+                self.assertIsNone(prog["currently_working"])
+                self.assertEqual(prog["last_done"], "Google")
+            finally:
+                server.server_close()
+
+
 class TestPickFreePort(unittest.TestCase):
     """`_pick_free_port` must honour the `avoid` set so the wizard and
     the sandbox board it spawns never collide with the main board."""

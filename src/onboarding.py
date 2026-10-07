@@ -477,7 +477,13 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
     def _launch_progress(self) -> dict:
         """List `data/list_cache/*.json` to tell the browser which
         sources have finished scraping so far.  Each successful fetch
-        writes one JSON file; the newest file's mtime is "latest done"."""
+        writes one JSON file; the newest file's mtime is "latest done".
+
+        `currently_working` is the first still-pending source in SOURCES
+        order — inferred from "selected minus done" rather than from
+        jobs.py IPC, which fetches in parallel threads. As the pipeline
+        progresses it walks forward through the list, so you can see
+        which stragglers are still blocking the final completion."""
         cache_dir = os.path.join(self.data_dir, "list_cache")
         entries = []
         if os.path.isdir(cache_dir):
@@ -495,10 +501,17 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
         if entries:
             last_slug = entries[-1][0]
             last_done = self._slug_to_name.get(last_slug, last_slug)
+        done_set = set(done_slugs)
+        currently_working = None
+        for slug, name in self._slug_to_name.items():
+            if slug not in done_set:
+                currently_working = name
+                break
         return {
             "done_count": len(done_slugs),
             "total": self._n_total_sources,
             "last_done": last_done,
+            "currently_working": currently_working,
         }
 
     def spawn_board(self):

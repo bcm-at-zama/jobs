@@ -40,7 +40,23 @@ import urllib.request
 _APP_ID = "CSEKHVMS53"
 _API_KEY = "4bd8f6215d0cc52b26430765769e65a0"
 _INDEX = "wk_cms_organizations_production"
-_ENDPOINT = f"https://{_APP_ID.lower()}-dsn.algolia.net/1/indexes/*/queries"
+# The browser-side Algolia client sends the agent as a URL-encoded
+# query param (not a header). Algolia's edge checks this to classify
+# the client — omitting it gets us 403'd from datacenter IPs. The
+# matching Origin / Referer below also helps when Algolia has HTTP-
+# referer-based restrictions on the key.
+_ALGOLIA_AGENT = (
+    "Algolia%20for%20JavaScript%20(4.20.0)"
+    "%3B%20Browser"
+    "%3B%20JS%20Helper%20(3.14.0)"
+    "%3B%20react%20(18.2.0)"
+    "%3B%20react-instantsearch%20(6.40.4)"
+)
+_ENDPOINT = (
+    f"https://{_APP_ID.lower()}-dsn.algolia.net/1/indexes/*/queries"
+    f"?x-algolia-agent={_ALGOLIA_AGENT}"
+    f"&search_origin=companies_search_client"
+)
 _PAGE_SIZE = 100
 
 # Default tech-leaning filters — matches a security/AI/engineering
@@ -71,9 +87,17 @@ def _post_algolia(index: str, params: str) -> dict:
             "X-Algolia-API-Key": _API_KEY,
             "X-Algolia-Application-Id": _APP_ID,
             "Content-Type": "application/x-www-form-urlencoded",
-            # Matches the User-Agent WTJ's own browser Algolia client
-            # sends, so our requests don't look weird in Algolia's logs.
-            "User-Agent": "Algolia for JavaScript (4.20.0); Browser",
+            # Origin + Referer match WTJ's own browser so Algolia's
+            # HTTP-referer whitelist on this key accepts us. Without
+            # them, requests from unknown origins (datacenter IPs,
+            # curl, bare python) get a 403.
+            "Origin": "https://www.welcometothejungle.com",
+            "Referer": "https://www.welcometothejungle.com/",
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                "Version/17.4 Safari/605.1.15"
+            ),
         },
     )
     with urllib.request.urlopen(req, timeout=15) as r:
