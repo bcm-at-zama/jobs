@@ -1,7 +1,7 @@
 # Default target: show what's available.
 .DEFAULT_GOAL := help
 
-.PHONY: help install onboarding test test-verbose run kill commit pdf html clean-pdf
+.PHONY: help install onboarding test test-verbose run kill commit pdf html clean-pdf wttj-refresh
 
 # Virtualenv lives at ./venv-macos or ./.venv-macos (dot variant is the
 # modern Python convention). If either exists, use its python3; else
@@ -43,6 +43,14 @@ help:
 	@echo "  make test-verbose    Same, verbose."
 	@echo ""
 	@echo "  make commit      git add + commit + push (via script/push.sh)."
+	@echo ""
+	@echo "  make wttj-refresh    Rediscover Welcome-to-the-Jungle companies via"
+	@echo "                   Algolia (filtered by sector), validate each slug"
+	@echo "                   against the WTJ API, and append new ones to the"
+	@echo "                   catalog + user config. Edit DEFAULT_SECTOR_FACETS"
+	@echo "                   in src/wttj_discovery.py to change which sectors"
+	@echo "                   are pulled (default: Cybersecurity + AI/ML)."
+	@echo "                   Takes ~4 minutes. See knowledge/wttj_bulk_populate.md."
 	@echo ""
 	@echo "  make pdf         Build business/analysis.pdf via Sphinx + latexmk."
 	@echo "  make html        Build business/_build/html via Sphinx."
@@ -130,6 +138,27 @@ kill:
 # `make commit` → forwards to script/push.sh (git add + commit + push).
 commit:
 	@bash script/push.sh
+
+# `make wttj-refresh` → re-run the Welcome-to-the-Jungle discovery flow:
+#   1. hits Algolia with DEFAULT_SECTOR_FACETS (src/wttj_discovery.py)
+#   2. validates each discovered slug against the WTJ jobs API
+#   3. dedupes vs the existing catalog + user_config
+#   4. patches src/catalog.py, data/user_config.py, src/config.py
+#   5. runs make test
+#   6. runs the end-to-end fetcher check across all WTJ entries
+#
+# To broaden/narrow the sector filter, edit DEFAULT_SECTOR_FACETS in
+# src/wttj_discovery.py before running this target. The full workflow
+# is documented in knowledge/wttj_bulk_populate.md.
+wttj-refresh:
+	@echo "[1/3] Discovering WTJ companies by sector (Algolia + per-slug validation)…"
+	@PYTHONPATH=src $(PYTHON) debug/bulk_populate_wttj_catalog.py
+	@echo ""
+	@echo "[2/3] Applying verified companies to catalog + user_config + config…"
+	@$(PYTHON) debug/apply_wttj_verified.py
+	@echo ""
+	@echo "[3/3] End-to-end fetcher check (hits WTJ API per source)…"
+	@PYTHONPATH=src $(PYTHON) debug/test_wttj_sources.py | tail -40
 
 # ---------------------------------------------------------------------------
 # business/analysis.md → PDF via Sphinx + latexmk.

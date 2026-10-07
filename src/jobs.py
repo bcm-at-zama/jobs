@@ -4413,8 +4413,13 @@ def render_html_tabs():
         '<span class="mi" aria-hidden="true">settings</span></a>\n'
         '    </div>'
     )
+    board_title_html = (
+        f'    <span class="board-title" id="board-title">'
+        f'{html.escape(_cfg.BOARD_TITLE)}</span>\n'
+    )
     return (
         '  <nav class="tabs" id="tabs">\n'
+        + board_title_html
         + buttons + "\n"
         + actions + "\n"
         + '  </nav>'
@@ -4607,7 +4612,7 @@ HTML_TEMPLATE = """<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Jobs</title>
+  <title>__BOARD_TITLE__</title>
   <!-- Google Material Symbols — used for the top-right action buttons
        (refresh / AI / 🏢 edit / ⚙ settings). Loaded with display=block
        so the page doesn't flicker swapping emojis to real icons. -->
@@ -4837,6 +4842,16 @@ HTML_TEMPLATE = """<!doctype html>
       margin: 0.8rem 0 0.6rem;
       padding-bottom: 0.4rem;
       border-bottom: 1px solid var(--border);
+    }
+    /* User-configurable title at the far left of the tabs row. Set in
+       the ⚙ Settings page; persisted to data/user_config.py.
+       margin-right: 1.2rem opens breathing room before the tab buttons. */
+    .board-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--fg);
+      margin-right: 1.2rem;
+      white-space: nowrap;
     }
     /* R / AI / ⚙ action buttons live at the right end of the tabs
        row — margin-left: auto pushes them to the far right. */
@@ -9696,10 +9711,12 @@ def _render_settings_html():
     with open(os.path.join(here, "settings.html"), "r", encoding="utf-8") as f:
         html = f.read()
     server_url = f"http://{SERVE_HOST}:{SERVE_PORT}"
+    import html as _html
     html = (
         html
         .replace("__SERVER_URL__", server_url)
         .replace("__RUNAWAY_THRESHOLD__", json.dumps(_cfg.RUNAWAY_THRESHOLD))
+        .replace("__BOARD_TITLE__", _html.escape(_cfg.BOARD_TITLE))
     )
     return html.encode("utf-8")
 
@@ -9770,14 +9787,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception:
             payload = {}
         if self.path == "/set-settings":
-            # Settings modal save: today only runaway_threshold. Updates
-            # config.RUNAWAY_THRESHOLD in memory (so the next check_runaway()
-            # call picks it up) and rewrites data/user_config.py so the
-            # change survives a restart.
-            val = payload.get("runaway_threshold")
-            if not isinstance(val, int) or val < 10 or val > 10000:
+            # Settings page save. Each writable field is optional in the
+            # payload; the handler accepts any subset. Each accepted field
+            # updates _cfg in memory (so subsequent renders see the new
+            # value) and rewrites data/user_config.py so the change
+            # survives a restart.
+            updates = []  # list of (varname, python_literal, log_repr)
+            if "runaway_threshold" in payload:
+                val = payload.get("runaway_threshold")
+                if not isinstance(val, int) or val < 10 or val > 10000:
+                    self.send_response(400); self._cors(); self.end_headers(); return
+                _cfg.RUNAWAY_THRESHOLD = val
+                updates.append(("RUNAWAY_THRESHOLD", str(val), str(val)))
+            if "board_title" in payload:
+                val = payload.get("board_title")
+                if not isinstance(val, str) or not val.strip() or len(val) > 100:
+                    self.send_response(400); self._cors(); self.end_headers(); return
+                val = val.strip()
+                _cfg.BOARD_TITLE = val
+                updates.append(("BOARD_TITLE", repr(val), val))
+            if not updates:
                 self.send_response(400); self._cors(); self.end_headers(); return
-            _cfg.RUNAWAY_THRESHOLD = val
             out_path = os.path.join(_cfg.DATA_DIR, "user_config.py")
             try:
                 txt = ""
@@ -9787,20 +9817,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     bak = f"{out_path}.bak.{time.strftime('%Y%m%d-%H%M%S')}"
                     with open(bak, "w", encoding="utf-8") as f:
                         f.write(txt)
-                new_line = f"RUNAWAY_THRESHOLD = {val}"
-                if re.search(r"^RUNAWAY_THRESHOLD\s*=\s*\d+", txt, re.MULTILINE):
-                    txt = re.sub(
-                        r"^RUNAWAY_THRESHOLD\s*=\s*\d+", new_line, txt,
-                        flags=re.MULTILINE,
-                    )
-                else:
-                    if txt and not txt.endswith("\n"):
-                        txt += "\n"
-                    txt += "\n" + new_line + "\n"
+                for name, literal, _ in updates:
+                    new_line = f"{name} = {literal}"
+                    pat = rf"^{re.escape(name)}\s*=\s*.*$"
+                    if re.search(pat, txt, re.MULTILINE):
+                        txt = re.sub(pat, new_line, txt, count=1, flags=re.MULTILINE)
+                    else:
+                        if txt and not txt.endswith("\n"):
+                            txt += "\n"
+                        txt += "\n" + new_line + "\n"
                 os.makedirs(_cfg.DATA_DIR, exist_ok=True)
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(txt)
-                sys.stdout.write(f"set-settings: RUNAWAY_THRESHOLD → {val}\n")
+                for name, _, log in updates:
+                    sys.stdout.write(f"set-settings: {name} → {log}\n")
             except Exception as e:
                 sys.stdout.write(f"set-settings: write failed: {e}\n")
                 self.send_response(500); self._cors(); self.end_headers(); return
@@ -11156,6 +11186,7 @@ def main():
         .replace("__CATALOG_FOR_EDIT__", json.dumps(_CATALOG_FOR_EDIT))
         .replace("__SOURCES_NAMES__", json.dumps(_sources_names))
         .replace("__RUNAWAY_THRESHOLD__", json.dumps(_cfg.RUNAWAY_THRESHOLD))
+        .replace("__BOARD_TITLE__", html.escape(_cfg.BOARD_TITLE))
         .replace("__WTTJ_DISCOVERED__", json.dumps(
             (_wttj_discovery_load(os.path.join(DATA_DIR, "wttj_discovered.json"))
              or {}).get("candidates", [])

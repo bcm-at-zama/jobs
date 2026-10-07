@@ -1425,6 +1425,11 @@ SPONTANEOUS_PATTERNS = [
 # Settings modal (CMD+,) which writes back to user_config.py.
 RUNAWAY_THRESHOLD = 300
 
+# Title shown in the browser tab and at the top of the board. Neutral
+# default so a stock OSS clone doesn't ship someone else's name. Override
+# in data/user_config.py (editable from the ⚙ Settings page).
+BOARD_TITLE = "JobBoard"
+
 # User overrides — load personal preferences from data/user_config.py
 #
 # This keeps src/ free of personal data (per CLAUDE.md). The user's SOURCES,
@@ -1440,7 +1445,7 @@ if _os.path.isfile(_USER_CONFIG_PATH):
     _mod = _ilu.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)
     for _name in ("HIGHLIGHTS", "TITLE_BLACKLIST", "LOCATION_BLACKLIST", "SOURCES",
-                  "RUNAWAY_THRESHOLD"):
+                  "RUNAWAY_THRESHOLD", "BOARD_TITLE"):
         if hasattr(_mod, _name):
             globals()[_name] = getattr(_mod, _name)
 else:

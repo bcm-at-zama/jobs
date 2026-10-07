@@ -8,6 +8,8 @@ Edit by hand or re-run `make onboarding` to pick a different set of
 companies. The wizard asks before overwriting an existing file.
 """
 
+BOARD_TITLE = "Benoit's JobBoard"
+
 HIGHLIGHTS = ['Security',
  'Codex',
  'Codemender',

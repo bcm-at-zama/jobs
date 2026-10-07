@@ -221,6 +221,17 @@
   </header>
 
   <section class="settings-section">
+    <h2>Board title</h2>
+    <p class="section-hint">Shown in the browser tab and at the top of the board.</p>
+    <div class="field">
+      <label class="field-label" for="board-title-input">Title</label>
+      <input type="text" id="board-title-input" maxlength="100" placeholder="JobBoard">
+      <span class="saved-flash" id="board-title-flash">Saved</span>
+      <span class="field-hint">Reloads the board on save so the new title appears everywhere.</span>
+    </div>
+  </section>
+
+  <section class="settings-section">
     <h2>Row display</h2>
     <p class="section-hint">What appears on each job row.</p>
     <div class="toggle-grid">
@@ -303,6 +314,7 @@
   const CLAUDE_LANG_KEY = 'jobs:claude-lang:v1';
   const SERVER_URL = '__SERVER_URL__';
   const RUNAWAY_THRESHOLD = __RUNAWAY_THRESHOLD__;
+  const BOARD_TITLE = "__BOARD_TITLE__";
 
   // The main board's loadFilters() reads the SAME blob and applies body
   // classes on load, so changes here propagate the moment the user
@@ -373,6 +385,34 @@
         flash('lang-flash', 'Save failed', false);
       }
     });
+  });
+
+  // ---- Board title (server, save on blur) ----
+  const titleInput = document.getElementById('board-title-input');
+  titleInput.value = BOARD_TITLE;
+  let titleLast = BOARD_TITLE;
+  titleInput.addEventListener('blur', async () => {
+    const v = titleInput.value.trim();
+    if (!v) {
+      titleInput.value = titleLast;
+      flash('board-title-flash', 'Cannot be empty', false);
+      return;
+    }
+    if (v === titleLast) return;
+    try {
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const r = await fetch(base + '/set-settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({board_title: v}),
+      });
+      if (!r.ok) throw new Error('http ' + r.status);
+      titleLast = v;
+      document.title = v;
+      flash('board-title-flash', 'Saved', true);
+    } catch (e) {
+      flash('board-title-flash', 'Save failed', false);
+    }
   });
 
   // ---- Scraping: runaway threshold (server, save on blur) ----
