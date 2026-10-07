@@ -119,6 +119,20 @@ class TestFlattenLocations(unittest.TestCase):
             self.assertNotIn("&nbsp;", x)
             self.assertNotIn("&amp;", x)
 
+    def test_worldwide_is_dropped(self):
+        """'Worldwide' and 'Global' convey no useful place — the flattener
+        must drop them so they don't clutter the location filter."""
+        out = jobs._flatten_locations(["Worldwide", "Paris, France"])
+        self.assertNotIn("Worldwide", out)
+        self.assertIn("Paris, France", out)
+        # Mixed segments: 'Worldwide, USA' should keep USA, drop Worldwide.
+        out = jobs._flatten_locations(["Worldwide, USA"])
+        self.assertFalse(any("Worldwide" in x for x in out),
+                         f"Worldwide leaked through: {out}")
+        # Global on its own too.
+        out = jobs._flatten_locations(["Global"])
+        self.assertEqual(out, [])
+
     def test_prose_stuffed_into_location_is_dropped(self):
         # PQShield's Greenhouse feed shipped a sentence as a location name.
         # The flattener must drop it so it doesn't end up grouped under UK.

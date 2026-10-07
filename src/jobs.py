@@ -3149,6 +3149,10 @@ _DEPARTMENT_WORDS = {
     "client solutions", "artificial intelligence",
     "federal", "distributed",
     "amer", "ar/vr", "ar vr",
+    # "Worldwide" / "Global" convey no useful place — drop them so a job
+    # listed as such groups under Remote (if also tagged remote) or
+    # disappears entirely rather than cluttering the location filter.
+    "worldwide", "global",
     "research", "data", "marketing", "sales", "operations",
     "infrastructure", "legal", "finance", "people", "hr", "recruiting",
     "customer success", "customer support", "support", "trust & safety",
