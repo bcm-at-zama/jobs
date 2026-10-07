@@ -417,6 +417,14 @@ class TestHttpWizard(unittest.TestCase):
                     cmd = args[0][0]
                     self.assertIn("jobs.py", cmd[1])
                     self.assertIn("--no-open", cmd)
+                    # REGRESSION — onboarding must pass --clear-cache list
+                    # so the OLD per-source cache (keyed to pre-onboarding
+                    # queries) doesn't survive. Without this flag Apple
+                    # was serving the 9-job stale cache despite the user
+                    # just picking a different query set.
+                    self.assertIn("--clear-cache", cmd)
+                    i = cmd.index("--clear-cache")
+                    self.assertEqual(cmd[i + 1], "list")
                     self.assertTrue(args[1].get("start_new_session"))
             finally:
                 self._stop(server)

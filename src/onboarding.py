@@ -457,9 +457,14 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
             # start_new_session detaches from our process group so the
             # board survives when this wizard server exits.
             here = os.path.dirname(os.path.abspath(__file__))
+            # `--clear-cache list` because the user just changed their
+            # SOURCES / queries / blacklists. The per-source list cache
+            # was keyed to the OLD queries, so reusing it would surface
+            # stale filtered results. Onboarding = start fresh.
             self._launch_proc = subprocess.Popen(
                 [sys.executable, os.path.join(here, "jobs.py"),
-                 "--no-open", "--port", str(self._board_port)],
+                 "--no-open", "--port", str(self._board_port),
+                 "--clear-cache", "list"],
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

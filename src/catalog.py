@@ -485,6 +485,49 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Mozilla', 'kind': 'greenhouse', 'slug': 'mozilla', 'group': 'Startups'},
  {'name': 'Instacart', 'kind': 'greenhouse', 'slug': 'instacart', 'group': 'Startups'},
 
+ # Verified 2026-10-07 via debug/probe_misses.py — ashby slug extracted
+ # from the vanity career page's embedded Ashby references.
+ {'name': 'Notion', 'kind': 'ashby', 'slug': 'notion', 'group': 'Startups'},
+
+ # pw-generic entries — link_re verified against the saved debug dump.
+ # Re-run debug/probe_misses_regex.py to re-check if a site changes shape.
+ {'name': 'Shopify',
+  'kind': 'pw',
+  'slug': 'shopify',
+  'board': 'https://www.shopify.com/careers',
+  'search_url': 'https://www.shopify.com/careers/search',
+  'link_re': 'href="(/careers/[^"#?]+_[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})"',
+  'origin': 'https://www.shopify.com',
+  'wait_selector': "a[href*='/careers/']",
+  'group': 'Startups'},
+ {'name': 'Plaid',
+  'kind': 'pw',
+  'slug': 'plaid',
+  'board': 'https://plaid.com/careers/openings/',
+  'search_url': 'https://plaid.com/careers/openings/',
+  'link_re': 'href="(/careers/openings/[^"#?]+/[^"#?]+/[^"#?]+/)"',
+  'origin': 'https://plaid.com',
+  'wait_selector': "a[href*='/careers/openings/']",
+  'group': 'Startups'},
+ {'name': 'Retool',
+  'kind': 'pw',
+  'slug': 'retool',
+  'board': 'https://retool.com/careers',
+  'search_url': 'https://retool.com/careers',
+  'link_re': 'href="(/careers/[a-z0-9-]+--[a-z0-9-]+--[a-z0-9-]+)"',
+  'origin': 'https://retool.com',
+  'wait_selector': "a[href*='/careers/']",
+  'group': 'Startups'},
+ {'name': 'Fly.io',
+  'kind': 'pw',
+  'slug': 'flyio',
+  'board': 'https://fly.io/jobs/',
+  'search_url': 'https://fly.io/jobs/',
+  'link_re': 'href="(/jobs/[a-z][a-z0-9-]+/)"',
+  'origin': 'https://fly.io',
+  'wait_selector': "a[href*='/jobs/']",
+  'group': 'Startups'},
+
  # FHE
  # Zama runs a hand-rolled static board at jobs.zama.org — no Ashby/
  # Greenhouse backend (probe_zama.py verified: 200 w/ /jobs/<slug>
@@ -499,6 +542,24 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'origin': 'https://jobs.zama.org',
   'wait_selector': "a[href*='/jobs/']",
   'group': 'FHE'},
+ {'name': 'Fhenix',
+  'kind': 'pw',
+  'slug': 'fhenix',
+  'board': 'https://www.fhenix.io/careers',
+  'search_url': 'https://www.fhenix.io/careers',
+  'link_re': 'href="(/jobs/[a-z][^"#?]*)"',
+  'origin': 'https://www.fhenix.io',
+  'wait_selector': "a[href*='/jobs/']",
+  'group': 'FHE'},
+ {'name': 'Duality',
+  'kind': 'pw',
+  'slug': 'duality',
+  'board': 'https://dualitytech.com/careers/',
+  'search_url': 'https://dualitytech.com/careers/',
+  'link_re': 'href="(https?://dualitytech\\.com/careers/[a-z0-9-]+/)"',
+  'origin': 'https://dualitytech.com',
+  'wait_selector': "a[href*='/careers/']",
+  'group': 'FHE'},
 
  # Blockchain / crypto
  {'name': 'Coinbase', 'kind': 'greenhouse', 'slug': 'coinbase', 'group': 'Blockchain'},
@@ -509,4 +570,12 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Consensys', 'kind': 'greenhouse', 'slug': 'consensys', 'group': 'Blockchain'},
  {'name': 'Dune', 'kind': 'ashby', 'slug': 'dune', 'group': 'Blockchain'},
  {'name': 'Paradigm', 'kind': 'ashby', 'slug': 'paradigm', 'group': 'Blockchain'},
- {'name': 'Blockchain.com', 'kind': 'greenhouse', 'slug': 'blockchain', 'group': 'Blockchain'}]
+ {'name': 'Blockchain.com', 'kind': 'greenhouse', 'slug': 'blockchain', 'group': 'Blockchain'},
+
+ # Verified 2026-10-07 via debug/probe_misses.py — Ashby/Lever slugs
+ # recovered from the companies' custom career-page HTML.
+ {'name': 'Kraken', 'kind': 'ashby', 'slug': 'kraken', 'group': 'Blockchain'},
+ {'name': 'Alchemy', 'kind': 'ashby', 'slug': 'alchemy', 'group': 'Blockchain'},
+ {'name': 'Mysten Labs', 'kind': 'ashby', 'slug': 'mystenlabs', 'group': 'Blockchain'},
+ {'name': 'Uniswap Labs', 'kind': 'ashby', 'slug': 'uniswap', 'group': 'Blockchain'},
+ {'name': 'Immutable', 'kind': 'lever', 'slug': 'immutable', 'group': 'Blockchain'}]

@@ -28,7 +28,8 @@
       "Bash(rm -rf /tmp/jobs-oss-test)",
       "Bash(bash /workspace/script/export-opensource.sh /tmp/jobs-oss-test)",
       "Read(//tmp/jobs-oss-test/**)",
-      "Bash(grep -o -iE 'apple[^\"<>]{0,80}\\(sear|crypto\\)[^\"<>]{0,80}|\\(sear|crypto\\)[^\"<>]{0,80}apple' data/jobs.html)"
+      "Bash(grep -o -iE 'apple[^\"<>]{0,80}\\(sear|crypto\\)[^\"<>]{0,80}|\\(sear|crypto\\)[^\"<>]{0,80}apple' data/jobs.html)",
+      "Bash(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=/workspace git status *)"
     ]
   }
 }
