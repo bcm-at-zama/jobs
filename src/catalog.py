@@ -454,9 +454,29 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  # Cars
  {'name': 'Lucid Motors', 'kind': 'greenhouse', 'slug': 'lucidmotors', 'group': 'Cars'},
  {'name': 'Scout Motors', 'kind': 'greenhouse', 'slug': 'scoutmotors', 'group': 'Cars'},
+ # Verified 2026-10-07 via debug/probe_misses_pw.py — Lever/pw recovered
+ # after JS render.
+ {'name': 'Zoox', 'kind': 'lever', 'slug': 'zoox', 'group': 'Cars'},
+ {'name': 'GM',
+  'kind': 'pw',
+  'slug': 'gm',
+  'board': 'https://search-careers.gm.com/en/',
+  'search_url': 'https://search-careers.gm.com/en/',
+  'link_re': 'href="(/en/jobs/jr-\\d+/[a-z0-9-]+/)"',
+  'origin': 'https://search-careers.gm.com',
+  'wait_selector': "a[href*='/jobs/jr-']",
+  'group': 'Cars'},
 
  # Media
  {'name': 'The New York Times', 'kind': 'greenhouse', 'slug': 'thenewyorktimes', 'group': 'Media'},
+ # Verified 2026-10-07 via debug/probe_misses_pw.py (JS-render pass).
+ {'name': 'Substack', 'kind': 'ashby', 'slug': 'substack', 'group': 'Media'},
+ {'name': 'SoundCloud', 'kind': 'greenhouse', 'slug': 'soundcloud71', 'group': 'Media'},
+ {'name': 'The Atlantic',
+  'kind': 'workday',
+  'slug': 'theatlantic',
+  'board': 'https://atlanticmedia.wd1.myworkdayjobs.com/Careers',
+  'group': 'Media'},
  {'name': 'Vox Media', 'kind': 'greenhouse', 'slug': 'voxmedia', 'group': 'Media'},
  {'name': 'Axios', 'kind': 'greenhouse', 'slug': 'axios', 'group': 'Media'},
  {'name': 'Peloton', 'kind': 'greenhouse', 'slug': 'peloton', 'group': 'Media'},
@@ -488,6 +508,17 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  # Verified 2026-10-07 via debug/probe_misses.py — ashby slug extracted
  # from the vanity career page's embedded Ashby references.
  {'name': 'Notion', 'kind': 'ashby', 'slug': 'notion', 'group': 'Startups'},
+ # Verified 2026-10-07 via debug/probe_misses_pw.py (JS-render pass).
+ {'name': 'Zapier', 'kind': 'ashby', 'slug': 'zapier', 'group': 'Startups'},
+ {'name': 'DoorDash',
+  'kind': 'pw',
+  'slug': 'doordash',
+  'board': 'https://careersatdoordash.com/job-search/',
+  'search_url': 'https://careersatdoordash.com/job-search/',
+  'link_re': 'href="(https://careersatdoordash\\.com/jobs/[a-z0-9-]+/\\d+)"',
+  'origin': 'https://careersatdoordash.com',
+  'wait_selector': "a[href*='careersatdoordash.com/jobs/']",
+  'group': 'Startups'},
 
  # pw-generic entries — link_re verified against the saved debug dump.
  # Re-run debug/probe_misses_regex.py to re-check if a site changes shape.
@@ -575,6 +606,8 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  # Verified 2026-10-07 via debug/probe_misses.py — Ashby/Lever slugs
  # recovered from the companies' custom career-page HTML.
  {'name': 'Kraken', 'kind': 'ashby', 'slug': 'kraken', 'group': 'Blockchain'},
+ # Verified 2026-10-07 via debug/probe_misses_pw.py (JS-render pass).
+ {'name': 'Ledger', 'kind': 'ashby', 'slug': 'ledger', 'group': 'Blockchain'},
  {'name': 'Alchemy', 'kind': 'ashby', 'slug': 'alchemy', 'group': 'Blockchain'},
  {'name': 'Mysten Labs', 'kind': 'ashby', 'slug': 'mystenlabs', 'group': 'Blockchain'},
  {'name': 'Uniswap Labs', 'kind': 'ashby', 'slug': 'uniswap', 'group': 'Blockchain'},

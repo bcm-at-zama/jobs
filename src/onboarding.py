@@ -440,6 +440,55 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
             "error": None,
         }
         self._launch_proc = None
+        # Progress accounting — populated at spawn_board() so the browser
+        # can render "N/M sources fetched · latest: Apple" during the
+        # otherwise-opaque 30-90 s initial scrape.
+        self._n_total_sources = 0
+        self._slug_to_name = {}
+
+    def _read_sources(self) -> list:
+        """Load SOURCES from the just-written user_config.py so
+        /launch-status can compute done / total source counts."""
+        try:
+            spec = _ilu.spec_from_file_location("_uc_prog", self.out_path)
+            mod = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return list(getattr(mod, "SOURCES", []) or [])
+        except Exception:
+            return []
+
+    @staticmethod
+    def _slug(name: str) -> str:
+        # Mirrors jobs.slug() — kept local so onboarding doesn't pull
+        # jobs.py (and its 10k-line import graph) at wizard start-up.
+        return "".join(c.lower() if c.isalnum() else "-" for c in name).strip("-")
+
+    def _launch_progress(self) -> dict:
+        """List `data/list_cache/*.json` to tell the browser which
+        sources have finished scraping so far.  Each successful fetch
+        writes one JSON file; the newest file's mtime is "latest done"."""
+        cache_dir = os.path.join(self.data_dir, "list_cache")
+        entries = []
+        if os.path.isdir(cache_dir):
+            for name in os.listdir(cache_dir):
+                if not name.endswith(".json"):
+                    continue
+                try:
+                    mtime = os.path.getmtime(os.path.join(cache_dir, name))
+                except OSError:
+                    continue
+                entries.append((name[:-5], mtime))  # strip .json
+        entries.sort(key=lambda x: x[1])  # oldest → newest
+        done_slugs = [s for s, _ in entries]
+        last_done = None
+        if entries:
+            last_slug = entries[-1][0]
+            last_done = self._slug_to_name.get(last_slug, last_slug)
+        return {
+            "done_count": len(done_slugs),
+            "total": self._n_total_sources,
+            "last_done": last_done,
+        }
 
     def spawn_board(self):
         """Spawn `jobs.py --no-open --port <port>` as a detached
@@ -447,6 +496,13 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
         chosen in __init__ to avoid colliding with an already-running
         main board. Idempotent: a second call while the board is
         already running is a no-op."""
+        # Pin total source count + slug→name map for the progress
+        # indicator before we fire the subprocess.
+        sources = self._read_sources()
+        self._n_total_sources = len(sources)
+        self._slug_to_name = {
+            self._slug(s["name"]): s["name"] for s in sources if s.get("name")
+        }
         with self.launch_lock:
             if self.launch_state["status"] in ("running", "ready"):
                 return self.launch_state
@@ -565,6 +621,7 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
             with self.server.launch_lock:
                 state = dict(self.server.launch_state)
             state["elapsed"] = self._elapsed(state)
+            state["progress"] = self.server._launch_progress()
             self._json(200, state)
             # When ready, schedule shutdown so the user doesn't leave a
             # zombie port behind. 5 s is enough for the browser to read

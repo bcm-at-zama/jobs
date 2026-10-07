@@ -1593,34 +1593,59 @@ async function launchBoard() {
       ' — run `make run` in a terminal.';
     return;
   }
-  while (true) {
-    await new Promise(r => setTimeout(r, 2000));
-    let s;
-    try {
-      const r = await fetch('/launch-status', {method: 'POST'});
-      s = await r.json();
-    } catch (e) {
-      statusMsg.textContent = 'Redirecting…';
-      window.location.href = boardUrl + '#tab=all';
-      return;
+  // Local 1-Hz ticker so the elapsed counter advances every second even
+  // though the server poll runs every 2s. We hold the latest progress
+  // snapshot in a closure so the per-second tick can keep the elapsed
+  // seconds up to date without wiping the "N/M sources · latest: X" line.
+  const startedAt = Date.now();
+  let latestProgress = null;
+  function _formatProgressLine() {
+    const secs = Math.floor((Date.now() - startedAt) / 1000);
+    const parts = [secs + 's elapsed'];
+    const p = latestProgress;
+    if (p && p.total) {
+      parts.push(p.done_count + ' / ' + p.total + ' companies fetched');
+      if (p.last_done) parts.push('latest: ' + p.last_done);
     }
-    elapsed.textContent = s.elapsed + 's elapsed';
-    if (s.status === 'ready') {
-      statusMsg.className = 'status-line success';
-      statusMsg.textContent = '✓ Board is up. Redirecting…';
-      // Pre-flight the board URL right before navigating — defends
-      // against a late crash of the subprocess that would otherwise
-      // land us on an ERR_CONNECTION_REFUSED. If the probe fails,
-      // keep polling instead of bailing.
-      _redirectWhenReachable(s.board_url + '#tab=all', statusMsg);
-      return;
+    elapsed.textContent = parts.join(' · ');
+  }
+  const tick = setInterval(_formatProgressLine, 1000);
+  _formatProgressLine();
+  try {
+    while (true) {
+      await new Promise(r => setTimeout(r, 2000));
+      let s;
+      try {
+        const r = await fetch('/launch-status', {method: 'POST'});
+        s = await r.json();
+      } catch (e) {
+        statusMsg.textContent = 'Redirecting…';
+        window.location.href = boardUrl + '#tab=all';
+        return;
+      }
+      latestProgress = s.progress || null;
+      _formatProgressLine();
+      if (s.status === 'ready') {
+        clearInterval(tick);
+        statusMsg.className = 'status-line success';
+        statusMsg.textContent = '✓ Board is up. Redirecting…';
+        // Pre-flight the board URL right before navigating — defends
+        // against a late crash of the subprocess that would otherwise
+        // land us on an ERR_CONNECTION_REFUSED. If the probe fails,
+        // keep polling instead of bailing.
+        _redirectWhenReachable(s.board_url + '#tab=all', statusMsg);
+        return;
+      }
+      if (s.status === 'failed') {
+        clearInterval(tick);
+        statusMsg.className = 'status-line error';
+        statusMsg.textContent = 'Launch failed: ' + (s.error || 'unknown') +
+          ' — run `make run` in a terminal.';
+        return;
+      }
     }
-    if (s.status === 'failed') {
-      statusMsg.className = 'status-line error';
-      statusMsg.textContent = 'Launch failed: ' + (s.error || 'unknown') +
-        ' — run `make run` in a terminal.';
-      return;
-    }
+  } finally {
+    clearInterval(tick);
   }
 }
 
