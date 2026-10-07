@@ -588,17 +588,14 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'group': 'Startups'},
 
  # FHE
- # Zama runs a hand-rolled static board at jobs.zama.org — no Ashby/
- # Greenhouse backend (probe_zama.py verified: 200 w/ /jobs/<slug>
- # anchors, no ATS fingerprint). We scrape the shell with Playwright
- # and let the per-source `queries` filter narrow results.
  # Zama is scraped via the WTJ API (api.welcometothejungle.com/api/v3)
- # — more reliable than the old Playwright scrape of jobs.zama.org,
- # returns the same jobs tagged as "Welcome to the Jungle" so they
- # group with other WTJ-sourced postings.
+ # — more reliable than the old Playwright scrape of jobs.zama.org.
+ # The `kind` stays `wttj_company` (that's the fetcher), but the group
+ # is 'FHE' so Zama sits next to Fhenix / Duality in the onboarding
+ # catalog, not buried under the generic WTJ bucket.
  {'name': 'Zama', 'kind': 'wttj_company', 'slug': 'zama',
   'board': 'https://www.welcometothejungle.com/fr/companies/zama',
-  'group': 'Welcome to the Jungle'},
+  'group': 'FHE'},
  # Well-known French tech companies on WTJ. Seeded 2026-10-07 — slugs
  # are the ones used in https://www.welcometothejungle.com/fr/companies/<slug>.
  # Some may 404 (WTJ moved them / renamed them); those return 0 jobs
@@ -627,26 +624,11 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Mirakl', 'kind': 'wttj_company', 'slug': 'mirakl',
   'board': 'https://www.welcometothejungle.com/fr/companies/mirakl',
   'group': 'Welcome to the Jungle'},
- {'name': 'Contentsquare', 'kind': 'wttj_company', 'slug': 'contentsquare',
-  'board': 'https://www.welcometothejungle.com/fr/companies/contentsquare',
-  'group': 'Welcome to the Jungle'},
- {'name': 'Getaround', 'kind': 'wttj_company', 'slug': 'getaround',
-  'board': 'https://www.welcometothejungle.com/fr/companies/getaround',
-  'group': 'Welcome to the Jungle'},
  {'name': 'Pigment', 'kind': 'wttj_company', 'slug': 'pigment',
   'board': 'https://www.welcometothejungle.com/fr/companies/pigment',
   'group': 'Welcome to the Jungle'},
  {'name': '360Learning', 'kind': 'wttj_company', 'slug': '360learning',
   'board': 'https://www.welcometothejungle.com/fr/companies/360learning',
-  'group': 'Welcome to the Jungle'},
- {'name': 'OpenClassrooms', 'kind': 'wttj_company', 'slug': 'openclassrooms',
-  'board': 'https://www.welcometothejungle.com/fr/companies/openclassrooms',
-  'group': 'Welcome to the Jungle'},
- {'name': 'Vestiaire Collective', 'kind': 'wttj_company', 'slug': 'vestiaire-collective',
-  'board': 'https://www.welcometothejungle.com/fr/companies/vestiaire-collective',
-  'group': 'Welcome to the Jungle'},
- {'name': 'Shift Technology', 'kind': 'wttj_company', 'slug': 'shift-technology',
-  'board': 'https://www.welcometothejungle.com/fr/companies/shift-technology',
   'group': 'Welcome to the Jungle'},
  {'name': 'Withings', 'kind': 'wttj_company', 'slug': 'withings',
   'board': 'https://www.welcometothejungle.com/fr/companies/withings',
@@ -656,9 +638,6 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'group': 'Welcome to the Jungle'},
  {'name': 'Lifen', 'kind': 'wttj_company', 'slug': 'lifen',
   'board': 'https://www.welcometothejungle.com/fr/companies/lifen',
-  'group': 'Welcome to the Jungle'},
- {'name': 'Lydia', 'kind': 'wttj_company', 'slug': 'lydia-solutions',
-  'board': 'https://www.welcometothejungle.com/fr/companies/lydia-solutions',
   'group': 'Welcome to the Jungle'},
  {'name': 'Fhenix',
   'kind': 'pw',
