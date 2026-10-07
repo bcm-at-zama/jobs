@@ -3723,6 +3723,27 @@ def collect(source):
     return final
 
 
+def _is_first_visit(source_urls, seen, liked, rejected):
+    """True when a source has no footprint in any user-interaction set yet
+    — i.e. its URLs are all brand new AND the user has never liked / rejected
+    a job from it. Treating such a batch as baseline (not NEW) prevents a
+    newly-added company from flooding the NEW tab with its entire posting
+    list on first fetch.
+
+    Any non-zero number of URLs qualifies: a legitimate new company may
+    have only 1-4 postings, and `isdisjoint(liked)` + `isdisjoint(rejected)`
+    is a strong "user has really never interacted" signal — a transient
+    scraper burp that returns 2 garbage URLs still gets baselined, which
+    is harmless (seen just gains 2 dead URLs; the next real fetch overlaps
+    and resumes normal is_new behaviour)."""
+    return (
+        bool(source_urls)
+        and source_urls.isdisjoint(seen)
+        and source_urls.isdisjoint(liked)
+        and source_urls.isdisjoint(rejected)
+    )
+
+
 def slug(name):
     return "".join(c.lower() if c.isalnum() else "-" for c in name).strip("-")
 
