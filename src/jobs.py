@@ -2715,6 +2715,18 @@ _TRUSTED_REMOVAL_KINDS = frozenset({
 })
 
 
+# Kinds that iterate `for q in source["queries"]` with no empty-query
+# fallback — so a source with queries=[] fetches literally zero jobs. We
+# flag these in the UI with a red "⚠ keyword required" chip when the
+# pill list is empty, so a fresh-off-onboarding user doesn't quietly end
+# up with a dead Apple/Microsoft/Meta section. Google uses
+# `queries or [""]` so empty is fine; sources like Greenhouse/Ashby/
+# Workday fetch the whole board and filter — empty = fetch everything.
+_QUERY_REQUIRED_KINDS = frozenset({
+    "apple", "microsoft", "meta", "phenom", "wttj",
+})
+
+
 FETCHERS = {
     "ashby": fetch_ashby,
     "greenhouse": fetch_greenhouse,
@@ -3753,7 +3765,7 @@ def _render_role_long(text):
     return "".join(out)
 
 
-def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None, app_rejected=None, history=None, history_jobs=None, fetched_count=None, display_name=None):
+def render_html_section(name, visible, rejected_count, board_url, spontaneous_url, liked, queries, rejected_jobs=None, to_apply=None, applied=None, app_rejected=None, history=None, history_jobs=None, fetched_count=None, display_name=None, kind=None):
     to_apply = to_apply or set()
     applied = applied or set()
     app_rejected = app_rejected or {}
@@ -4116,11 +4128,27 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         f'</span>'
         for q in (queries or [])
     )
+    # Sources that need queries to work (Apple/Microsoft/Meta/Phenom/WTTJ
+    # iterate `for q in queries` with no fallback) get a data attribute
+    # that drives a CSS-only "⚠ keyword required" chip when the pill
+    # list is empty. Updates automatically as pills come and go — no JS
+    # needed because the ::before uses :has().
+    _req_attr = (
+        ' data-query-required="1"' if kind in _QUERY_REQUIRED_KINDS else ""
+    )
+    _tooltip = (
+        "This source only returns jobs that match a query word. "
+        "Add at least one (e.g. 'security', 'cryptography') or no jobs will be fetched. "
+        "Changes save automatically — hit refresh to apply."
+        if kind in _QUERY_REQUIRED_KINDS else
+        "Board-side search queries. Add words to narrow what gets "
+        "fetched for this company; empty = fetch everything. Changes save "
+        "automatically — hit refresh to apply."
+    )
     query_pills = (
-        f'<span class="queries" data-source="{html.escape(name, quote=True)}" '
-        f'title="Board-side search queries. Add words to narrow what gets '
-        f'fetched for this company; empty = fetch everything. Changes save '
-        f'automatically — hit refresh to apply.">'
+        f'<span class="queries" data-source="{html.escape(name, quote=True)}"'
+        f'{_req_attr} '
+        f'title="{html.escape(_tooltip, quote=True)}">'
         f'{pills_html}'
         f'<button class="query-add" type="button" '
         f'title="Add a query word" aria-label="Add query">+</button>'
@@ -4609,6 +4637,21 @@ HTML_TEMPLATE = """<!doctype html>
       color: var(--fg);
       background: var(--bg);
       font-family: inherit;
+    }
+    /* Red "keyword required" chip — rendered via ::before so it tracks
+       the empty-pill state automatically (no JS). Only shown on sources
+       whose fetcher iterates `for q in queries` with no empty-string
+       fallback: Apple, Microsoft, Meta, Phenom-based big-techs, WTTJ.
+       An empty query list on those = 0 jobs fetched, silently. */
+    .queries[data-query-required="1"]:not(:has(.query-pill))::before {
+      content: "⚠ keyword required";
+      padding: 0.05rem 0.5rem;
+      border: 1px solid var(--danger);
+      border-radius: 2em;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--danger);
+      background: rgba(207, 34, 46, 0.08);
     }
     .spontaneous-row {
       margin: 0.4rem 0 0.8rem;
@@ -8941,11 +8984,34 @@ document.querySelectorAll('button.review').forEach(btn => {
   });
 });
 
-// Keyboard shortcut: Cmd/Ctrl-Z anywhere on the page.
+// Keyboard shortcuts (all Cmd/Ctrl + <letter>, no Shift / Alt).
+//   Cmd+Z  undo last reject
+//   Cmd+R  refresh
+//   Cmd+I  AI (score all with Claude)
+//   Cmd+E  Entreprises (edit companies)
+//   Cmd+,  Settings (macOS Preferences idiom)
+// Shift must NOT be held so Cmd+Shift+R (hard-reload) and Cmd+Shift+I
+// (devtools) stay available if the user wants the browser default.
 document.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && rejectUndoStack.length > 0) {
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey
+      && e.key === 'z' && rejectUndoStack.length > 0) {
     e.preventDefault();
     undoLastReject();
+    return;
+  }
+  if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.repeat) return;
+  const map = {
+    'r': 'refresh-btn',
+    'i': 'claude-score-all',
+    'e': 'edit-sources-setup',
+    ',': 'claude-chat-url-setup',
+  };
+  const btnId = map[e.key.toLowerCase()] || map[e.key];
+  if (!btnId) return;
+  const btn = document.getElementById(btnId);
+  if (btn && !btn.disabled) {
+    e.preventDefault();
+    btn.click();
   }
 });
 
@@ -10138,6 +10204,7 @@ def main():
             # so len(all_jobs) is a query-filtered subset, not the real total;
             # showing that number would be misleading, so we hide it entirely.
             fetched_count=result.get("total_board"),
+            kind=src.get("kind"),
         ))
         # (name, visible-after-rejects-and-orphans, fetched-from-source-this-run, error)
         # For the fetched count that drives the pill color (grey vs orange),

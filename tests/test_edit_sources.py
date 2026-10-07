@@ -323,5 +323,46 @@ class TestNewCompaniesBadgeFallback(unittest.TestCase):
         )
 
 
+class TestKeyboardShortcuts(unittest.TestCase):
+    """Cmd/Ctrl + letter shortcuts route to the top-bar buttons. Pin the
+    mapping so a refactor doesn't silently break muscle memory."""
+
+    def setUp(self):
+        import pathlib
+        self.src = pathlib.Path(jobs.__file__).read_text()
+
+    def test_shortcut_map_present(self):
+        # The exact routing table — pin each (key → button id) pair.
+        for key, btn_id in [
+            ("'r'", "refresh-btn"),
+            ("'i'", "claude-score-all"),
+            ("'e'", "edit-sources-setup"),
+            ("','", "claude-chat-url-setup"),
+        ]:
+            with self.subTest(key=key, btn=btn_id):
+                self.assertRegex(
+                    self.src,
+                    rf"{key}:\s*'{btn_id}'",
+                    f"shortcut {key} → #{btn_id} missing from the keydown map",
+                )
+
+    def test_handler_ignores_shift(self):
+        """Cmd+Shift+R must still trigger hard-reload; Cmd+Shift+I devtools.
+        The handler explicitly bails on e.shiftKey."""
+        self.assertIn(
+            "e.shiftKey || e.altKey || e.repeat",
+            self.src,
+            "Shortcut handler must bail when Shift / Alt is held, or on repeat.",
+        )
+
+    def test_target_buttons_exist(self):
+        """Each shortcut points at a button rendered in the main HTML."""
+        for btn_id in ("refresh-btn", "claude-score-all",
+                       "edit-sources-setup", "claude-chat-url-setup"):
+            with self.subTest(btn=btn_id):
+                self.assertIn(f'id="{btn_id}"', self.src,
+                              f"shortcut target #{btn_id} not rendered")
+
+
 if __name__ == "__main__":
     unittest.main()

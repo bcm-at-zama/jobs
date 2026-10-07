@@ -41,6 +41,70 @@ class TestRenderHtmlTabs(unittest.TestCase):
         self.assertEqual([tid for tid, _ in sorted_by_pos], self.EXPECTED_IDS)
 
 
+class TestQueryRequiredIndicator(unittest.TestCase):
+    """Query-required sources (Apple/Microsoft/Meta/Phenom/WTTJ) iterate
+    `for q in queries` with no empty-string fallback — so queries=[]
+    fetches literally zero jobs, silently. The red "⚠ keyword required"
+    chip is driven by a `data-query-required="1"` attribute on the
+    `.queries` wrapper + a CSS `::before` keyed off `:not(:has(.query-pill))`.
+    Tests pin the server-side half; CSS presence is checked by grepping
+    the full HTML the renderer emits."""
+
+    def test_apple_gets_required_attr(self):
+        out = jobs.render_html_section(
+            name="Apple", visible=[], rejected_count=0,
+            board_url="https://jobs.apple.com", spontaneous_url=None,
+            liked=set(), queries=[], kind="apple",
+        )
+        self.assertIn('data-query-required="1"', out)
+
+    def test_microsoft_meta_phenom_wttj_get_required_attr(self):
+        for kind in ("microsoft", "meta", "phenom", "wttj"):
+            out = jobs.render_html_section(
+                name=kind.title(), visible=[], rejected_count=0,
+                board_url="https://example.com", spontaneous_url=None,
+                liked=set(), queries=[], kind=kind,
+            )
+            with self.subTest(kind=kind):
+                self.assertIn('data-query-required="1"', out)
+
+    def test_greenhouse_does_not_get_required_attr(self):
+        """Fetch-everything-and-filter sources work fine with empty queries."""
+        for kind in ("greenhouse", "ashby", "workable", "workday"):
+            out = jobs.render_html_section(
+                name=kind.title(), visible=[], rejected_count=0,
+                board_url="https://example.com", spontaneous_url=None,
+                liked=set(), queries=[], kind=kind,
+            )
+            with self.subTest(kind=kind):
+                self.assertNotIn("data-query-required", out)
+
+    def test_attr_stays_on_non_empty_queries_too(self):
+        """The chip is CSS-driven (:not(:has(.query-pill))), so the attr
+        stays regardless of pill count — removing the last pill in the
+        browser re-shows the warning without a page reload."""
+        out = jobs.render_html_section(
+            name="Apple", visible=[], rejected_count=0,
+            board_url="https://jobs.apple.com", spontaneous_url=None,
+            liked=set(), queries=["security"], kind="apple",
+        )
+        self.assertIn('data-query-required="1"', out)
+
+    def test_warning_css_present(self):
+        """The CSS block that renders the chip must survive — it's the
+        other half of the feature."""
+        # jobs.py embeds the stylesheet inline in the big HTML template;
+        # it ships as a module-level string accessible via render helpers.
+        # Easier to just grep the file source once.
+        with open(jobs.__file__, encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn(
+            '.queries[data-query-required="1"]:not(:has(.query-pill))::before',
+            src,
+            "runaway-warning CSS rule removed — chip won't render",
+        )
+
+
 class TestUntouchedTab(unittest.TestCase):
     """Untouched = jobs with none of liked/toapply/applied/app-rejected.
     Sits between New and Ranked. Must be wired through the three parallel
