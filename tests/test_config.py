@@ -74,6 +74,34 @@ class TestLocationBlacklistShape(unittest.TestCase):
         self.assertFalse(dupes, f"duplicate blacklist entries: {dupes}")
 
 
+class TestCliPort(unittest.TestCase):
+    """The --port flag lets a sandbox board coexist with the main one.
+    Parser must accept it and main() must honour it as a module-level
+    override before preflight runs."""
+
+    def _parse(self, argv):
+        import sys
+        orig = sys.argv
+        try:
+            sys.argv = ["jobs.py"] + argv
+            return jobs._parse_cli()
+        finally:
+            sys.argv = orig
+
+    def test_port_defaults_to_none(self):
+        """No --port → args.port is None, main() leaves SERVE_PORT alone."""
+        args = self._parse([])
+        self.assertIsNone(args.port)
+
+    def test_port_accepts_integer(self):
+        args = self._parse(["--port", "8767"])
+        self.assertEqual(args.port, 8767)
+
+    def test_port_rejects_non_integer(self):
+        with self.assertRaises(SystemExit):
+            self._parse(["--port", "notanint"])
+
+
 class TestSeniorityConfig(unittest.TestCase):
 
     def test_seniority_rank_covers_groups(self):

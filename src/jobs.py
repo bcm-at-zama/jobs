@@ -9118,7 +9118,11 @@ def _parse_cli():
     ap.add_argument("--no-serve", action="store_true",
                     help="Skip the local HTTP server — exit after writing jobs.html. "
                          "Used by the in-browser refresh button so a subprocess can "
-                         "regenerate the file without fighting for port 8765.")
+                         "regenerate the file without fighting for the serve port.")
+    ap.add_argument("--port", type=int, default=None, metavar="N",
+                    help=f"HTTP serve port (default: {SERVE_PORT}). Lets a second "
+                         f"board — e.g. an onboarding sandbox — run alongside the "
+                         f"main one on a different port.")
     ap.add_argument("--list", action="store_true",
                     help="Print every configured board name (comma-separated) and exit.")
     ap.add_argument("--onboard", action="store_true",
@@ -9252,7 +9256,10 @@ def _check_serve_port_free():
         err("Something is listening on that port but lsof couldn't name it.")
     err("")
     err("Free it with:")
-    err(f"    make kill            # kills whatever listens on {SERVE_PORT}")
+    if SERVE_PORT == 8765:
+        err(f"    make kill            # kills whatever listens on {SERVE_PORT}")
+    else:
+        err(f"    make kill PORT={SERVE_PORT}  # kills whatever listens on {SERVE_PORT}")
     err(f"    lsof -ti:{SERVE_PORT} | xargs kill   # same thing, no make")
     err("")
     err("Then re-run  make run.")
@@ -9264,7 +9271,18 @@ def main():
     if args.onboard:
         # Lazy import so a plain run doesn't pull in the catalog.
         import onboarding
-        sys.exit(onboarding.run_wizard(os.environ.get("JOBS_DATA_DIR", "data")))
+        sys.exit(onboarding.run_wizard(
+            os.environ.get("JOBS_DATA_DIR", "data"),
+            port=args.port,
+        ))
+
+    # --port overrides the module-level SERVE_PORT so every downstream
+    # helper (preflight, bind, error messages, server_url) picks it up
+    # without threading an extra arg through each call. Lets a sandbox
+    # board coexist with the main one on 8765.
+    if args.port is not None:
+        global SERVE_PORT
+        SERVE_PORT = args.port
 
     # Pre-flight: refuse to start if the HTTP port is already taken.
     # Catches the common "forgot to kill the previous `make run`" case

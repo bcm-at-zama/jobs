@@ -28,6 +28,13 @@ help:
 	@echo "                   Rarely needed — make run auto-reclaims stale jobs.py"
 	@echo "                   subprocesses on its own."
 	@echo ""
+	@echo "  PORT=N           Shared opt-in: works on run, kill, and onboarding."
+	@echo "                   Lets a second board (e.g. sandbox) coexist with"
+	@echo "                   your main one. Examples:"
+	@echo "                     make run PORT=8767"
+	@echo "                     make kill PORT=8767"
+	@echo "                     make onboarding PORT=8767"
+	@echo ""
 	@echo "  make test        Run the full unittest suite (~70 tests, ~50 ms)."
 	@echo "  make test-verbose    Same, verbose."
 	@echo ""
@@ -51,12 +58,22 @@ install:
 	@echo "  Installed into ./$(VENV)/"
 	@echo "  Next: run  make onboarding  to create your data/user_config.py."
 
+# PORT=N — shared opt-in override honoured by `make run`, `make kill`,
+# and `make onboarding`. When unset, each target keeps its historical
+# behaviour (run → jobs.py default 8765, kill → 8765, onboarding → auto-
+# pick). We detect "explicitly set" via $(origin) so an untouched PORT
+# doesn't force a --port flag onto subcommands that currently auto-pick.
+PORT ?= 8765
+PORT_SET := $(filter command environment,$(origin PORT))
+PORT_ARG := $(if $(PORT_SET),--port $(PORT))
+
 # `make onboarding` — interactive wizard that writes data/user_config.py.
 # Prompts group-by-group through the catalog of ~150 companies, backs up
 # any existing config before overwriting. Honours $JOBS_DATA_DIR so you
 # can test with  JOBS_DATA_DIR=/tmp/sandbox make onboarding.
+# Pass PORT=N to pin the wizard's HTTP port (default: auto-pick 8766).
 onboarding:
-	PYTHONPATH=src $(PYTHON) src/jobs.py --onboard
+	PYTHONPATH=src $(PYTHON) src/jobs.py --onboard $(PORT_ARG)
 
 test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover tests
@@ -67,21 +84,24 @@ test-verbose:
 # `make run` → full pipeline: fetch every source, score, render HTML,
 # open the browser, keep serving. Extra flags can be passed through:
 #   make run ARGS="--skip-llm --only Anthropic,OpenAI"
+# Pass PORT=N to bind the HTTP server on a non-default port (default 8765).
 run:
-	PYTHONPATH=src $(PYTHON) src/jobs.py $(ARGS)
+	PYTHONPATH=src $(PYTHON) src/jobs.py $(PORT_ARG) $(ARGS)
 
-# `make kill` → nuke anything bound to the serve port (8765). Useful
-# when the pre-flight check in `make run` finds a non-jobs.py process
-# squatting on the port and refuses to kill it on its own.
+# `make kill` → nuke anything bound to the serve port (default 8765).
+# Pass PORT=N to target a different port — handy for sandbox boards
+# started with `jobs.py --port N`. Useful when the pre-flight check in
+# `make run` finds a non-jobs.py process squatting on the port and
+# refuses to kill it on its own.
 kill:
-	@pids=$$(lsof -ti:8765 2>/dev/null); \
+	@pids=$$(lsof -ti:$(PORT) 2>/dev/null); \
 	 if [ -z "$$pids" ]; then \
-	   echo "  Nothing listening on :8765."; \
+	   echo "  Nothing listening on :$(PORT)."; \
 	 else \
-	   echo "  Killing PIDs: $$pids"; \
+	   echo "  Killing PIDs on :$(PORT): $$pids"; \
 	   kill $$pids 2>/dev/null || true; \
 	   sleep 0.3; \
-	   remaining=$$(lsof -ti:8765 2>/dev/null); \
+	   remaining=$$(lsof -ti:$(PORT) 2>/dev/null); \
 	   if [ -n "$$remaining" ]; then \
 	     echo "  Still up — sending SIGKILL to: $$remaining"; \
 	     kill -9 $$remaining 2>/dev/null || true; \

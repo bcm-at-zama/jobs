@@ -255,15 +255,29 @@ def _summarize_existing(path: str) -> dict:
 # HTTP server
 # =============================================================================
 
-def _pick_free_port(preferred: int = 8766) -> int:
-    """Return `preferred` if it's bindable on localhost, otherwise ask
-    the OS for any free port. Keeps the wizard off the main board's
-    8765 so both can coexist."""
-    for port in (preferred, 0):
+def _pick_free_port(preferred: int = 8766, avoid: tuple = ()) -> int:
+    """Return `preferred` if it's bindable on localhost and not in
+    `avoid`, otherwise ask the OS for any free port that is not in
+    `avoid`. Keeps the wizard off the main board's 8765 so both can
+    coexist, and lets the launched sandbox board pick yet another
+    port so three things can run side-by-side (main board, wizard,
+    sandbox board)."""
+    avoid_set = set(avoid)
+    if preferred not in avoid_set:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(("127.0.0.1", port))
+                s.bind(("127.0.0.1", preferred))
                 return s.getsockname()[1]
+        except OSError:
+            pass
+    # Fall back to OS-assigned; retry a few times if we hit an avoided port.
+    for _ in range(16):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", 0))
+                port = s.getsockname()[1]
+                if port not in avoid_set:
+                    return port
         except OSError:
             continue
     raise RuntimeError("could not find a free port for the onboarding server")
@@ -314,20 +328,32 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
         self.out_path = out_path
         self.done_event = done_event
         self.result = {"status": "cancelled", "path": None, "backup": None, "n": 0}
+        # Pick a port for the spawned board that avoids both the main
+        # board's default (SERVE_PORT) and our own wizard port, so a
+        # user can keep their real board running on 8765 while the
+        # sandbox board (JOBS_DATA_DIR=/tmp/… make onboarding) comes up
+        # on a separate port. Resolved up-front so launch_state["board_url"]
+        # is correct from the moment the wizard page loads.
+        wizard_port = address[1]
+        self._board_port = _pick_free_port(
+            preferred=8767, avoid=(SERVE_PORT, wizard_port),
+        )
         # Launch-board subprocess state. Driven by /launch-board + /launch-status.
         self.launch_lock = threading.Lock()
         self.launch_state = {
             "status": "idle",      # idle | running | ready | failed
             "started_at": None,
-            "board_url": f"http://{SERVE_HOST}:{SERVE_PORT}/",
+            "board_url": f"http://{SERVE_HOST}:{self._board_port}/",
             "error": None,
         }
         self._launch_proc = None
 
     def spawn_board(self):
-        """Spawn `jobs.py --no-open` as a detached subprocess so it
-        survives this server's shutdown. Idempotent: a second call
-        while the board is already running is a no-op."""
+        """Spawn `jobs.py --no-open --port <port>` as a detached
+        subprocess so it survives this server's shutdown. The port is
+        chosen in __init__ to avoid colliding with an already-running
+        main board. Idempotent: a second call while the board is
+        already running is a no-op."""
         with self.launch_lock:
             if self.launch_state["status"] in ("running", "ready"):
                 return self.launch_state
@@ -339,7 +365,8 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
             # board survives when this wizard server exits.
             here = os.path.dirname(os.path.abspath(__file__))
             self._launch_proc = subprocess.Popen(
-                [sys.executable, os.path.join(here, "jobs.py"), "--no-open"],
+                [sys.executable, os.path.join(here, "jobs.py"),
+                 "--no-open", "--port", str(self._board_port)],
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -526,13 +553,17 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
 # Entry point
 # =============================================================================
 
-def run_wizard(data_dir: str = "data", open_browser: bool = True) -> int:
+def run_wizard(data_dir: str = "data", open_browser: bool = True,
+               port: int = None) -> int:
     """Run the HTML onboarding wizard. Returns a POSIX exit code.
-    `open_browser=False` is used by tests."""
+    `open_browser=False` is used by tests. `port` pins the wizard's
+    HTTP port (from `jobs.py --onboard --port N` / `make onboarding
+    PORT=N`); when None, we auto-pick starting at 8766."""
     os.makedirs(data_dir, exist_ok=True)
     out_path = os.path.join(data_dir, "user_config.py")
 
-    port = _pick_free_port()
+    if port is None:
+        port = _pick_free_port()
     done = threading.Event()
     server = _OnboardingServer(
         ("127.0.0.1", port), _OnboardingHandler,

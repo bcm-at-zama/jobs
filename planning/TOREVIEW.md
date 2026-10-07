@@ -47,3 +47,8 @@
 - Hardware Tech Lead -Optomechanical Engineer
 - Hardware Engineer - Board Design | 5 - 8 yrs
 - Temporary Less 6 Month Fixed Salary
+- Market Manager
+- Quality Assurance & Standards Manager
+- Senior Market Manager
+- Technical Trainer / Certified Instructor (VCI) – VMware Cloud Foundation (VCF)
+- Creator Campaign Manager

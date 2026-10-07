@@ -21,7 +21,10 @@
       "Bash(grep -nB1 -A4 \"^_LOC_SPLIT_RE\\\\s*=\")",
       "Bash(grep -nB1 -A4 \"^_JR_ID_RE\\\\s*=\")",
       "Bash(make help *)",
-      "Bash(grep \"Ran \\\\|OK$\\\\|FAIL\")"
+      "Bash(grep \"Ran \\\\|OK$\\\\|FAIL\")",
+      "Bash(git check-ignore *)",
+      "Bash(make kill *)",
+      "Bash(PYTHONPATH=src python3 src/jobs.py --help)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 """Blacklist filters: title + location.
 
 Each location add/removal from config.LOCATION_BLACKLIST is a product
-decision (e.g. "Thailand" added Oct 2026 because Benoit doesn't apply
+decision (e.g. "Thailand" added Oct 2026 because the user doesn't apply
 there). If a test fails here, config.py was edited in a way that broke
 a previous decision — intentionally or not.
 

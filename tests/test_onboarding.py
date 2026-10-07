@@ -84,6 +84,109 @@ class TestBuildUserConfig(unittest.TestCase):
         self.assertNotIn("'group'", content)
         self.assertNotIn('"group"', content)
 
+
+class TestPickFreePort(unittest.TestCase):
+    """`_pick_free_port` must honour the `avoid` set so the wizard and
+    the sandbox board it spawns never collide with the main board."""
+
+    def test_avoid_excludes_preferred(self):
+        """When preferred is in avoid, we must get something else."""
+        from config import SERVE_PORT
+        port = onboarding._pick_free_port(preferred=8767, avoid=(8767,))
+        self.assertNotEqual(port, 8767)
+        # Should still be a usable high port.
+        self.assertGreater(port, 1024)
+
+    def test_avoid_multiple_ports(self):
+        port = onboarding._pick_free_port(
+            preferred=8767, avoid=(8765, 8766, 8767),
+        )
+        self.assertNotIn(port, {8765, 8766, 8767})
+
+    def test_prefers_requested_when_allowed(self):
+        """A free preferred port that isn't avoided should be returned."""
+        import socket
+        # Grab an OS-assigned free port, release it, then ask for it.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            wanted = s.getsockname()[1]
+        got = onboarding._pick_free_port(preferred=wanted, avoid=())
+        self.assertEqual(got, wanted)
+
+    def test_run_wizard_honours_explicit_port(self):
+        """`run_wizard(port=N)` must bind N, not auto-pick 8766. Lets
+        `make onboarding PORT=N` pin the wizard's URL."""
+        import socket
+        import tempfile as _t
+        # Grab an OS-assigned free port and release it so run_wizard
+        # can bind it below.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            wanted = s.getsockname()[1]
+
+        with _t.TemporaryDirectory() as tmp:
+            # Fire run_wizard in a thread, cancel it via /cancel, assert
+            # the wizard was reachable at `wanted` while it ran.
+            exit_code = []
+            def _runner():
+                exit_code.append(
+                    onboarding.run_wizard(tmp, open_browser=False, port=wanted)
+                )
+            t = threading.Thread(target=_runner, daemon=True)
+            t.start()
+            # Wait for the server to come up.
+            deadline = time.time() + 3
+            reached = False
+            while time.time() < deadline:
+                try:
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{wanted}/onboarding.html",
+                        timeout=0.5,
+                    ) as r:
+                        if r.status == 200:
+                            reached = True
+                            break
+                except Exception:
+                    time.sleep(0.05)
+            self.assertTrue(
+                reached, f"wizard never answered on explicit port {wanted}",
+            )
+            # Cancel so run_wizard returns.
+            try:
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{wanted}/cancel",
+                    data=b"{}", method="POST",
+                    headers={"Content-Type": "application/json"},
+                )
+                urllib.request.urlopen(req, timeout=1).read()
+            except Exception:
+                pass
+            t.join(timeout=3)
+
+    def test_spawned_board_port_differs_from_wizard_and_main(self):
+        """The board port chosen in _OnboardingServer.__init__ must
+        differ from both the wizard port and the main board's
+        SERVE_PORT so three servers can coexist."""
+        from config import SERVE_PORT
+        with tempfile.TemporaryDirectory() as tmp:
+            port = onboarding._pick_free_port()
+            done = threading.Event()
+            server = onboarding._OnboardingServer(
+                ("127.0.0.1", port), onboarding._OnboardingHandler,
+                data_dir=tmp,
+                out_path=os.path.join(tmp, "user_config.py"),
+                done_event=done,
+            )
+            try:
+                self.assertNotEqual(server._board_port, port)
+                self.assertNotEqual(server._board_port, SERVE_PORT)
+                self.assertIn(
+                    f":{server._board_port}/",
+                    server.launch_state["board_url"],
+                )
+            finally:
+                server.server_close()
+
     def test_catalog_entries_have_mandatory_fields(self):
         from catalog import CATALOG
         self.assertGreater(len(CATALOG), 50, "catalog should ship >50 entries")
