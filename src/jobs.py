@@ -59,6 +59,7 @@ Step 6 — Serve
 # The engine below imports it wholesale. If you want to fork this for a
 # different profile, keep this file untouched and duplicate `config.py`.
 from config import (  # noqa: E402,F401 — public config surface
+    DATA_DIR,
     OUTPUT_HTML, REJECTED_DB, LIKED_DB, TO_APPLY_DB, APPLIED_DB, APP_REJECTED_DB, HISTORY_DB, SEEN_DB, JOB_INDEX_DB,
     SCORE_CACHE, DESC_CACHE, CLAUDE_FIT_CACHE, RAW_LOCATIONS_FILE,
     LIST_CACHE_DIR, LIST_CACHE_TTL_HOURS,
@@ -564,6 +565,120 @@ def matches(job, queries):
     return any(q.lower() in blob for q in queries)
 
 
+# =============================================================================
+# Runaway guard — stops a per-query paginated scraper from fetching 10
+# pages for a word like "engineer" that matches ~every job on the board.
+#
+# Trigger: a single query has yielded more than RUNAWAY_THRESHOLD matching
+# jobs so far.
+#
+# When invoked from `/refresh` (interactive mode), the fetcher writes a
+# `pending.json` signal file and polls for a `decision.json` written by
+# the board's modal (POST /refresh-decision). Timeout defaults to "stop"
+# so a forgotten tab doesn't pin Playwright forever.
+#
+# Outside interactive mode (initial make run, sandbox board, debug runs)
+# there is no browser to prompt — we hard-stop at the same threshold and
+# print a loud log line.
+# =============================================================================
+
+RUNAWAY_THRESHOLD = 100
+RUNAWAY_TIMEOUT_S = 60
+
+# Flipped on by --interactive-runaway (passed in by /refresh). Module-global
+# so fetchers running in the thread pool don't need the flag threaded
+# through their signatures.
+_interactive_runaway_enabled = False
+
+
+def _runaway_dir():
+    """Lazy-created {DATA_DIR}/.runaway/ where pending + decision files land."""
+    path = os.path.join(DATA_DIR, ".runaway")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _runaway_file(source_name, kind):
+    """kind ∈ {'pending', 'decision'}. One file per source — a second
+    runaway on the same source during the same refresh overwrites the
+    first entry, which is fine (user only needs to decide once per
+    source for the stop-source semantics)."""
+    return os.path.join(_runaway_dir(), f"{slug(source_name)}.{kind}.json")
+
+
+def _clear_runaway_signals():
+    """Wipe stale pending/decision files from a prior refresh. Called
+    once per fetch run so the browser isn't shown yesterday's prompt."""
+    try:
+        d = _runaway_dir()
+    except Exception:
+        return
+    for name in os.listdir(d):
+        if name.endswith(".pending.json") or name.endswith(".decision.json"):
+            try:
+                os.remove(os.path.join(d, name))
+            except OSError:
+                pass
+
+
+def check_runaway(source_name, query, pages_so_far, jobs_so_far):
+    """Return True if the caller should break out of the source's
+    pagination loops (stop the whole source), False to keep going.
+
+    Call this after each page's results have been accumulated for a
+    single query, with `jobs_so_far` = running count of matching jobs
+    discovered for this query on THIS source during this fetch.
+    """
+    if jobs_so_far <= RUNAWAY_THRESHOLD:
+        return False
+    if not _interactive_runaway_enabled:
+        sys.stdout.write(
+            f"[{source_name}] runaway: {jobs_so_far} jobs on query={query!r} "
+            f"after {pages_so_far} pages — hard-stopping this source "
+            f"(no live dialog; invoke refresh from the board to decide).\n"
+        )
+        return True
+    pending = _runaway_file(source_name, "pending")
+    decision = _runaway_file(source_name, "decision")
+    try:
+        with open(pending, "w", encoding="utf-8") as f:
+            json.dump({
+                "source": source_name,
+                "query": query,
+                "pages": pages_so_far,
+                "jobs": jobs_so_far,
+                "at": time.time(),
+            }, f)
+    except Exception as e:
+        err(f"[{source_name}] runaway: pending write failed: {e}")
+        return True
+    sys.stdout.write(
+        f"[{source_name}] runaway: {jobs_so_far} jobs on query={query!r} "
+        f"— waiting up to {RUNAWAY_TIMEOUT_S}s for user decision.\n"
+    )
+    deadline = time.time() + RUNAWAY_TIMEOUT_S
+    action = "stop"  # safe default on timeout
+    while time.time() < deadline:
+        if os.path.exists(decision):
+            try:
+                with open(decision, encoding="utf-8") as f:
+                    data = json.load(f)
+                a = (data or {}).get("action")
+                if a in ("stop", "continue"):
+                    action = a
+                    break
+            except Exception:
+                pass  # malformed file — keep polling until timeout
+        time.sleep(0.3)
+    for p in (pending, decision):
+        try:
+            os.remove(p)
+        except FileNotFoundError:
+            pass
+    sys.stdout.write(f"[{source_name}] runaway: decision={action}\n")
+    return action == "stop"
+
+
 def _pick_spontaneous(all_jobs):
     for j in all_jobs:
         if is_spontaneous(j):
@@ -886,7 +1001,11 @@ def fetch_apple(source):
     total_board = None
     p, browser, page = _open_browser()
     try:
+        stop_source = False
         for q in source["queries"]:
+            if stop_source:
+                break
+            q_jobs = 0  # matches discovered for this specific query so far
             for pnum in range(1, 11):
                 url = (
                     f"https://jobs.apple.com/en-us/search?"
@@ -919,7 +1038,11 @@ def fetch_apple(source):
                     seen.add(j["url"])
                     out.append(j)
                     added += 1
+                q_jobs += added
                 if added == 0:
+                    break
+                if check_runaway("Apple", q, pnum, q_jobs):
+                    stop_source = True
                     break
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, "Apple")
@@ -1094,7 +1217,11 @@ def fetch_microsoft(source):
             "https://apply.careers.microsoft.com/careers?start=0&sort_by=relevance",
             "debug/debug-microsoft-total.html",
         )
+        stop_source = False
         for q in source["queries"]:
+            if stop_source:
+                break
+            q_jobs = 0
             for pnum in range(10):
                 start = pnum * 20
                 url = (
@@ -1132,7 +1259,11 @@ def fetch_microsoft(source):
                         "blob": title,
                     })
                     added += 1
+                q_jobs += added
                 if added == 0:
+                    break
+                if check_runaway("Microsoft", q, pnum + 1, q_jobs):
+                    stop_source = True
                     break
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, "Microsoft")
@@ -1932,7 +2063,11 @@ def fetch_phenom(source):
             f"{origin}/careers?start=0&sort_by=relevance",
             f"debug/debug-{slug(source['name'])}-total.html",
         )
+        stop_source = False
         for q in source["queries"]:
+            if stop_source:
+                break
+            q_jobs = 0
             for pnum in range(10):
                 start = pnum * 20
                 base = source.get("search_url") or ""
@@ -1968,7 +2103,11 @@ def fetch_phenom(source):
                         "blob": title,
                     })
                     added += 1
+                q_jobs += added
                 if added == 0:
+                    break
+                if check_runaway(source["name"], q, pnum + 1, q_jobs):
+                    stop_source = True
                     break
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, source["name"])
@@ -1992,7 +2131,11 @@ def fetch_wttj(source):
     out, seen = [], set()
     p, browser, page = _open_browser()
     try:
+        stop_source = False
         for q in source["queries"]:
+            if stop_source:
+                break
+            q_jobs = 0
             base = source.get("search_url") or f"https://www.welcometothejungle.com/fr/pages/emploi?query={urllib.parse.quote(q)}"
             for pnum in range(1, 6):
                 sep = "&" if "?" in base else "?"
@@ -2025,7 +2168,11 @@ def fetch_wttj(source):
                         "blob": title,
                     })
                     added += 1
+                q_jobs += added
                 if added == 0:
+                    break
+                if check_runaway("Welcome to the Jungle", q, pnum, q_jobs):
+                    stop_source = True
                     break
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, "Welcome to the Jungle")
@@ -5678,6 +5825,29 @@ HTML_TEMPLATE = """<!doctype html>
       background: var(--accent); color: #ffffff; border-color: var(--accent-emphasis);
     }
     .modal-actions button.primary:hover { background: var(--accent-emphasis); }
+    /* Runaway modal — a per-refresh prompt when one query is pulling in
+       so many jobs that it would peg Playwright for minutes. */
+    .runaway-backdrop .modal { width: min(520px, 92vw); }
+    .runaway-backdrop code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: var(--bg-subtle);
+      padding: 0.05rem 0.35rem;
+      border-radius: 4px;
+    }
+    .runaway-backdrop .runaway-info,
+    .runaway-backdrop .runaway-tip {
+      margin: 0.5rem 0;
+      font-size: 0.9rem;
+      color: var(--fg);
+    }
+    .runaway-backdrop .runaway-tip { color: var(--fg-muted); }
+    .runaway-backdrop .runaway-tip em {
+      font-style: normal;
+      color: var(--fg);
+      background: var(--bg-subtle);
+      padding: 0.02rem 0.3rem;
+      border-radius: 3px;
+    }
     /* Sticky "paste the reply here" bar — appears when you click AI. */
     #claude-paste-bar {
       position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%);
@@ -6669,7 +6839,49 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
 (() => {
   const status = document.getElementById('dump-status');
   const base = () => location.protocol === 'file:' ? SERVER_URL : '';
+  // Sources we've already prompted the user about this refresh — guards
+  // against re-popping the modal if the fetcher's pending file lingers
+  // for a poll cycle after we POST a decision.
+  const _runawayHandled = new Set();
+  function _showRunawayModal(entry) {
+    const key = entry.source;
+    if (_runawayHandled.has(key)) return;
+    _runawayHandled.add(key);
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop runaway-backdrop visible';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+      '  <h3>Lots of jobs for <code></code> on <strong></strong></h3>' +
+      '  <p class="runaway-info"></p>' +
+      '  <p class="runaway-tip">Broad single words (<em>engineer</em>, <em>developer</em>…) match hundreds of jobs. Narrower queries like <em>security engineer</em> finish in seconds.</p>' +
+      '  <div class="modal-actions">' +
+      '    <button type="button" class="runaway-stop primary">Stop this source</button>' +
+      '    <button type="button" class="runaway-continue">Keep fetching</button>' +
+      '  </div>' +
+      '</div>';
+    backdrop.querySelector('code').textContent = '"' + entry.query + '"';
+    backdrop.querySelector('strong').textContent = entry.source;
+    backdrop.querySelector('.runaway-info').textContent =
+      entry.jobs + '+ jobs found after ' + entry.pages + ' page(s). '
+      + 'Keeping going will fetch up to a few more pages and open each job for description extraction (slow).';
+    document.body.appendChild(backdrop);
+    const decide = async (action) => {
+      backdrop.remove();
+      try {
+        await fetch(base() + '/refresh-decision', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({source: entry.source, action}),
+        });
+      } catch (e) {
+        console.error('refresh-decision failed', e);
+      }
+    };
+    backdrop.querySelector('.runaway-stop').addEventListener('click', () => decide('stop'));
+    backdrop.querySelector('.runaway-continue').addEventListener('click', () => decide('continue'));
+  }
   async function pollUntilDone(label) {
+    _runawayHandled.clear();
     while (true) {
       await new Promise(r => setTimeout(r, 2000));
       let s;
@@ -6679,6 +6891,11 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
       } catch (e) {
         status.textContent = label + ' status check failed: ' + e.message;
         return false;
+      }
+      // Surface any pending runaway prompts BEFORE acting on terminal
+      // states — a source might trigger right at the end of the fetch.
+      if (Array.isArray(s.runaway)) {
+        for (const entry of s.runaway) _showRunawayModal(entry);
       }
       if (s.status === 'running') {
         status.textContent = label + '… ' + s.elapsed + 's';
@@ -8890,7 +9107,7 @@ _refresh_lock = threading.Lock()
 def _run_refresh_subprocess(mode="refresh"):
     """Regenerate jobs.html in a subprocess. Updates _refresh_state."""
     global _refresh_state
-    extra = ["--clear-cache", "list"]
+    extra = ["--clear-cache", "list", "--interactive-runaway"]
     try:
         proc = subprocess.run(
             [sys.executable, __file__, *extra, "--no-serve", "--no-open"],
@@ -8950,7 +9167,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/app-rejected", "/un-app-rejected",
             "/history", "/unhistory",
             "/to-review",
-            "/refresh", "/refresh-status",
+            "/refresh", "/refresh-status", "/refresh-decision",
             "/claude-fit-paste",
             "/write-user-config", "/update-queries",
             "/save-probe", "/save-open-selected",
@@ -9220,13 +9437,59 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     _refresh_state["started_at"] = None
                     _refresh_state["error"] = None
                     _refresh_state["log_tail"] = ""
+            # Pending runaway prompts — one per source blocked on user
+            # decision. Browser pops a modal when the list is non-empty.
+            runaway = []
+            try:
+                d = os.path.join(DATA_DIR, ".runaway")
+                if os.path.isdir(d):
+                    for name in sorted(os.listdir(d)):
+                        if not name.endswith(".pending.json"):
+                            continue
+                        try:
+                            with open(os.path.join(d, name), encoding="utf-8") as f:
+                                runaway.append(json.load(f))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             body = json.dumps({
                 "status": st["status"],
                 "elapsed": int(time.time() - st["started_at"]) if st["started_at"] else 0,
                 "error": st["error"],
                 "log_tail": st["log_tail"],
+                "runaway": runaway,
             }).encode()
             self.send_response(200); self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/refresh-decision":
+            # Browser modal reports the user's pick. We just write the
+            # decision file; the fetcher subprocess polls for it and
+            # drops the pending flag once it reads a valid action.
+            source = (payload.get("source") or "").strip()
+            action = (payload.get("action") or "").strip()
+            if not source or action not in ("stop", "continue"):
+                body = json.dumps({"error": "source + action required"}).encode()
+                self.send_response(400); self._cors()
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers(); self.wfile.write(body); return
+            path = os.path.join(DATA_DIR, ".runaway",
+                                f"{slug(source)}.decision.json")
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump({"action": action, "at": time.time()}, f)
+                sys.stdout.write(f"refresh-decision: {source} → {action}\n")
+                body = json.dumps({"ok": True}).encode()
+                self.send_response(200)
+            except Exception as e:
+                err(f"/refresh-decision crashed: {e}")
+                body = json.dumps({"error": str(e)[:300]}).encode()
+                self.send_response(500)
+            self._cors()
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers(); self.wfile.write(body); return
@@ -9381,6 +9644,13 @@ def _parse_cli():
                     help=f"HTTP serve port (default: {SERVE_PORT}). Lets a second "
                          f"board — e.g. an onboarding sandbox — run alongside the "
                          f"main one on a different port.")
+    ap.add_argument("--interactive-runaway", action="store_true",
+                    help="When a per-query paginated fetcher hits >100 jobs on "
+                         "one query, write a signal file and wait up to 60s for "
+                         "the board's modal to decide stop vs. continue. Used by "
+                         "/refresh so a 'broad word' query doesn't peg Playwright. "
+                         "Outside refresh (initial make run), we hard-stop at the "
+                         "same threshold with no dialog.")
     ap.add_argument("--list", action="store_true",
                     help="Print every configured board name (comma-separated) and exit.")
     ap.add_argument("--onboard", action="store_true",
@@ -9541,6 +9811,13 @@ def main():
     if args.port is not None:
         global SERVE_PORT
         SERVE_PORT = args.port
+
+    # Flip the runaway guard into "ask the browser" mode when invoked
+    # by /refresh. Also wipe any stale signal files from a previous
+    # refresh so the modal doesn't pop with yesterday's prompt.
+    global _interactive_runaway_enabled
+    _interactive_runaway_enabled = args.interactive_runaway
+    _clear_runaway_signals()
 
     # Pre-flight: refuse to start if the HTTP port is already taken.
     # Catches the common "forgot to kill the previous `make run`" case

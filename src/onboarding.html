@@ -341,7 +341,7 @@
       line-height: 1.4;
     }
 
-    /* Step 5 — per-group / per-company override panels. */
+    /* Step 2 — per-group / per-company override panels. */
     details.qf-advanced {
       margin-top: 1rem;
       border: 1px solid var(--border);
@@ -479,10 +479,10 @@
 
   <div class="step-indicator" id="step-indicator">
     <span class="step-chip" data-step="1">1 · Companies</span>
-    <span class="step-chip" data-step="2">2 · Keywords</span>
+    <span class="step-chip" data-step="2">2 · Filter by title</span>
     <span class="step-chip" data-step="3">3 · Hide titles</span>
     <span class="step-chip" data-step="4">4 · Hide locations</span>
-    <span class="step-chip" data-step="5">5 · Filter by title</span>
+    <span class="step-chip" data-step="5">5 · Highlighted keywords</span>
   </div>
 
   <!-- Step 1: Companies ------------------------------------------------ -->
@@ -507,52 +507,8 @@
     <div id="groups-container"></div>
   </div>
 
-  <!-- Step 2: Keywords (highlights) ------------------------------------ -->
+  <!-- Step 2: Query filter (per-source title query) --------------------- -->
   <div class="page" id="page-2">
-    <h2>Keywords <span class="optional-tag">optional</span></h2>
-    <p class="subtitle">Words highlighted in <mark>yellow</mark> inside
-    job titles and descriptions. Click a suggestion to add it, or type
-    your own below.</p>
-    <div><strong>Suggestions</strong> (click to toggle):</div>
-    <div class="chip-row" id="kw-presets"></div>
-    <div><strong>Your keywords</strong> (type then press Enter):</div>
-    <input type="text" id="kw-input" class="chip-input"
-           placeholder="e.g. Rust, Kubernetes, Senior Staff">
-    <div class="chip-row" id="kw-selected"></div>
-  </div>
-
-  <!-- Step 3: Title blacklist ------------------------------------------ -->
-  <div class="page" id="page-3">
-    <h2>Hide these titles <span class="optional-tag">optional</span></h2>
-    <p class="subtitle">Jobs whose title contains any of these
-    (case-insensitive) are hidden. Tick preset packs or add your own.</p>
-    <div class="pack-header">
-      <div class="pack-actions">
-        <button type="button" data-pack-act="all">Hide all packs</button>
-        <button type="button" data-pack-act="none">None</button>
-      </div>
-    </div>
-    <div class="pack-list" id="tb-packs"></div>
-    <div><strong>Custom titles</strong> (one per line):</div>
-    <textarea class="custom-list" id="tb-custom"
-              placeholder="Freelance&#10;Chief of Staff&#10;Site Reliability"></textarea>
-  </div>
-
-  <!-- Step 4: Location blacklist --------------------------------------- -->
-  <div class="page" id="page-4">
-    <h2>Hide these locations <span class="optional-tag">optional</span></h2>
-    <p class="subtitle">Jobs are hidden when <em>every</em> listed
-    location matches one of these entries. Expand a continent to pick
-    countries, or add your own (cities, regions, …) at the bottom.</p>
-    <div id="loc-groups-container"></div>
-    <div style="margin-top:1rem"><strong>Custom entries</strong> (cities, regions, type then press Enter):</div>
-    <input type="text" id="loc-input" class="chip-input"
-           placeholder="e.g. Tokyo, Dubai, Berlin">
-    <div class="chip-row" id="loc-selected"></div>
-  </div>
-
-  <!-- Step 5: Query filter (per-source title query) --------------------- -->
-  <div class="page" id="page-5">
     <h2>Filter jobs by title <span class="optional-tag">optional</span></h2>
     <p class="subtitle">Keywords applied as a title filter when fetching
     each company. Pick a set once below and it applies to every company
@@ -589,6 +545,50 @@
       <div id="qf-company-search-results" class="search-results"></div>
       <div id="qf-company-overrides"></div>
     </details>
+  </div>
+
+  <!-- Step 3: Title blacklist ------------------------------------------ -->
+  <div class="page" id="page-3">
+    <h2>Hide these titles <span class="optional-tag">optional</span></h2>
+    <p class="subtitle">Jobs whose title contains any of these
+    (case-insensitive) are hidden. Tick preset packs or add your own.</p>
+    <div class="pack-header">
+      <div class="pack-actions">
+        <button type="button" data-pack-act="all">Hide all packs</button>
+        <button type="button" data-pack-act="none">None</button>
+      </div>
+    </div>
+    <div class="pack-list" id="tb-packs"></div>
+    <div><strong>Custom titles</strong> (one per line):</div>
+    <textarea class="custom-list" id="tb-custom"
+              placeholder="Freelance&#10;Chief of Staff&#10;Site Reliability"></textarea>
+  </div>
+
+  <!-- Step 4: Location blacklist --------------------------------------- -->
+  <div class="page" id="page-4">
+    <h2>Hide these locations <span class="optional-tag">optional</span></h2>
+    <p class="subtitle">Jobs are hidden when <em>every</em> listed
+    location matches one of these entries. Expand a continent to pick
+    countries, or add your own (cities, regions, …) at the bottom.</p>
+    <div id="loc-groups-container"></div>
+    <div style="margin-top:1rem"><strong>Custom entries</strong> (cities, regions, type then press Enter):</div>
+    <input type="text" id="loc-input" class="chip-input"
+           placeholder="e.g. Tokyo, Dubai, Berlin">
+    <div class="chip-row" id="loc-selected"></div>
+  </div>
+
+  <!-- Step 5: Highlighted keywords -------------------------------------- -->
+  <div class="page" id="page-5">
+    <h2>Highlighted keywords <span class="optional-tag">optional</span></h2>
+    <p class="subtitle">Words highlighted in <mark>yellow</mark> inside
+    job titles and descriptions. Click a suggestion to add it, or type
+    your own below.</p>
+    <div><strong>Suggestions</strong> (click to toggle):</div>
+    <div class="chip-row" id="kw-presets"></div>
+    <div><strong>Your keywords</strong> (type then press Enter):</div>
+    <input type="text" id="kw-input" class="chip-input"
+           placeholder="e.g. Rust, Kubernetes, Senior Staff">
+    <div class="chip-row" id="kw-selected"></div>
   </div>
 
   <!-- Build-progress screen -------------------------------------------- -->
@@ -835,7 +835,7 @@ function _wireBulkActions() {
 }
 
 /* ========================================================================
-   Step 2 — Keywords (chips + presets)
+   Step 5 — Highlighted keywords (chips + presets)
    Step 4 — Locations (chips + presets)
    Shared implementation: _ChipPicker
    ======================================================================== */
@@ -982,7 +982,7 @@ function _GroupedChipPicker(prefix, groups) {
 let kwPicker, locPicker, qfQuickPicker;
 
 /* ========================================================================
-   Step 5 — Filter jobs by title.
+   Step 2 — Filter jobs by title.
 
    State:
      - qfQuickPicker: the global chip picker (quick path).
@@ -1282,10 +1282,10 @@ function showStep(n) {
   for (let i = 1; i <= TOTAL_STEPS; i++) {
     document.getElementById('page-' + i).classList.toggle('visible', i === n);
   }
-  // Entering Step 5: rebuild the per-group rows against the current
+  // Entering Step 2: rebuild the per-group rows against the current
   // Step-1 picks (which may have changed since the last visit) and
   // refresh the "N preserved" note.
-  if (n === 5) {
+  if (n === 2) {
     _qfRenderGroupRows();
     _qfRenderCompanyOverrides();
     _qfRefreshPreserveNote();
@@ -1323,7 +1323,12 @@ function refreshFooter() {
     counter.textContent = companyCount() + ' companies selected';
     next.disabled = (companyCount() === 0);
   } else if (currentStep === 2) {
-    counter.textContent = (kwPicker?.collect().length || 0) + ' keywords';
+    const q = qfQuickPicker ? qfQuickPicker.collect().length : 0;
+    const g = [...qfGroupOverrides.values()].filter(v => v.on && v.chips.size > 0).length;
+    const c = [...qfCompanyOverrides.values()].filter(v => v.size > 0).length;
+    counter.textContent =
+      q + ' global · ' + g + ' group override' + (g === 1 ? '' : 's') +
+      ' · ' + c + ' company override' + (c === 1 ? '' : 's');
     next.disabled = false;
   } else if (currentStep === 3) {
     counter.textContent = collectTitleBlacklist().length + ' titles to hide';
@@ -1332,12 +1337,7 @@ function refreshFooter() {
     counter.textContent = (locPicker?.collect().length || 0) + ' locations to hide';
     next.disabled = false;
   } else {
-    const q = qfQuickPicker ? qfQuickPicker.collect().length : 0;
-    const g = [...qfGroupOverrides.values()].filter(v => v.on && v.chips.size > 0).length;
-    const c = [...qfCompanyOverrides.values()].filter(v => v.size > 0).length;
-    counter.textContent =
-      q + ' global · ' + g + ' group override' + (g === 1 ? '' : 's') +
-      ' · ' + c + ' company override' + (c === 1 ? '' : 's');
+    counter.textContent = (kwPicker?.collect().length || 0) + ' highlighted keywords';
     launch.disabled = false;
   }
 }
@@ -1347,14 +1347,14 @@ function refreshFooter() {
    ======================================================================== */
 
 async function saveAndLaunch() {
-  // Collect queries payload — only meaningful once the user has entered
-  // Step 5. Skipping earlier means no overrides and no quick-path chips.
-  const qf = (currentStep >= 5)
+  // Each step's data is only included once the user has reached that
+  // step. Skipping earlier means those fields stay empty.
+  const qf = (currentStep >= 2)
     ? _qfCollectPayload()
     : {queries_global: [], queries_per_group: {}, queries_per_company: {}};
   const payload = {
     names: collectCompanies(),
-    highlights: currentStep >= 2 ? kwPicker.collect() : [],
+    highlights: currentStep >= 5 ? kwPicker.collect() : [],
     title_blacklist: currentStep >= 3 ? collectTitleBlacklist() : [],
     location_blacklist: currentStep >= 4 ? locPicker.collect() : [],
     queries_global: qf.queries_global,
