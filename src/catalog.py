@@ -600,11 +600,11 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  # are the ones used in https://www.welcometothejungle.com/fr/companies/<slug>.
  # Some may 404 (WTJ moved them / renamed them); those return 0 jobs
  # and should be removed from this list when spotted.
- # Slug currently returns 0 jobs — real slug TBD via
- # debug/probe_wttj_slug_find.py "Aircall". Entry kept per CLAUDE.md
- # ("Never remove what doesn't work — FIX it").
- {'name': 'Aircall', 'kind': 'wttj_company', 'slug': 'aircall',
-  'board': 'https://www.welcometothejungle.com/fr/companies/aircall',
+ # Aircall isn't on WTJ — hosted on greenhouse (slug=aircallioinc)
+ # per debug/probe_find_career_url.py. Kept in the WTJ group because
+ # that's where the discovery flow surfaced them.
+ {'name': 'Aircall', 'kind': 'greenhouse', 'slug': 'aircallioinc',
+  'board': 'https://aircall.io/careers/',
   'group': 'Welcome to the Jungle'},
  {'name': 'Back Market', 'kind': 'wttj_company', 'slug': 'back-market',
   'board': 'https://www.welcometothejungle.com/fr/companies/back-market',
@@ -630,9 +630,9 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Mirakl', 'kind': 'wttj_company', 'slug': 'mirakl',
   'board': 'https://www.welcometothejungle.com/fr/companies/mirakl',
   'group': 'Welcome to the Jungle'},
- # Slugs below currently 0-job — real slugs TBD (probe_wttj_slug_find.py).
- {'name': 'Contentsquare', 'kind': 'wttj_company', 'slug': 'contentsquare',
-  'board': 'https://www.welcometothejungle.com/fr/companies/contentsquare',
+ # Contentsquare isn't on WTJ — hosted on Lever.
+ {'name': 'Contentsquare', 'kind': 'lever', 'slug': 'contentsquare',
+  'board': 'https://contentsquare.com/careers/',
   'group': 'Welcome to the Jungle'},
  {'name': 'Getaround', 'kind': 'wttj_company', 'slug': 'getaround',
   'board': 'https://www.welcometothejungle.com/fr/companies/getaround',
@@ -644,11 +644,13 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'board': 'https://www.welcometothejungle.com/fr/companies/360learning',
   'group': 'Welcome to the Jungle'},
  # Slugs below currently 0-job — real slugs TBD (probe_wttj_slug_find.py).
- {'name': 'OpenClassrooms', 'kind': 'wttj_company', 'slug': 'openclassrooms',
-  'board': 'https://www.welcometothejungle.com/fr/companies/openclassrooms',
+ # WTJ-side slug is singular ("openclassroom") per Algolia search 2026-10-07.
+ {'name': 'OpenClassrooms', 'kind': 'wttj_company', 'slug': 'openclassroom',
+  'board': 'https://www.welcometothejungle.com/fr/companies/openclassroom',
   'group': 'Welcome to the Jungle'},
- {'name': 'Vestiaire Collective', 'kind': 'wttj_company', 'slug': 'vestiaire-collective',
-  'board': 'https://www.welcometothejungle.com/fr/companies/vestiaire-collective',
+ # Vestiaire Collective isn't on WTJ — hosted on Lever.
+ {'name': 'Vestiaire Collective', 'kind': 'lever', 'slug': 'vestiairecollective',
+  'board': 'https://careers.vestiairecollective.com/',
   'group': 'Welcome to the Jungle'},
  {'name': 'Shift Technology', 'kind': 'wttj_company', 'slug': 'shift-technology',
   'board': 'https://www.welcometothejungle.com/fr/companies/shift-technology',
@@ -662,9 +664,10 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Lifen', 'kind': 'wttj_company', 'slug': 'lifen',
   'board': 'https://www.welcometothejungle.com/fr/companies/lifen',
   'group': 'Welcome to the Jungle'},
- # Slug currently 0-job — real slug TBD (probe_wttj_slug_find.py).
- {'name': 'Lydia', 'kind': 'wttj_company', 'slug': 'lydia-solutions',
-  'board': 'https://www.welcometothejungle.com/fr/companies/lydia-solutions',
+ # 'lydia-solutions' 404s; Algolia search for "Lydia" returns the
+ # account under slug 'lydia-2' (0 jobs today but valid WTJ page).
+ {'name': 'Lydia', 'kind': 'wttj_company', 'slug': 'lydia-2',
+  'board': 'https://www.welcometothejungle.com/fr/companies/lydia-2',
   'group': 'Welcome to the Jungle'},
  {'name': 'Fhenix',
   'kind': 'pw',

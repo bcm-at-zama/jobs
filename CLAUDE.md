@@ -116,6 +116,35 @@ verify from a dump or a probe output, produce a probe script and stop until
 the user runs it. The only edits allowed without verification are those the
 user has explicitly authorized in the current message.
 
+## Don't be lazy — automate before asking
+
+**When I'm about to ask the user to look something up by hand ("please
+open their careers page and tell me what you see", "paste the URL",
+"check which ATS they use"), I MUST first ask: can I ship a probe
+that does this discovery automatically?**
+
+Default lazy pattern (bad):
+- "Can you open aircall.io and tell me their ATS?"
+- "Please find their careers URL and paste it."
+- "Open DevTools, filter XHR, copy the request."
+
+Correct pattern:
+- Ship a `.py` probe that brute-forces the likely URLs / endpoints /
+  slug variants / selector patterns on the user's Mac. The user runs
+  one command, the probe reports the answer.
+- Only ask the user to look manually AFTER the probe has exhausted
+  the automatable options and failed, AND I've said so explicitly in
+  the response ("the probe tried X, Y, Z — none worked; this one
+  genuinely needs your eyes").
+
+Rationale: asking the user to do what I could have scripted wastes
+their time and chat context. One extra line in a probe (another URL
+variant, another regex, another candidate slug) usually saves 3-5
+turns of ping-ponging.
+
+Pair with the probe rule above: automate first, probe second, user
+third.
+
 ## Never remove what doesn't work — FIX it
 
 **When something is broken (wrong slug, dead URL, failed scrape, 0-job
