@@ -38,8 +38,14 @@ class TestCheckRunaway(unittest.TestCase):
         # Shorter timeout so timeout-case tests don't take a full minute.
         self._patch_timeout = mock.patch.object(jobs, "RUNAWAY_TIMEOUT_S", 1)
         self._patch_timeout.start()
+        # Pin the threshold so these tests don't need to track the
+        # user-tunable default (which lives in config.RUNAWAY_THRESHOLD
+        # and may change over time / from settings).
+        self._patch_threshold = mock.patch.object(jobs._cfg, "RUNAWAY_THRESHOLD", 100)
+        self._patch_threshold.start()
 
     def tearDown(self):
+        self._patch_threshold.stop()
         self._patch_timeout.stop()
         self._patch_data.stop()
         self.tmp.cleanup()
@@ -291,8 +297,11 @@ class TestFetcherIntegration(unittest.TestCase):
             jobs, "_interactive_runaway_enabled", True,
         )
         self._patch_mode.start()
+        self._patch_threshold = mock.patch.object(jobs._cfg, "RUNAWAY_THRESHOLD", 100)
+        self._patch_threshold.start()
 
     def tearDown(self):
+        self._patch_threshold.stop()
         self._patch_mode.stop()
         self._patch_timeout.stop()
         self._patch_data.stop()

@@ -448,4 +448,50 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'search_url': 'https://zeropath.com/careers',
   'link_re': 'href="(https?://jobs\\.ashbyhq\\.com/[^"#?]+/[a-f0-9-]{20,}|/careers/[^"#?]+|https?://[^"]*(?:greenhouse|lever|workable|ashby)[^"]*)"',
   'origin': 'https://zeropath.com',
-  'group': 'Security Companies'}]
+  'group': 'Security Companies'},
+
+ # --- Verified 2026-10-07 via debug/probe_new_catalog.py --------------------
+ # Cars
+ {'name': 'Lucid Motors', 'kind': 'greenhouse', 'slug': 'lucidmotors', 'group': 'Cars'},
+ {'name': 'Scout Motors', 'kind': 'greenhouse', 'slug': 'scoutmotors', 'group': 'Cars'},
+
+ # Media
+ {'name': 'The New York Times', 'kind': 'greenhouse', 'slug': 'thenewyorktimes', 'group': 'Media'},
+ {'name': 'Vox Media', 'kind': 'greenhouse', 'slug': 'voxmedia', 'group': 'Media'},
+ {'name': 'Axios', 'kind': 'greenhouse', 'slug': 'axios', 'group': 'Media'},
+ {'name': 'Peloton', 'kind': 'greenhouse', 'slug': 'peloton', 'group': 'Media'},
+ {'name': 'Semafor', 'kind': 'greenhouse', 'slug': 'semafor', 'group': 'Media'},
+
+ # Startups (YC-recent / unicorns / dev-tools not already in another bucket)
+ {'name': 'Decagon', 'kind': 'ashby', 'slug': 'decagon', 'group': 'Startups'},
+ {'name': 'Supabase', 'kind': 'ashby', 'slug': 'supabase', 'group': 'Startups'},
+ {'name': 'PostHog', 'kind': 'ashby', 'slug': 'posthog', 'group': 'Startups'},
+ {'name': 'Resend', 'kind': 'ashby', 'slug': 'resend', 'group': 'Startups'},
+ {'name': 'Dust', 'kind': 'ashby', 'slug': 'dust', 'group': 'Startups'},
+ {'name': 'Granola', 'kind': 'ashby', 'slug': 'granola', 'group': 'Startups'},
+ {'name': 'Ramp', 'kind': 'ashby', 'slug': 'ramp', 'group': 'Startups'},
+ {'name': 'Carta', 'kind': 'greenhouse', 'slug': 'carta', 'group': 'Startups'},
+ {'name': 'Chime', 'kind': 'greenhouse', 'slug': 'chime', 'group': 'Startups'},
+ {'name': 'Affirm', 'kind': 'greenhouse', 'slug': 'affirm', 'group': 'Startups'},
+ {'name': 'Airtable', 'kind': 'greenhouse', 'slug': 'airtable', 'group': 'Startups'},
+ {'name': 'PlanetScale', 'kind': 'greenhouse', 'slug': 'planetscale', 'group': 'Startups'},
+ {'name': 'Neon', 'kind': 'ashby', 'slug': 'neon', 'group': 'Startups'},
+ {'name': 'Render', 'kind': 'ashby', 'slug': 'render', 'group': 'Startups'},
+ {'name': 'Vapi', 'kind': 'ashby', 'slug': 'vapi', 'group': 'Startups'},
+ {'name': 'Buildkite', 'kind': 'greenhouse', 'slug': 'buildkite', 'group': 'Startups'},
+ {'name': 'Clerk', 'kind': 'ashby', 'slug': 'clerk', 'group': 'Startups'},
+ {'name': 'WorkOS', 'kind': 'ashby', 'slug': 'workos', 'group': 'Startups'},
+ {'name': 'Temporal', 'kind': 'ashby', 'slug': 'temporal', 'group': 'Startups'},
+ {'name': 'Mozilla', 'kind': 'greenhouse', 'slug': 'mozilla', 'group': 'Startups'},
+ {'name': 'Instacart', 'kind': 'greenhouse', 'slug': 'instacart', 'group': 'Startups'},
+
+ # Blockchain / crypto
+ {'name': 'Coinbase', 'kind': 'greenhouse', 'slug': 'coinbase', 'group': 'Blockchain'},
+ {'name': 'Fireblocks', 'kind': 'greenhouse', 'slug': 'fireblocks', 'group': 'Blockchain'},
+ {'name': 'OpenZeppelin', 'kind': 'greenhouse', 'slug': 'openzeppelin', 'group': 'Blockchain'},
+ {'name': 'Phantom', 'kind': 'ashby', 'slug': 'phantom', 'group': 'Blockchain'},
+ {'name': 'Aptos Labs', 'kind': 'greenhouse', 'slug': 'aptoslabs', 'group': 'Blockchain'},
+ {'name': 'Consensys', 'kind': 'greenhouse', 'slug': 'consensys', 'group': 'Blockchain'},
+ {'name': 'Dune', 'kind': 'ashby', 'slug': 'dune', 'group': 'Blockchain'},
+ {'name': 'Paradigm', 'kind': 'ashby', 'slug': 'paradigm', 'group': 'Blockchain'},
+ {'name': 'Blockchain.com', 'kind': 'greenhouse', 'slug': 'blockchain', 'group': 'Blockchain'}]

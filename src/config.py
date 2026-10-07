@@ -646,7 +646,11 @@ GROUP_ORDER = [
     "Big Tech",
     "Major AI Companies",
     "AI Startups",
+    "Startups",
     "Security Companies",
+    "Blockchain",
+    "Cars",
+    "Media",
     "Other",
     "Music Companies",
 ]
@@ -877,6 +881,14 @@ SPONTANEOUS_PATTERNS = [
 
 
 # =============================================================================
+# Per-query runaway guard — stop paginating a single query at a source
+# once it has yielded this many matching jobs. Protects the engine from
+# a pathological keyword (e.g. "engineer" at Apple) that would otherwise
+# hit the hard 10-page cap on every single query in the config.
+# Overridable per-user via data/user_config.py; also tunable from the ⚙
+# Settings modal (CMD+,) which writes back to user_config.py.
+RUNAWAY_THRESHOLD = 300
+
 # User overrides — load personal preferences from data/user_config.py
 #
 # This keeps src/ free of personal data (per CLAUDE.md). The user's SOURCES,
@@ -891,7 +903,8 @@ if _os.path.isfile(_USER_CONFIG_PATH):
     _spec = _ilu.spec_from_file_location("_jobs_user_config", _USER_CONFIG_PATH)
     _mod = _ilu.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)
-    for _name in ("HIGHLIGHTS", "TITLE_BLACKLIST", "LOCATION_BLACKLIST", "SOURCES"):
+    for _name in ("HIGHLIGHTS", "TITLE_BLACKLIST", "LOCATION_BLACKLIST", "SOURCES",
+                  "RUNAWAY_THRESHOLD"):
         if hasattr(_mod, _name):
             globals()[_name] = getattr(_mod, _name)
 else:

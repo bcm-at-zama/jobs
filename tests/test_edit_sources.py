@@ -323,6 +323,126 @@ class TestNewCompaniesBadgeFallback(unittest.TestCase):
         )
 
 
+class TestRunawayPerQuery(unittest.TestCase):
+    """REGRESSION — the runaway guard used to kill the entire source
+    when ANY one query tripped the threshold. For a config like
+    Apple's queries=['security', 'cryptography', ...], the common
+    first term "security" would hit 100+ matches and silently skip
+    every subsequent query — the user then wondered why
+    "cryptography" / "Logic" postings never showed up.
+
+    The fix: runaway stops THIS query's pagination, outer loop
+    continues to the next query. These tests pin that intent by
+    inspecting the fetcher sources."""
+
+    def setUp(self):
+        import pathlib
+        self.src = pathlib.Path(jobs.__file__).read_text()
+
+    def test_no_stop_source_flag_remains(self):
+        """The `stop_source = True` propagation is gone from every
+        fetcher — would re-introduce the per-source abort."""
+        self.assertNotIn(
+            "stop_source = True", self.src,
+            "A fetcher still sets stop_source=True on runaway. Convert "
+            "it to a plain break so the outer per-query loop continues.",
+        )
+
+    def test_check_runaway_callers_only_break(self):
+        """Every call site must `break` (inner loop only), never set a
+        flag that unwinds the outer per-query loop."""
+        import re
+        # Match `if check_runaway("<SourceName>", ...):` followed by its
+        # body. We only want real call sites inside fetchers — the
+        # function definition itself starts with `def check_runaway(`.
+        # Any `if check_runaway(…):` line inside a fetcher (one or two
+        # args, string literal OR source["name"] indexing — accept both).
+        pattern = re.compile(
+            r"if check_runaway\([^)]+\):\s*\n(\s+)([^\n]+)",
+            re.MULTILINE,
+        )
+        hits = pattern.findall(self.src)
+        self.assertGreaterEqual(len(hits), 4,
+                                "expected ≥4 runaway call sites (Apple, "
+                                "Microsoft, Phenom, WTTJ)")
+        for indent, body in hits:
+            with self.subTest(body=body):
+                self.assertTrue(
+                    body.startswith("break"),
+                    f"runaway follow-up should be `break`, got {body!r}",
+                )
+
+
+class TestSetSettingsEndpoint(unittest.TestCase):
+    """POST /set-settings persists the runaway threshold to
+    data/user_config.py AND updates config.RUNAWAY_THRESHOLD in memory
+    so the next fetch picks it up without a restart."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.data = self.tmp.name
+        self._patches = [
+            mock.patch.dict(os.environ, {"JOBS_DATA_DIR": self.data}),
+            mock.patch.object(jobs._cfg, "DATA_DIR", self.data),
+            mock.patch.object(jobs._cfg, "RUNAWAY_THRESHOLD", 300),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in reversed(self._patches):
+            p.stop()
+        self.tmp.cleanup()
+
+    def _invoke(self, body_dict):
+        body = json.dumps(body_dict).encode()
+
+        class _Shim(jobs.Handler):
+            def __init__(self):
+                self.rfile = BytesIO(body)
+                self.wfile = BytesIO()
+                self.headers = {"Content-Length": str(len(body))}
+                self.path = "/set-settings"
+                self.command = "POST"
+                self._status = None
+
+            def send_response(self, code, msg=None):
+                self._status = code
+
+            def send_header(self, k, v): pass
+            def end_headers(self): pass
+            def log_message(self, *a, **kw): pass
+
+        shim = _Shim()
+        shim.do_POST()
+        return shim._status
+
+    def test_updates_memory_and_file(self):
+        status = self._invoke({"runaway_threshold": 500})
+        self.assertEqual(status, 204)
+        self.assertEqual(jobs._cfg.RUNAWAY_THRESHOLD, 500)
+        out = os.path.join(self.data, "user_config.py")
+        self.assertTrue(os.path.isfile(out))
+        with open(out) as f:
+            self.assertIn("RUNAWAY_THRESHOLD = 500", f.read())
+
+    def test_replaces_existing_line(self):
+        out = os.path.join(self.data, "user_config.py")
+        with open(out, "w") as f:
+            f.write("HIGHLIGHTS=[]\nRUNAWAY_THRESHOLD = 200\nSOURCES=[]\n")
+        status = self._invoke({"runaway_threshold": 777})
+        self.assertEqual(status, 204)
+        with open(out) as f:
+            txt = f.read()
+        self.assertIn("RUNAWAY_THRESHOLD = 777", txt)
+        self.assertNotIn("RUNAWAY_THRESHOLD = 200", txt)
+
+    def test_rejects_out_of_range(self):
+        for bad in (5, -1, 20000, "not-a-number"):
+            with self.subTest(bad=bad):
+                self.assertEqual(self._invoke({"runaway_threshold": bad}), 400)
+
+
 class TestEmptySectionHideOnReject(unittest.TestCase):
     """REGRESSION — rejecting the last job in a section used to leave
     the h2 group heading visible until the next tab switch. The fix

@@ -582,7 +582,13 @@ def matches(job, queries):
 # print a loud log line.
 # =============================================================================
 
-RUNAWAY_THRESHOLD = 100
+# RUNAWAY_THRESHOLD now lives in config.py (default 300) and is
+# user-tunable from data/user_config.py and from the ⚙ Settings modal.
+# We import the module (not the bare name) so a mid-session update to
+# config.RUNAWAY_THRESHOLD from /set-settings is picked up by the next
+# check_runaway() call — a bare `from config import X` would snapshot
+# the old value at import time.
+import config as _cfg
 RUNAWAY_TIMEOUT_S = 60
 
 # Flipped on by --interactive-runaway (passed in by /refresh). Module-global
@@ -622,14 +628,21 @@ def _clear_runaway_signals():
 
 
 def check_runaway(source_name, query, pages_so_far, jobs_so_far):
-    """Return True if the caller should break out of the source's
-    pagination loops (stop the whole source), False to keep going.
+    """Return True if the caller should break out of THIS query's
+    pagination loop (stop paginating this one query, then move on to
+    the next query in the source), False to keep paginating.
 
     Call this after each page's results have been accumulated for a
     single query, with `jobs_so_far` = running count of matching jobs
     discovered for this query on THIS source during this fetch.
+
+    Pre-fix, callers used a source-wide flag that also broke the OUTER
+    (per-query) loop — meaning a single runaway query (e.g. "security"
+    at Apple, which matches thousands) silently skipped every subsequent
+    query in the config. Now a runaway hit stops only this query;
+    "cryptography" / "Logic" / … still run.
     """
-    if jobs_so_far <= RUNAWAY_THRESHOLD:
+    if jobs_so_far <= _cfg.RUNAWAY_THRESHOLD:
         return False
     if not _interactive_runaway_enabled:
         sys.stdout.write(
@@ -1001,10 +1014,7 @@ def fetch_apple(source):
     total_board = None
     p, browser, page = _open_browser()
     try:
-        stop_source = False
         for q in source["queries"]:
-            if stop_source:
-                break
             q_jobs = 0  # matches discovered for this specific query so far
             for pnum in range(1, 11):
                 url = (
@@ -1042,8 +1052,8 @@ def fetch_apple(source):
                 if added == 0:
                     break
                 if check_runaway("Apple", q, pnum, q_jobs):
-                    stop_source = True
-                    break
+                    break  # per-query: stop this query's pagination,
+                           # fall through to the next query in the outer loop.
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, "Apple")
     finally:
@@ -1217,10 +1227,7 @@ def fetch_microsoft(source):
             "https://apply.careers.microsoft.com/careers?start=0&sort_by=relevance",
             "debug/debug-microsoft-total.html",
         )
-        stop_source = False
         for q in source["queries"]:
-            if stop_source:
-                break
             q_jobs = 0
             for pnum in range(10):
                 start = pnum * 20
@@ -1263,8 +1270,7 @@ def fetch_microsoft(source):
                 if added == 0:
                     break
                 if check_runaway("Microsoft", q, pnum + 1, q_jobs):
-                    stop_source = True
-                    break
+                    break  # per-query stop (see comment in fetch_apple)
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, "Microsoft")
     finally:
@@ -2063,10 +2069,7 @@ def fetch_phenom(source):
             f"{origin}/careers?start=0&sort_by=relevance",
             f"debug/debug-{slug(source['name'])}-total.html",
         )
-        stop_source = False
         for q in source["queries"]:
-            if stop_source:
-                break
             q_jobs = 0
             for pnum in range(10):
                 start = pnum * 20
@@ -2107,8 +2110,7 @@ def fetch_phenom(source):
                 if added == 0:
                     break
                 if check_runaway(source["name"], q, pnum + 1, q_jobs):
-                    stop_source = True
-                    break
+                    break  # per-query stop (see comment in fetch_apple)
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, source["name"])
     finally:
@@ -2131,10 +2133,7 @@ def fetch_wttj(source):
     out, seen = [], set()
     p, browser, page = _open_browser()
     try:
-        stop_source = False
         for q in source["queries"]:
-            if stop_source:
-                break
             q_jobs = 0
             base = source.get("search_url") or f"https://www.welcometothejungle.com/fr/pages/emploi?query={urllib.parse.quote(q)}"
             for pnum in range(1, 6):
@@ -2172,8 +2171,7 @@ def fetch_wttj(source):
                 if added == 0:
                     break
                 if check_runaway("Welcome to the Jungle", q, pnum, q_jobs):
-                    stop_source = True
-                    break
+                    break  # per-query stop (see comment in fetch_apple)
         filtered = [j for j in out if matches(j, source["queries"])]
         _fetch_descriptions(page, filtered, "Welcome to the Jungle")
     finally:
@@ -6366,6 +6364,9 @@ const HIGHLIGHTS = __HIGHLIGHTS__;
 // Edit-companies dialog: catalog (menu) + current config (pre-check).
 const CATALOG_FOR_EDIT = __CATALOG_FOR_EDIT__;
 const SOURCES_NAMES = __SOURCES_NAMES__;
+// Server-side per-query runaway threshold (data/user_config.py or default).
+// Shown + editable in the ⚙ Settings modal; POST /set-settings persists it.
+const RUNAWAY_THRESHOLD = __RUNAWAY_THRESHOLD__;
 const SERVER_URL = '__SERVER_URL__';
 // Server-side Claude fit cache (claude_fit_cache.json) for jobs currently
 // visible. Hydrated into localStorage on load so badges render on open.
@@ -8240,6 +8241,12 @@ function openClaudeSettingsModal() {
         '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
         '    Affects the notes + summaries the LLM writes back. UI stays in English.' +
         '  </div>' +
+        '  <label>Per-query runaway threshold<br>' +
+        '    <input type="number" id="cs-runaway" min="10" max="10000" step="10" style="width:8rem">' +
+        '  </label>' +
+        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
+        '    Max matching jobs to accept per query before paginating stops. Lower is faster but may miss postings; higher scrapes more pages. Default 300.' +
+        '  </div>' +
         '  <div class="modal-actions">' +
         '    <button type="button" id="cs-cancel">Cancel</button>' +
         '    <button type="button" id="cs-save" class="primary">Save</button>' +
@@ -8281,6 +8288,8 @@ function openClaudeSettingsModal() {
     modal.querySelectorAll('input[name="cs-lang"]').forEach(r => {
       r.checked = (r.value === lang);
     });
+    const runawayInput = modal.querySelector('#cs-runaway');
+    runawayInput.value = RUNAWAY_THRESHOLD;
     modal.classList.add('visible');
     setTimeout(() => urlInput.focus(), 50);
     const cleanup = (result) => {
@@ -8292,7 +8301,12 @@ function openClaudeSettingsModal() {
     modal.querySelector('#cs-cancel').onclick = () => cleanup(null);
     modal.querySelector('#cs-save').onclick = () => {
       const chosenLang = (modal.querySelector('input[name="cs-lang"]:checked')?.value) || 'en';
-      cleanup({url: urlInput.value.trim(), lang: chosenLang});
+      const runaway = parseInt(runawayInput.value, 10);
+      cleanup({
+        url: urlInput.value.trim(),
+        lang: chosenLang,
+        runaway_threshold: Number.isFinite(runaway) && runaway >= 10 ? runaway : null,
+      });
     };
   });
 }
@@ -8302,6 +8316,20 @@ document.getElementById('claude-chat-url-setup')?.addEventListener('click', asyn
   if (!answers) return;
   _setPinnedClaudeChatUrl(answers.url);
   _setClaudeLang(answers.lang);
+  if (answers.runaway_threshold != null && answers.runaway_threshold !== RUNAWAY_THRESHOLD) {
+    try {
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const r = await fetch(base + '/set-settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({runaway_threshold: answers.runaway_threshold}),
+      });
+      if (!r.ok) throw new Error('http ' + r.status);
+      // No reload — the next /refresh picks up the new threshold.
+    } catch (e) {
+      alert('Settings save failed: ' + e.message);
+    }
+  }
 });
 
 /* ------------------------------------------------------------------
@@ -9338,6 +9366,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/claude-fit-paste",
             "/write-user-config", "/update-queries",
             "/save-probe", "/save-open-selected",
+            "/set-settings",
         ):
             self.send_response(404)
             self.end_headers()
@@ -9347,6 +9376,42 @@ class Handler(http.server.BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
         except Exception:
             payload = {}
+        if self.path == "/set-settings":
+            # Settings modal save: today only runaway_threshold. Updates
+            # config.RUNAWAY_THRESHOLD in memory (so the next check_runaway()
+            # call picks it up) and rewrites data/user_config.py so the
+            # change survives a restart.
+            val = payload.get("runaway_threshold")
+            if not isinstance(val, int) or val < 10 or val > 10000:
+                self.send_response(400); self._cors(); self.end_headers(); return
+            _cfg.RUNAWAY_THRESHOLD = val
+            out_path = os.path.join(_cfg.DATA_DIR, "user_config.py")
+            try:
+                txt = ""
+                if os.path.isfile(out_path):
+                    with open(out_path, "r", encoding="utf-8") as f:
+                        txt = f.read()
+                    bak = f"{out_path}.bak.{time.strftime('%Y%m%d-%H%M%S')}"
+                    with open(bak, "w", encoding="utf-8") as f:
+                        f.write(txt)
+                new_line = f"RUNAWAY_THRESHOLD = {val}"
+                if re.search(r"^RUNAWAY_THRESHOLD\s*=\s*\d+", txt, re.MULTILINE):
+                    txt = re.sub(
+                        r"^RUNAWAY_THRESHOLD\s*=\s*\d+", new_line, txt,
+                        flags=re.MULTILINE,
+                    )
+                else:
+                    if txt and not txt.endswith("\n"):
+                        txt += "\n"
+                    txt += "\n" + new_line + "\n"
+                os.makedirs(_cfg.DATA_DIR, exist_ok=True)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(txt)
+                sys.stdout.write(f"set-settings: RUNAWAY_THRESHOLD → {val}\n")
+            except Exception as e:
+                sys.stdout.write(f"set-settings: write failed: {e}\n")
+                self.send_response(500); self._cors(); self.end_headers(); return
+            self.send_response(204); self._cors(); self.end_headers(); return
         if self.path == "/save-probe":
             script = payload.get("script") or ""
             if not script:
@@ -10606,6 +10671,7 @@ def main():
         .replace("__CLAUDE_FITS__", json.dumps(_fit_subset))
         .replace("__CATALOG_FOR_EDIT__", json.dumps(_CATALOG_FOR_EDIT))
         .replace("__SOURCES_NAMES__", json.dumps(_sources_names))
+        .replace("__RUNAWAY_THRESHOLD__", json.dumps(_cfg.RUNAWAY_THRESHOLD))
     )
 
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
