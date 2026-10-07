@@ -4143,6 +4143,15 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         f'data-name="{html.escape(display, quote=True)}" '
         f'title="Reject every untouched job in this section">×</button>'
     )
+    # Unfollow: drop this company from the user's sources. Rewrites
+    # data/user_config.py; takes effect on the next refresh. `data-name`
+    # carries the internal SOURCES key (not display), since that's what
+    # the server matches against.
+    unfollow_btn = (
+        f'<button class="unfollow-company" data-sid="{sid}" '
+        f'data-name="{html.escape(name, quote=True)}" '
+        f'title="Unfollow this company — stop watching its board">🚫</button>'
+    )
     board_link = (
         f'<a class="board-link" href="{html.escape(board_url, quote=True)}" '
         f'target="_blank" rel="noopener">{html.escape(display)}</a>'
@@ -4344,7 +4353,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
     section_cls = "company-section" + (" has-spontaneous" if spontaneous_url else "")
     return (
         f'  <section class="{section_cls}" data-section="{sid}">\n'
-        f'  <h1 id="{sid}">{board_link} {query_pills} {counter} {reject_section_btn}</h1>\n'
+        f'  <h1 id="{sid}">{board_link} {query_pills} {counter} {reject_section_btn} {unfollow_btn}</h1>\n'
         f'{company_info_row}'
         f'{spontaneous_row}'
         f'{rejected_block}'
@@ -5792,6 +5801,34 @@ HTML_TEMPLATE = """<!doctype html>
     .company-section:not(:has(li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected))) .reject-section {
       display: none;
     }
+
+    /* Unfollow × — sits next to .reject-section in the h1. Visually quieter
+       (grey border, no fill, muted emoji) so it reads as "stop watching"
+       rather than "reject jobs". Hover emphasises red because the action
+       rewrites the user's sources file. */
+    .unfollow-company {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--fg-muted);
+      border-radius: 50%;
+      width: 1.5rem;
+      height: 1.5rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      line-height: 1;
+      padding: 0;
+      margin-left: 0.25rem;
+      vertical-align: middle;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .unfollow-company:hover {
+      border-color: var(--danger);
+      background: #fff5f5;
+    }
+    .unfollow-company:disabled { opacity: 0.4; cursor: wait; }
 
     /* Review button: orange circle, only rendered when the job has no state.
        Sends title to planning/TOREVIEW.md + rejects the URL in one click. */
@@ -9249,6 +9286,37 @@ document.querySelectorAll('.reject-section').forEach(btn => {
   });
 });
 
+// Unfollow: drop this company from data/user_config.py SOURCES. Prompts
+// first (not undoable from Cmd+Z — the backup file on disk is the only
+// recovery). On success we hide the section immediately so the board
+// reflects the new state without waiting for a refresh.
+document.querySelectorAll('.unfollow-company').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const name = btn.dataset.name;
+    const sid = btn.dataset.sid;
+    if (!name) return;
+    if (!confirm('Unfollow ' + name + '? You will stop seeing their jobs.')) return;
+    btn.disabled = true;
+    try {
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const res = await fetch(base + '/unfollow', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name}),
+      });
+      if (!res.ok) throw new Error('http ' + res.status);
+      const section = document.querySelector('.company-section[data-section="' + sid + '"]');
+      if (section) section.remove();
+      refreshGroupHeadings();
+    } catch (err) {
+      btn.disabled = false;
+      alert('Unfollow failed: ' + err.message);
+    }
+  });
+});
+
 // Review button: like reject, but also POSTs the title to /to-review which
 // appends it to planning/TOREVIEW.md. Non-undoable — the file append is not reversible.
 document.querySelectorAll('button.review').forEach(btn => {
@@ -9600,7 +9668,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/to-review",
             "/refresh", "/refresh-status", "/refresh-decision",
             "/claude-fit-paste",
-            "/write-user-config", "/update-queries",
+            "/write-user-config", "/update-queries", "/unfollow",
             "/save-probe", "/save-open-selected",
             "/set-settings",
         ):
@@ -9839,6 +9907,65 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
             except Exception as e:
                 err(f"/update-queries crashed: {e}")
+                body = json.dumps({"error": str(e)[:300]}).encode()
+                self.send_response(500)
+            self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/unfollow":
+            # Remove ONE source from data/user_config.py SOURCES. Reuses
+            # the same _build_user_config path as /write-user-config and
+            # /update-queries so the file stays structurally identical to
+            # what the wizard emits — just with the named company gone.
+            # Also drops the entry from in-memory SOURCES so the running
+            # process won't try to re-fetch it on the next Refresh.
+            name = (payload.get("name") or "").strip()
+            if not name:
+                body = json.dumps({"error": "name required"}).encode()
+                self.send_response(400); self._cors()
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers(); self.wfile.write(body); return
+            try:
+                import onboarding  # lazy; keeps a plain run cheap
+                data_dir = os.environ.get("JOBS_DATA_DIR", "data")
+                out_path = os.path.join(data_dir, "user_config.py")
+                names = {s["name"] for s in SOURCES if s.get("name")}
+                if name not in names:
+                    body = json.dumps({"error": f"unknown source: {name}"}).encode()
+                    self.send_response(400); self._cors()
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers(); self.wfile.write(body); return
+                existing_q = {s["name"]: list(s.get("queries") or [])
+                              for s in SOURCES if s.get("name") and s["name"] != name}
+                names.discard(name)
+                hl, tb, lb = HIGHLIGHTS[:], TITLE_BLACKLIST[:], LOCATION_BLACKLIST[:]
+                backup = None
+                if os.path.isfile(out_path):
+                    backup = onboarding._backup_path(out_path)
+                    import shutil
+                    shutil.copy2(out_path, backup)
+                content = onboarding._build_user_config(
+                    names,
+                    highlights=hl,
+                    title_blacklist=tb,
+                    location_blacklist=lb,
+                    existing_queries=existing_q,
+                )
+                os.makedirs(data_dir, exist_ok=True)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                SOURCES[:] = [s for s in SOURCES if s.get("name") != name]
+                sys.stdout.write(f"unfollow: {name} ({out_path})\n")
+                body = json.dumps({
+                    "ok": True, "name": name,
+                    "path": out_path, "backup": backup,
+                }).encode()
+                self.send_response(200)
+            except Exception as e:
+                err(f"/unfollow crashed: {e}")
                 body = json.dumps({"error": str(e)[:300]}).encode()
                 self.send_response(500)
             self._cors()
