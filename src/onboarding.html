@@ -1610,7 +1610,7 @@ async function launchBoard() {
       s = await r.json();
     } catch (e) {
       statusMsg.textContent = 'Redirecting…';
-      window.location.href = boardUrl + '#tab=new';
+      window.location.href = boardUrl + '#tab=all';
       return;
     }
     elapsed.textContent = s.elapsed + 's elapsed';
@@ -1621,7 +1621,7 @@ async function launchBoard() {
       // against a late crash of the subprocess that would otherwise
       // land us on an ERR_CONNECTION_REFUSED. If the probe fails,
       // keep polling instead of bailing.
-      _redirectWhenReachable(s.board_url + '#tab=new', statusMsg);
+      _redirectWhenReachable(s.board_url + '#tab=all', statusMsg);
       return;
     }
     if (s.status === 'failed') {

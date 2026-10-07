@@ -323,6 +323,28 @@ class TestNewCompaniesBadgeFallback(unittest.TestCase):
         )
 
 
+class TestEmptySectionHideOnReject(unittest.TestCase):
+    """REGRESSION — rejecting the last job in a section used to leave
+    the h2 group heading visible until the next tab switch. The fix
+    makes updateCounters() call refreshGroupHeadings() so hide-empty-
+    sections responds immediately."""
+
+    def setUp(self):
+        import pathlib
+        self.src = pathlib.Path(jobs.__file__).read_text()
+
+    def test_update_counters_refreshes_group_headings(self):
+        import re
+        m = re.search(r"function updateCounters\(.*?\n\}", self.src, re.DOTALL)
+        self.assertIsNotNone(m, "updateCounters not found")
+        body = m.group(0)
+        self.assertIn(
+            "refreshGroupHeadings", body,
+            "updateCounters must call refreshGroupHeadings() so the h2 "
+            "heading hides as soon as its last section goes empty.",
+        )
+
+
 class TestKeyboardShortcuts(unittest.TestCase):
     """Cmd/Ctrl + letter shortcuts route to the top-bar buttons. Pin the
     mapping so a refactor doesn't silently break muscle memory."""

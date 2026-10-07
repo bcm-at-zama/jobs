@@ -41,6 +41,29 @@ class TestRenderHtmlTabs(unittest.TestCase):
         self.assertEqual([tid for tid, _ in sorted_by_pos], self.EXPECTED_IDS)
 
 
+class TestTabShortcutDiscoverability(unittest.TestCase):
+    """Each tab title must surface its positional digit shortcut
+    (1..8), and each action button must mention its ⌘ shortcut — so a
+    user discovers them by hovering."""
+
+    def test_each_tab_tooltip_includes_digit(self):
+        out = jobs.render_html_tabs()
+        for i, (tid, label) in enumerate(jobs.TABS):
+            with self.subTest(tab=tid):
+                self.assertIn(
+                    f'data-tab="{tid}" title="{label} ({i + 1})"', out,
+                    f"tab {tid!r} should carry a positional-digit tooltip",
+                )
+
+    def test_action_buttons_mention_cmd_shortcut(self):
+        out = jobs.render_html_tabs()
+        # Shortcut suffix must survive in each action button tooltip —
+        # must match the keydown map (R/I/E/,).
+        for suffix in ("(⌘R)", "(⌘I)", "(⌘E)", "(⌘,)"):
+            with self.subTest(shortcut=suffix):
+                self.assertIn(suffix, out)
+
+
 class TestQueryRequiredIndicator(unittest.TestCase):
     """Query-required sources (Apple/Microsoft/Meta/Phenom/WTTJ) iterate
     `for q in queries` with no empty-string fallback — so queries=[]

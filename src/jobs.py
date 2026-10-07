@@ -4272,25 +4272,31 @@ def render_html_tabs():
     The R / AI / ⚙ action buttons live inside the tabs nav (pushed to
     the right via .tab-actions) so they stay on the same visual row as
     the tabs — matches the user's layout expectation."""
+    # The tooltip surfaces the digit shortcut (1..8) so the user can
+    # discover it just by hovering a tab. Positional: tab index + 1.
     buttons = "\n".join(
-        f'    <button type="button" class="tab" data-tab="{tid}">{html.escape(label)}</button>'
-        for tid, label in TABS
+        f'    <button type="button" class="tab" data-tab="{tid}" '
+        f'title="{html.escape(label)} ({i + 1})">{html.escape(label)}</button>'
+        for i, (tid, label) in enumerate(TABS)
     )
+    # Keep the shortcut suffix in sync with the Cmd+X map in the keydown
+    # handler further down. The ⌘ glyph is the Mac convention; Ctrl works
+    # too (both are checked in the listener).
     actions = (
         '    <div class="tab-actions">\n'
         '      <button type="button" class="refresh-btn" id="refresh-btn" '
-        'title="Re-fetch all sources (equivalent to --clear-cache list), then reload the page." aria-label="Refresh">'
+        'title="Re-fetch all sources (equivalent to --clear-cache list), then reload the page. (⌘R)" aria-label="Refresh">'
         '<span class="mi refresh-icon" aria-hidden="true">refresh</span></button>\n'
         '      <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" '
-        'title="Ask your LLM to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back." aria-label="AI fit scores">'
+        'title="Ask your LLM to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back. (⌘I)" aria-label="AI fit scores">'
         '<span class="mi" aria-hidden="true">auto_awesome</span></button>\n'
         '      <button type="button" class="refresh-btn edit-sources-btn" id="edit-sources-setup" '
-        'title="Edit the companies you track. The badge counts new companies added to the catalog since you last saved." aria-label="Edit companies">'
+        'title="Edit the companies you track. The badge counts new companies added to the catalog since you last saved. (⌘E)" aria-label="Edit companies">'
         '<span class="mi" aria-hidden="true">domain</span>'
         '<span class="new-companies-badge" id="new-companies-badge" style="display:none">0</span>'
         '</button>\n'
         '      <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" '
-        'title="Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …). If set, the AI button opens THAT chat and copies the prompt to clipboard." aria-label="Settings">'
+        'title="Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …). If set, the AI button opens THAT chat and copies the prompt to clipboard. (⌘,)" aria-label="Settings">'
         '<span class="mi" aria-hidden="true">settings</span></button>\n'
         '    </div>'
     )
@@ -8853,6 +8859,12 @@ function updateCounters(sid, deltaVisible, deltaRejected) {
     const anyHit = [...btns].some(b => b.classList.contains('has-jobs'));
     row.classList.toggle('empty', btns.length > 0 && !anyHit);
   });
+  // Re-evaluate h2 group headings — a reject can empty the last company
+  // section under a heading, and the heading's own .empty class is
+  // JS-set (CSS :has() alone wouldn't catch the hide-empty-sections
+  // mode). Without this, the heading stayed visible until the next tab
+  // switch triggered applyFilters().
+  if (typeof refreshGroupHeadings === 'function') refreshGroupHeadings();
 }
 
 let undoToastTimer = null;
@@ -9014,6 +9026,34 @@ document.addEventListener('keydown', (e) => {
     btn.click();
   }
 });
+
+/* --- Tab digit shortcuts (1..9) ----------------------------------------- */
+// Positional: `1` jumps to the first tab, `2` the second, …, matching
+// the visual order rendered by render_html_tabs(). Guard against typing
+// in filter inputs / the query-add box, and against any modifier so
+// Cmd+1 (browser-reserved) and Shift+1 (= '!' typed in a field) stay
+// untouched. activateTab() is defined earlier in this script, so by
+// the time this listener fires it is in scope.
+(() => {
+  function _isTypingTarget(el) {
+    if (!el) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat) return;
+    if (_isTypingTarget(e.target)) return;
+    const digit = parseInt(e.key, 10);
+    if (!(digit >= 1 && digit <= 9)) return;
+    const tabs = document.querySelectorAll('#tabs .tab[data-tab]');
+    const btn = tabs[digit - 1];
+    if (!btn) return;
+    e.preventDefault();
+    btn.click();
+  });
+})();
 
 /* --- Keep in history: like reject but posts /history --------------------- */
 // Factored wire function so client-created unkeep buttons behave exactly

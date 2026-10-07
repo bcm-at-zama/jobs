@@ -27,7 +27,8 @@
       "Bash(PYTHONPATH=src python3 src/jobs.py --help)",
       "Bash(rm -rf /tmp/jobs-oss-test)",
       "Bash(bash /workspace/script/export-opensource.sh /tmp/jobs-oss-test)",
-      "Read(//tmp/jobs-oss-test/**)"
+      "Read(//tmp/jobs-oss-test/**)",
+      "Bash(grep -o -iE 'apple[^\"<>]{0,80}\\(sear|crypto\\)[^\"<>]{0,80}|\\(sear|crypto\\)[^\"<>]{0,80}apple' data/jobs.html)"
     ]
   }
 }
