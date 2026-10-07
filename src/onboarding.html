@@ -653,16 +653,8 @@
   <!-- Build-progress screen -------------------------------------------- -->
   <div id="building" class="done-screen">
     <h2>Building your board…</h2>
-    <p>Fetching every source in the background (same as a giant
-    <code>R</code> refresh). This typically takes 30-90 s on the first
-    run.</p>
     <p class="status-line" id="launch-status-msg">Starting…</p>
     <p class="status-line" id="launch-elapsed"></p>
-    <p class="subtitle" style="margin-top:1.5rem">
-      You can leave this tab open — it will redirect to the board when
-      it's ready. Prefer the terminal? Just run <code>make run</code>
-      there instead.
-    </p>
   </div>
 
   <div class="sticky-footer" id="footer">
@@ -1589,7 +1581,6 @@ async function _redirectWhenReachable(url, statusEl) {
 async function launchBoard() {
   const statusMsg = document.getElementById('launch-status-msg');
   const elapsed = document.getElementById('launch-elapsed');
-  statusMsg.textContent = 'Starting the board (first fetch takes 30-90 s)…';
   let boardUrl = null;
   try {
     const r = await fetch('/launch-board', {method: 'POST'});
