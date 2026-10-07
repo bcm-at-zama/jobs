@@ -7057,6 +7057,19 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     });
   }
   wireActionButton('refresh-btn', '/refresh', 'Refreshing');
+
+  // Auto-refresh once per tab session so `make run` always starts with
+  // a fresh fetch. sessionStorage survives the reload triggered when
+  // the refresh completes (same tab), so we don't loop; a new tab or a
+  // fresh `make run` opens a new session and re-triggers.
+  const AUTO_REFRESH_KEY = 'jobs:auto-refresh-done';
+  try {
+    if (!sessionStorage.getItem(AUTO_REFRESH_KEY)) {
+      sessionStorage.setItem(AUTO_REFRESH_KEY, '1');
+      const btn = document.getElementById('refresh-btn');
+      if (btn) setTimeout(() => btn.click(), 50);
+    }
+  } catch (e) { /* sessionStorage blocked — skip auto-refresh */ }
 })();
 
 /* --- "AI" button: ask the LLM to rate every visible job, paste result back - */
