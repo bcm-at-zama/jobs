@@ -197,6 +197,21 @@
       border-radius: 3px;
       padding: 0.05rem 0.3rem;
     }
+    table.shortcut-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 0.9rem;
+    }
+    table.shortcut-table td {
+      padding: 0.3rem 0.6rem 0.3rem 0;
+      vertical-align: top;
+      border-bottom: 1px solid var(--border);
+    }
+    table.shortcut-table td:first-child {
+      white-space: nowrap;
+      width: 1%;
+    }
+    table.shortcut-table tr:last-child td { border-bottom: none; }
   </style>
 </head>
 <body>
@@ -261,13 +276,26 @@
     </div>
   </section>
 
+  <section class="settings-section" id="shortcuts-section">
+    <h2>Keyboard shortcuts</h2>
+    <p class="section-hint">On Windows / Linux use <kbd>Ctrl</kbd> wherever <kbd>⌘</kbd> is listed.</p>
+    <table class="shortcut-table">
+      <tbody>
+        <tr><td><kbd>⌘</kbd> <kbd>R</kbd></td><td>Refresh — re-fetch every source and reload the board.</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>I</kbd></td><td>AI fit scores — rate every visible job with Claude.</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>U</kbd></td><td>AI fit scores — rate only the visible jobs that don't have a score yet.</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>E</kbd></td><td>Edit the companies you track.</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>Z</kbd></td><td>Undo the last reject.</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>,</kbd></td><td>Open this Settings page.</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>From Settings: go back to the jobs board.</td></tr>
+        <tr><td><kbd>1</kbd> … <kbd>9</kbd></td><td>Switch to the Nth tab (All, Liked, To apply, …).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
   <footer class="page-foot">
     <a class="back-link" href="/"><span class="mi" aria-hidden="true">arrow_back</span>Back to jobs</a>
   </footer>
-
-  <p class="shortcut-hint">
-    Shortcuts: <kbd>⌘,</kbd> (or <kbd>Ctrl ,</kbd>) opens this page from the board. <kbd>Esc</kbd> returns you to the jobs list.
-  </p>
 
 <script>
   const STORAGE_KEY = 'jobs:filters:v1';

@@ -58,8 +58,9 @@ class TestTabShortcutDiscoverability(unittest.TestCase):
     def test_action_buttons_mention_cmd_shortcut(self):
         out = jobs.render_html_tabs()
         # Shortcut suffix must survive in each action button tooltip —
-        # must match the keydown map (R/I/E/,).
-        for suffix in ("(⌘R)", "(⌘I)", "(⌘E)", "(⌘,)"):
+        # must match the keydown map (R/I/U/E/,). ⌘U lives in the AI
+        # button's tooltip alongside ⌘I since both share the button.
+        for suffix in ("(⌘R)", "(⌘I)", "(⌘U)", "(⌘E)", "(⌘,)"):
             with self.subTest(shortcut=suffix):
                 self.assertIn(suffix, out)
 

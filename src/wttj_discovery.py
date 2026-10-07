@@ -59,18 +59,14 @@ _ENDPOINT = (
 )
 _PAGE_SIZE = 100
 
-# Default tech-leaning filters — matches a security/AI/engineering
-# profile. Users can override by passing a different list.
-# Each entry is `facet=value`; Algolia AND's across facets, OR's within.
+# Default filters — Cybersecurity + AI/ML only. Narrow enough to stay
+# well under Algolia's 1000-hit per-query cap, and matches the user's
+# core interest. Edit this list to broaden or re-target discovery.
+# Each entry is `facet=value`; Algolia AND's across facets, OR's within
+# the same facet name.
 DEFAULT_SECTOR_FACETS = [
-    "sectors_name.fr.Tech:Logiciels",
-    "sectors_name.fr.Tech:Intelligence artificielle / Machine Learning",
-    "sectors_name.fr.Tech:Big Data",
-    "sectors_name.fr.Tech:SaaS / Cloud Services",
     "sectors_name.fr.Tech:Cybersécurité",
-    "sectors_name.fr.Tech:Blockchain",
-    "sectors_name.fr.Tech:Objets connectés",
-    "sectors_name.fr.Tech:Robotique",
+    "sectors_name.fr.Tech:Intelligence artificielle / Machine Learning",
 ]
 
 

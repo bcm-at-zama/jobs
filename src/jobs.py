@@ -4401,7 +4401,7 @@ def render_html_tabs():
         'title="Re-fetch all sources (equivalent to --clear-cache list), then reload the page. (⌘R)" aria-label="Refresh">'
         '<span class="mi refresh-icon" aria-hidden="true">refresh</span></button>\n'
         '      <button type="button" class="refresh-btn claude-c-btn" id="claude-score-all" '
-        'title="Ask your LLM to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back. (⌘I)" aria-label="AI fit scores">'
+        'title="Ask your LLM to rate every visible job /10 — opens a new tab with the batched prompt and a dialog to paste the response back. (⌘I) rates every visible job; (⌘U) rates only the ones that don\'t have a score yet." aria-label="AI fit scores">'
         '<span class="mi" aria-hidden="true">auto_awesome</span></button>\n'
         '      <button type="button" class="refresh-btn edit-sources-btn" id="edit-sources-setup" '
         'title="Edit the companies you track. The badge counts new companies added to the catalog since you last saved. (⌘E)" aria-label="Edit companies">'
@@ -7486,6 +7486,29 @@ function _collectVisibleJobUrls() {
   return urls;
 }
 
+// Same selection logic as _collectVisibleJobUrls, but skips rows that
+// already carry a .badge.claude-fit (= already scored by the LLM).
+// Powers ⌘U "AI score only the unscored" so the user avoids re-paying
+// for jobs they've already rated.
+function _collectUnscoredJobUrls() {
+  const urls = [];
+  const seen = new Set();
+  document.querySelectorAll('li.job:not(.hidden)').forEach(li => {
+    if (li.querySelector('.badge.claude-fit')) return;
+    const url = li.querySelector('button.like, button.reject')?.dataset.url;
+    if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
+  });
+  document.querySelectorAll(
+    '.spontaneous-row.liked, .spontaneous-row.toapply, '
+    + '.spontaneous-row.applied, .spontaneous-row.app-rejected'
+  ).forEach(row => {
+    if (row.querySelector('.badge.claude-fit')) return;
+    const url = row.querySelector('button.spontaneous-like')?.dataset.url;
+    if (url && !seen.has(url)) { seen.add(url); urls.push(url); }
+  });
+  return urls;
+}
+
 // Prompt for a batched Claude.ai scoring request. Claude fetches each URL
 // itself — this gives up-to-date, complete descriptions at the cost of a
 // per-domain permission prompt. User's call: our rendered HTML can be
@@ -7672,16 +7695,19 @@ function _openClaudePasteBar(urls, promptMode) {
 
 // AI button — one click: opens the pinned chat with the batched prompt pre-filled
 // AND shows a bottom paste bar for the reply. Zero clicks after that in
-// our UI: paste → auto-save → badges.
-document.getElementById('claude-score-all')?.addEventListener('click', async () => {
-  const urls = _collectVisibleJobUrls();
+// our UI: paste → auto-save → badges. Shared by ⌘I (all visible) and
+// ⌘U (only visible rows without a Claude-fit badge yet).
+async function _runClaudeScoring(urls, emptyMsg) {
   const status = document.getElementById('dump-status');
   if (!urls.length) {
-    if (status) { status.textContent = 'No visible jobs to rate.'; setTimeout(() => status.textContent = '', 3000); }
+    if (status) { status.textContent = emptyMsg || 'No visible jobs to rate.'; setTimeout(() => status.textContent = '', 3000); }
     return;
   }
   const mode = await openClaudeWithPrompt(_buildClaudeScoringPrompt(urls), status);
   _openClaudePasteBar(urls, mode);
+}
+document.getElementById('claude-score-all')?.addEventListener('click', () => {
+  _runClaudeScoring(_collectVisibleJobUrls());
 });
 
 document.querySelectorAll('.seniority-toggle').forEach(cb => cb.addEventListener('change', applyFilters));
@@ -9357,18 +9383,29 @@ document.querySelectorAll('button.review').forEach(btn => {
 });
 
 // Keyboard shortcuts (all Cmd/Ctrl + <letter>, no Shift / Alt).
+// Keep this comment in sync with the Shortcuts section on /settings.
 //   Cmd+Z  undo last reject
 //   Cmd+R  refresh
-//   Cmd+I  AI (score all with Claude)
+//   Cmd+I  AI — score every visible job with Claude
+//   Cmd+U  AI — score only the visible jobs that don't have a score yet
 //   Cmd+E  Entreprises (edit companies)
 //   Cmd+,  Settings (macOS Preferences idiom)
 // Shift must NOT be held so Cmd+Shift+R (hard-reload) and Cmd+Shift+I
 // (devtools) stay available if the user wants the browser default.
+// Cmd+U collides with the browser "view source" default — we accept
+// that trade-off on this page because the rendered HTML isn't the
+// interesting surface anyway (jobs come from an API).
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey
       && e.key === 'z' && rejectUndoStack.length > 0) {
     e.preventDefault();
     undoLastReject();
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey
+      && !e.repeat && e.key.toLowerCase() === 'u') {
+    e.preventDefault();
+    _runClaudeScoring(_collectUnscoredJobUrls(), 'No unscored jobs to rate.');
     return;
   }
   if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.repeat) return;
