@@ -361,14 +361,6 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Reddit', 'kind': 'greenhouse', 'slug': 'reddit', 'group': 'Other'},
  {'name': 'Snowflake', 'kind': 'ashby', 'slug': 'snowflake', 'group': 'Other'},
  {'name': 'Vercel', 'kind': 'greenhouse', 'slug': 'vercel', 'group': 'Other'},
- # --- Welcome to the Jungle (via api.welcometothejungle.com/api/v3) -----
- # Companies whose jobs are advertised on WTJ. slug is the WTJ
- # organization slug (seen in /fr/companies/<slug>). More can be added
- # via the "📡 Discovered on WTJ" section of the Edit-companies modal.
- # Elaia is seeded as the proof-of-concept — 4 jobs verified 2026-10-07.
- {'name': 'Elaia', 'kind': 'wttj_company', 'slug': 'elaia-partners',
-  'board': 'https://www.welcometothejungle.com/fr/companies/elaia-partners',
-  'group': 'Welcome to the Jungle'},
  {'name': '1Password', 'kind': 'ashby', 'slug': '1password', 'group': 'Security Companies'},
  {'name': 'Aisle',
   'kind': 'ashby',
@@ -600,15 +592,13 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  # Greenhouse backend (probe_zama.py verified: 200 w/ /jobs/<slug>
  # anchors, no ATS fingerprint). We scrape the shell with Playwright
  # and let the per-source `queries` filter narrow results.
- {'name': 'Zama',
-  'kind': 'pw',
-  'slug': 'zama',
-  'board': 'https://jobs.zama.org/',
-  'search_url': 'https://jobs.zama.org/',
-  'link_re': 'href="(/jobs/[^"#?]+)"',
-  'origin': 'https://jobs.zama.org',
-  'wait_selector': "a[href*='/jobs/']",
-  'group': 'FHE'},
+ # Zama is scraped via the WTJ API (api.welcometothejungle.com/api/v3)
+ # — more reliable than the old Playwright scrape of jobs.zama.org,
+ # returns the same jobs tagged as "Welcome to the Jungle" so they
+ # group with other WTJ-sourced postings.
+ {'name': 'Zama', 'kind': 'wttj_company', 'slug': 'zama',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zama',
+  'group': 'Welcome to the Jungle'},
  {'name': 'Fhenix',
   'kind': 'pw',
   'slug': 'fhenix',

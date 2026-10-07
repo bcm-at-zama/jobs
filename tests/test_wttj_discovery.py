@@ -192,8 +192,9 @@ class TestFetchWttjJobs(unittest.TestCase):
         self.assertEqual([j["title"] for j in jobs], ["Job A", "Job B", "Job C"])
 
     def test_url_shape_matches_api_contract(self):
-        """REGRESSION — WTJ redeploys occasionally change the API URL
-        shape. Pin ours so a drift fails loudly."""
+        """REGRESSION — WTJ's API rejects `per_page` with 422
+        ("Unexpected field: per_page"). Only `page` is accepted. Pin
+        the URL so we never silently reintroduce per_page."""
         captured = {}
 
         def fake(req, timeout=15):
@@ -203,14 +204,14 @@ class TestFetchWttjJobs(unittest.TestCase):
         with mock.patch.object(
             wttj_discovery.urllib.request, "urlopen", side_effect=fake,
         ):
-            wttj_discovery.fetch_wttj_jobs("zama", per_page=50)
+            wttj_discovery.fetch_wttj_jobs("zama")
         self.assertEqual(len(captured["urls"]), 1)
         self.assertIn(
             "api.welcometothejungle.com/api/v3/organizations/zama/jobs",
             captured["urls"][0],
         )
         self.assertIn("page=1", captured["urls"][0])
-        self.assertIn("per_page=50", captured["urls"][0])
+        self.assertNotIn("per_page", captured["urls"][0])
 
 
 class TestFetchWttjCompanyDetail(unittest.TestCase):

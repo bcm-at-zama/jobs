@@ -212,20 +212,21 @@ def fetch_wttj_company_detail(slug: str) -> dict:
     }
 
 
-def fetch_wttj_jobs(slug: str, per_page: int = 100, lang: str = "fr") -> list:
+def fetch_wttj_jobs(slug: str, lang: str = "fr") -> list:
     """GET /api/v3/organizations/<slug>/jobs. Returns a list of job
     dicts in the shape jobs.py's pipeline consumes:
       {"title": …, "locations": [...], "url": …, "description": "",
        "blob": …}
     `lang` ("fr" or "en") only affects the public jobs URL we construct —
-    the API itself returns the same data either way."""
+    the API itself returns the same data either way.
+
+    The server-side default per_page is 30 and `per_page` is NOT an
+    accepted query param (422 "Unexpected field: per_page") — so we
+    paginate with `page` only."""
     out = []
     page = 1
     while True:
-        url = (
-            f"{_WTTJ_API}/api/v3/organizations/{slug}/jobs"
-            f"?page={page}&per_page={per_page}"
-        )
+        url = f"{_WTTJ_API}/api/v3/organizations/{slug}/jobs?page={page}"
         req = urllib.request.Request(url, headers=_WTTJ_API_HEADERS)
         try:
             with urllib.request.urlopen(req, timeout=15) as r:
