@@ -10761,12 +10761,7 @@ def main():
         # this per-source: if zero URLs from this source overlap with
         # `seen`, treat the whole batch as a baseline instead of new.
         source_urls = {j["url"] for j in all_jobs if j.get("url")}
-        src_first_visit = (
-            len(source_urls) >= 5
-            and source_urls.isdisjoint(seen)
-            and source_urls.isdisjoint(liked)
-            and source_urls.isdisjoint(rejected)
-        )
+        src_first_visit = _is_first_visit(source_urls, seen, liked, rejected)
         if src_first_visit:
             sys.stdout.write(
                 f"[{src['name']}] first visit — "
