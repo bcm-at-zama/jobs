@@ -1427,12 +1427,10 @@ function showStep(n) {
     document.getElementById('page-' + i).classList.toggle('visible', i === n);
   }
   // Entering Step 2: rebuild the per-group rows against the current
-  // Step-1 picks (which may have changed since the last visit) and
-  // refresh the "N preserved" note.
+  // Step-1 picks (which may have changed since the last visit).
   if (n === 2) {
     _qfRenderGroupRows();
     _qfRenderCompanyOverrides();
-    _qfRefreshPreserveNote();
   }
   // Step indicator chips
   for (const chip of document.querySelectorAll('.step-indicator .step-chip')) {
@@ -1467,9 +1465,9 @@ function refreshFooter() {
     counter.textContent = companyCount() + ' companies selected';
     next.disabled = (companyCount() === 0);
   } else if (currentStep === 2) {
-    const q = qfQuickPicker ? qfQuickPicker.collect().length : 0;
-    const g = [...qfGroupOverrides.values()].filter(v => v.on && v.chips.size > 0).length;
-    const c = [...qfCompanyOverrides.values()].filter(v => v.size > 0).length;
+    const q = qfGlobalChips.size;
+    const g = [...qfGroupChips.values()].filter(v => v.size > 0).length;
+    const c = [...qfCompanyChips.values()].filter(v => v.size > 0).length;
     counter.textContent =
       q + ' global · ' + g + ' group override' + (g === 1 ? '' : 's') +
       ' · ' + c + ' company override' + (c === 1 ? '' : 's');

@@ -634,8 +634,9 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Contentsquare', 'kind': 'lever', 'slug': 'contentsquare',
   'board': 'https://contentsquare.com/careers/',
   'group': 'Welcome to the Jungle'},
- {'name': 'Getaround', 'kind': 'wttj_company', 'slug': 'getaround',
-  'board': 'https://www.welcometothejungle.com/fr/companies/getaround',
+ # Getaround isn't on WTJ — hosted on Ashby.
+ {'name': 'Getaround', 'kind': 'ashby', 'slug': 'getaround',
+  'board': 'https://jobs.ashbyhq.com/getaround',
   'group': 'Welcome to the Jungle'},
  {'name': 'Pigment', 'kind': 'wttj_company', 'slug': 'pigment',
   'board': 'https://www.welcometothejungle.com/fr/companies/pigment',
@@ -644,16 +645,18 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'board': 'https://www.welcometothejungle.com/fr/companies/360learning',
   'group': 'Welcome to the Jungle'},
  # Slugs below currently 0-job — real slugs TBD (probe_wttj_slug_find.py).
- # WTJ-side slug is singular ("openclassroom") per Algolia search 2026-10-07.
- {'name': 'OpenClassrooms', 'kind': 'wttj_company', 'slug': 'openclassroom',
-  'board': 'https://www.welcometothejungle.com/fr/companies/openclassroom',
+ # OpenClassrooms is on Ashby (jobs.ashbyhq.com/openclassrooms) — much
+ # richer than the sparse WTJ page.
+ {'name': 'OpenClassrooms', 'kind': 'ashby', 'slug': 'openclassrooms',
+  'board': 'https://jobs.ashbyhq.com/openclassrooms',
   'group': 'Welcome to the Jungle'},
  # Vestiaire Collective isn't on WTJ — hosted on Lever.
  {'name': 'Vestiaire Collective', 'kind': 'lever', 'slug': 'vestiairecollective',
   'board': 'https://careers.vestiairecollective.com/',
   'group': 'Welcome to the Jungle'},
- {'name': 'Shift Technology', 'kind': 'wttj_company', 'slug': 'shift-technology',
-  'board': 'https://www.welcometothejungle.com/fr/companies/shift-technology',
+ # Shift Technology is on Greenhouse (slug=shifttechnology, no hyphen).
+ {'name': 'Shift Technology', 'kind': 'greenhouse', 'slug': 'shifttechnology',
+  'board': 'https://job-boards.greenhouse.io/shifttechnology',
   'group': 'Welcome to the Jungle'},
  {'name': 'Withings', 'kind': 'wttj_company', 'slug': 'withings',
   'board': 'https://www.welcometothejungle.com/fr/companies/withings',
@@ -664,10 +667,9 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Lifen', 'kind': 'wttj_company', 'slug': 'lifen',
   'board': 'https://www.welcometothejungle.com/fr/companies/lifen',
   'group': 'Welcome to the Jungle'},
- # 'lydia-solutions' 404s; Algolia search for "Lydia" returns the
- # account under slug 'lydia-2' (0 jobs today but valid WTJ page).
- {'name': 'Lydia', 'kind': 'wttj_company', 'slug': 'lydia-2',
-  'board': 'https://www.welcometothejungle.com/fr/companies/lydia-2',
+ # Lydia is on Ashby (jobs.ashbyhq.com/lydia).
+ {'name': 'Lydia', 'kind': 'ashby', 'slug': 'lydia',
+  'board': 'https://jobs.ashbyhq.com/lydia',
   'group': 'Welcome to the Jungle'},
  {'name': 'Fhenix',
   'kind': 'pw',
