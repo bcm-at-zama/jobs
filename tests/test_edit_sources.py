@@ -474,18 +474,20 @@ class TestKeyboardShortcuts(unittest.TestCase):
         self.src = pathlib.Path(jobs.__file__).read_text()
 
     def test_shortcut_map_present(self):
-        # The exact routing table — pin each (key → button id) pair.
-        for key, btn_id in [
+        # The exact routing table — pin each (key → element id) pair.
+        # Cmd+, targets the Settings <a> (which navigates to /settings)
+        # rather than a button; see settings-link in render_html_nav.
+        for key, el_id in [
             ("'r'", "refresh-btn"),
             ("'i'", "claude-score-all"),
             ("'e'", "edit-sources-setup"),
-            ("','", "claude-chat-url-setup"),
+            ("','", "settings-link"),
         ]:
-            with self.subTest(key=key, btn=btn_id):
+            with self.subTest(key=key, el=el_id):
                 self.assertRegex(
                     self.src,
-                    rf"{key}:\s*'{btn_id}'",
-                    f"shortcut {key} → #{btn_id} missing from the keydown map",
+                    rf"{key}:\s*'{el_id}'",
+                    f"shortcut {key} → #{el_id} missing from the keydown map",
                 )
 
     def test_handler_ignores_shift(self):
@@ -498,12 +500,14 @@ class TestKeyboardShortcuts(unittest.TestCase):
         )
 
     def test_target_buttons_exist(self):
-        """Each shortcut points at a button rendered in the main HTML."""
-        for btn_id in ("refresh-btn", "claude-score-all",
-                       "edit-sources-setup", "claude-chat-url-setup"):
-            with self.subTest(btn=btn_id):
-                self.assertIn(f'id="{btn_id}"', self.src,
-                              f"shortcut target #{btn_id} not rendered")
+        """Each shortcut points at an element rendered in the main HTML
+        (buttons for refresh / AI / Edit; the Settings gear is an <a>
+        navigating to /settings)."""
+        for el_id in ("refresh-btn", "claude-score-all",
+                      "edit-sources-setup", "settings-link"):
+            with self.subTest(el=el_id):
+                self.assertIn(f'id="{el_id}"', self.src,
+                              f"shortcut target #{el_id} not rendered")
 
 
 if __name__ == "__main__":

@@ -875,6 +875,7 @@ SPONTANEOUS_PATTERNS = [
     "wildcard",
     "prospective application",
     "candidature spontan",
+    "candidatures spontan",
     "open application",
     "unsolicited application",
     "introduce yourself",

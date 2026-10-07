@@ -583,7 +583,7 @@ def matches(job, queries):
 # =============================================================================
 
 # RUNAWAY_THRESHOLD now lives in config.py (default 300) and is
-# user-tunable from data/user_config.py and from the ⚙ Settings modal.
+# user-tunable from data/user_config.py and from the ⚙ Settings page.
 # We import the module (not the bare name) so a mid-session update to
 # config.RUNAWAY_THRESHOLD from /set-settings is picked up by the next
 # check_runaway() call — a bare `from config import X` would snapshot
@@ -4300,9 +4300,9 @@ def render_html_tabs():
         '<span class="mi" aria-hidden="true">domain</span>'
         '<span class="new-companies-badge" id="new-companies-badge" style="display:none">0</span>'
         '</button>\n'
-        '      <button type="button" class="refresh-btn claude-chat-url-btn" id="claude-chat-url-setup" '
-        'title="Set a reusable chat URL (Claude.ai, ChatGPT, Gemini, …). If set, the AI button opens THAT chat and copies the prompt to clipboard. (⌘,)" aria-label="Settings">'
-        '<span class="mi" aria-hidden="true">settings</span></button>\n'
+        '      <a class="refresh-btn claude-chat-url-btn" id="settings-link" href="/settings" '
+        'title="Settings: row display, AI assistant, scraping. (⌘,)" aria-label="Settings">'
+        '<span class="mi" aria-hidden="true">settings</span></a>\n'
         '    </div>'
     )
     return (
@@ -5157,8 +5157,11 @@ HTML_TEMPLATE = """<!doctype html>
       padding: 0;
       flex-shrink: 0;
     }
-    .refresh-btn:hover { background: #f5c400; }
+    .refresh-btn:hover { background: #f5c400; text-decoration: none; }
     .refresh-btn:disabled { opacity: 0.55; cursor: wait; }
+    /* Gear is an <a> navigating to /settings — kill the generic link
+       underline so it renders identically to the sibling <button>s. */
+    a.refresh-btn, a.refresh-btn:hover { color: inherit; text-decoration: none; }
     .refresh-btn.busy .refresh-icon {
       display: inline-block;
       animation: refresh-spin 1s linear infinite;
@@ -6372,7 +6375,7 @@ const HIGHLIGHTS = __HIGHLIGHTS__;
 const CATALOG_FOR_EDIT = __CATALOG_FOR_EDIT__;
 const SOURCES_NAMES = __SOURCES_NAMES__;
 // Server-side per-query runaway threshold (data/user_config.py or default).
-// Shown + editable in the ⚙ Settings modal; POST /set-settings persists it.
+// Shown + editable on the ⚙ Settings page; POST /set-settings persists it.
 const RUNAWAY_THRESHOLD = __RUNAWAY_THRESHOLD__;
 const SERVER_URL = '__SERVER_URL__';
 // Server-side Claude fit cache (claude_fit_cache.json) for jobs currently
@@ -6417,22 +6420,29 @@ function dlog(...a) { if (DEBUG) console.log('[dbg]', ...a); }
 const STORAGE_KEY = 'jobs:filters:v1';
 
 function saveFilters() {
+  // The display toggles (highlight, show*, scoreSummary, roleSummary)
+  // live on the /settings page — their checkboxes aren't in THIS DOM.
+  // Reading from body classes keeps the saved blob accurate when the
+  // user toggles a filter here without having visited settings; a
+  // naive `?.checked ?? true` would clobber "false" states set by the
+  // settings page.
+  const body = document.body.classList;
   const state = {
     locChecks: [...document.querySelectorAll('.loc-cb:checked')]
       .map(cb => cb.dataset.value),
     loc:   (document.getElementById('loc-filter')?.value)   || '',
     title: (document.getElementById('title-filter')?.value) || '',
     text:  (document.getElementById('text-filter')?.value)  || '',
-    highlight: document.getElementById('highlight-toggle')?.checked ?? true,
-    scoreSummary: document.getElementById('score-summary-toggle')?.checked ?? true,
-    roleSummary: document.getElementById('role-summary-toggle')?.checked ?? true,
-    hideEmpty: document.getElementById('hide-empty-toggle')?.checked ?? false,
+    highlight:       !body.contains('no-highlights'),
+    scoreSummary:    !body.contains('hide-score-summary'),
+    roleSummary:     !body.contains('hide-role-summary'),
+    hideEmpty:       document.getElementById('hide-empty-toggle')?.checked ?? false,
     hideSpontaneous: document.getElementById('hide-spontaneous-toggle')?.checked ?? false,
-    showSeniority: document.getElementById('show-seniority-toggle')?.checked ?? true,
-    showScore:     document.getElementById('show-score-toggle')?.checked ?? true,
-    showSalary:    document.getElementById('show-salary-toggle')?.checked ?? true,
-    showKeywords:  document.getElementById('show-keywords-toggle')?.checked ?? true,
-    showLocation:  document.getElementById('show-location-toggle')?.checked ?? true,
+    showSeniority:   !body.contains('hide-seniority'),
+    showScore:       !body.contains('hide-score'),
+    showSalary:      !body.contains('hide-salary'),
+    showKeywords:    !body.contains('hide-keywords'),
+    showLocation:    !body.contains('hide-location'),
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
 }
@@ -6448,20 +6458,27 @@ function loadFilters() {
   const li = document.getElementById('loc-filter');   if (li) li.value = s.loc   || '';
   const ti = document.getElementById('title-filter'); if (ti) ti.value = s.title || '';
   const tx = document.getElementById('text-filter');  if (tx) tx.value = s.text  || '';
-  const hl = document.getElementById('highlight-toggle');
-  if (hl && s.highlight === false) {
-    hl.checked = false;
-    document.body.classList.add('no-highlights');
-  }
-  const ss = document.getElementById('score-summary-toggle');
-  if (ss && s.scoreSummary === false) {
-    ss.checked = false;
-    document.body.classList.add('hide-score-summary');
-  }
-  const rs = document.getElementById('role-summary-toggle');
-  if (rs && s.roleSummary === false) {
-    rs.checked = false;
-    document.body.classList.add('hide-role-summary');
+  // The display toggles (highlight, score/role summary, show*) live on
+  // the /settings page now — their checkboxes aren't in THIS DOM. The
+  // body class is the source of truth; apply it straight from the blob
+  // regardless of DOM presence so the settings page's writes take
+  // effect on reload. The two "hide*" toggles still have DOM elements
+  // in the filter bar (hide-empty, hide-spontaneous), so they also
+  // need their .checked state restored.
+  const displayToggles = [
+    // [storage key, body class, inverted (true if key=false → add class)]
+    ['highlight',    'no-highlights',    true],
+    ['scoreSummary', 'hide-score-summary', true],
+    ['roleSummary',  'hide-role-summary',  true],
+    ['showSeniority', 'hide-seniority', true],
+    ['showScore',     'hide-score',     true],
+    ['showSalary',    'hide-salary',    true],
+    ['showKeywords',  'hide-keywords',  true],
+    ['showLocation',  'hide-location',  true],
+  ];
+  for (const [key, cls, inv] of displayToggles) {
+    const shouldAdd = inv ? (s[key] === false) : (s[key] === true);
+    if (shouldAdd) document.body.classList.add(cls);
   }
   const he = document.getElementById('hide-empty-toggle');
   if (he && s.hideEmpty === true) {
@@ -6472,21 +6489,6 @@ function loadFilters() {
   if (hs && s.hideSpontaneous === true) {
     hs.checked = true;
     document.body.classList.add('hide-spontaneous');
-  }
-  // Per-element show toggles (seniority / score / salary / keywords /
-  // location). The checkboxes live inside the Settings modal and are
-  // created lazily on first open — so we apply the body class based on
-  // the saved state alone, regardless of whether cb exists yet. The
-  // modal's open-time sync re-aligns checkbox state to body classes.
-  const elementToggles = [
-    ['show-seniority-toggle', 'hide-seniority', 'showSeniority'],
-    ['show-score-toggle',     'hide-score',     'showScore'],
-    ['show-salary-toggle',    'hide-salary',    'showSalary'],
-    ['show-keywords-toggle',  'hide-keywords',  'showKeywords'],
-    ['show-location-toggle',  'hide-location',  'showLocation'],
-  ];
-  for (const [, bodyCls, key] of elementToggles) {
-    if (s[key] === false) document.body.classList.add(bodyCls);
   }
 }
 
@@ -7451,43 +7453,10 @@ document.querySelectorAll('.loc-country-toggle').forEach(btn => {
   });
 });
 
-// Per-element show/hide toggles (highlight / seniority / score /
-// salary / keywords / location). The checkboxes live inside the
-// Settings modal (⚙) and are wired on first open. The body classes
-// below are the source of truth; they're applied at page-load from
-// localStorage by loadFilters() so the UI reflects the user's
-// preferences even before they open the modal.
-const _ELEMENT_TOGGLES = [
-  ['show-seniority-toggle', 'hide-seniority', 'showSeniority'],
-  ['show-score-toggle',     'hide-score',     'showScore'],
-  ['show-salary-toggle',    'hide-salary',    'showSalary'],
-  ['show-keywords-toggle',  'hide-keywords',  'showKeywords'],
-  ['show-location-toggle',  'hide-location',  'showLocation'],
-];
-
-const ssToggle = document.getElementById('score-summary-toggle');
-if (ssToggle) {
-  ssToggle.addEventListener('change', () => {
-    document.body.classList.toggle('hide-score-summary', !ssToggle.checked);
-    saveFilters();
-  });
-}
-
-const rsToggle = document.getElementById('role-summary-toggle');
-if (rsToggle) {
-  rsToggle.addEventListener('change', () => {
-    document.body.classList.toggle('hide-role-summary', !rsToggle.checked);
-    dlog('role-summary toggle', {
-      checked: rsToggle.checked,
-      bodyClass: document.body.className,
-      rsCount: document.querySelectorAll('.role-summary').length,
-      firstDisplay: getComputedStyle(document.querySelector('.role-summary') || document.body).display,
-    });
-    saveFilters();
-  });
-} else {
-  dlog('WARNING: #role-summary-toggle not found in DOM');
-}
+// score-summary / role-summary / highlight / show-* toggles live on
+// /settings now, not in this DOM. Their body classes are applied by
+// loadFilters() on page load; the settings page writes STORAGE_KEY back
+// when the user toggles there. Nothing to wire on this page.
 
 const heToggle = document.getElementById('hide-empty-toggle');
 if (heToggle) {
@@ -8174,26 +8143,17 @@ function _openInTab(href) {
     a.remove();
   }, 0);
 }
-// Pinned Claude.ai chat URL — set via the ⚙ button. When present, every C
-// click reuses THIS conversation (so previously granted fetch permissions
-// carry over) and the prompt is copied to the clipboard for pasting.
+// Pinned chat URL — set from the Settings page (/settings). When present,
+// every AI click reuses THIS conversation (so previously granted fetch
+// permissions carry over) and the prompt is copied to the clipboard.
 const CLAUDE_CHAT_URL_KEY = 'jobs:claude-chat-url:v1';
 function _getPinnedClaudeChatUrl() {
   try { return (localStorage.getItem(CLAUDE_CHAT_URL_KEY) || '').trim(); }
   catch (e) { return ''; }
 }
-function _setPinnedClaudeChatUrl(url) {
-  try {
-    if (url) localStorage.setItem(CLAUDE_CHAT_URL_KEY, url);
-    else localStorage.removeItem(CLAUDE_CHAT_URL_KEY);
-  } catch (e) {}
-  // Update the gear badge style so the user sees whether an URL is set.
-  const btn = document.getElementById('claude-chat-url-setup');
-  if (btn) btn.classList.toggle('has-url', !!url);
-}
-// Claude response language — "en" (default) or "fr". Affects prompt copy
-// only (scores + justifications come back in that language). Does NOT
-// translate the UI.
+// Response language for LLM output — "en" (default) or "fr". Affects
+// prompt copy only (scores + justifications come back in that language).
+// Does NOT translate the UI. Set from the Settings page.
 const CLAUDE_LANG_KEY = 'jobs:claude-lang:v1';
 function _getClaudeLang() {
   try {
@@ -8201,143 +8161,16 @@ function _getClaudeLang() {
     return v === 'fr' ? 'fr' : 'en';
   } catch (e) { return 'en'; }
 }
-function _setClaudeLang(lang) {
-  try { localStorage.setItem(CLAUDE_LANG_KEY, lang === 'fr' ? 'fr' : 'en'); }
-  catch (e) {}
-}
-// Hydrate the gear's visual state on load.
+// Hydrate the gear's visual state on load — deeper-green when a chat
+// URL is pinned, so the user sees at a glance which mode they're in.
 (function _syncPinnedChatBtn() {
-  const btn = document.getElementById('claude-chat-url-setup');
-  if (btn && _getPinnedClaudeChatUrl()) btn.classList.add('has-url');
+  const link = document.getElementById('settings-link');
+  if (link && _getPinnedClaudeChatUrl()) link.classList.add('has-url');
 })();
 
-function openClaudeSettingsModal() {
-  return new Promise((resolve) => {
-    let modal = document.getElementById('settings-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'settings-modal';
-      modal.className = 'modal-backdrop';
-      modal.innerHTML =
-        '<div class="modal">' +
-        '  <h3>Settings</h3>' +
-        // Row-element show/hide toggles. Each applies instantly on
-        // change (no need to Save) and persists via saveFilters().
-        '  <div style="font-weight:600; margin-bottom:0.3rem">Show on each job row</div>' +
-        '  <div style="display:flex; flex-wrap:wrap; gap:0.4rem 1.2rem; margin-bottom:0.8rem">' +
-        '    <label class="filter-check"><input type="checkbox" id="highlight-toggle" checked> Highlight</label>' +
-        '    <label class="filter-check"><input type="checkbox" id="show-seniority-toggle" checked> Seniority</label>' +
-        '    <label class="filter-check"><input type="checkbox" id="show-score-toggle" checked> Score</label>' +
-        '    <label class="filter-check"><input type="checkbox" id="show-salary-toggle" checked> Salary</label>' +
-        '    <label class="filter-check"><input type="checkbox" id="show-keywords-toggle" checked> Keywords</label>' +
-        '    <label class="filter-check"><input type="checkbox" id="show-location-toggle" checked> Location</label>' +
-        '  </div>' +
-        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.4rem; margin-bottom:0.8rem">' +
-        '    Toggles apply instantly. Changes persist in localStorage.' +
-        '  </div>' +
-        '  <label>Pinned chat conversation URL (leave empty to clear)<br>' +
-        '    <input type="text" id="cs-url" placeholder="https://claude.ai/chat/… or https://chatgpt.com/c/…" style="width:100%">' +
-        '  </label>' +
-        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
-        '    When set, the AI button opens THAT chat instead of a new one — so permissions you granted carry over. The prompt is copied to clipboard.' +
-        '  </div>' +
-        '  <label>Response language<br>' +
-        '    <label style="font-weight:normal; display:inline-block; margin-right:1rem"><input type="radio" name="cs-lang" value="en"> English</label>' +
-        '    <label style="font-weight:normal; display:inline-block"><input type="radio" name="cs-lang" value="fr"> French</label>' +
-        '  </label>' +
-        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
-        '    Affects the notes + summaries the LLM writes back. UI stays in English.' +
-        '  </div>' +
-        '  <label>Per-query runaway threshold<br>' +
-        '    <input type="number" id="cs-runaway" min="10" max="10000" step="10" style="width:8rem">' +
-        '  </label>' +
-        '  <div style="font-size:0.85em; color:var(--fg-muted); margin-top:-0.3rem; margin-bottom:0.8rem">' +
-        '    Max matching jobs to accept per query before paginating stops. Lower is faster but may miss postings; higher scrapes more pages. Default 300.' +
-        '  </div>' +
-        '  <div class="modal-actions">' +
-        '    <button type="button" id="cs-cancel">Cancel</button>' +
-        '    <button type="button" id="cs-save" class="primary">Save</button>' +
-        '  </div>' +
-        '</div>';
-      document.body.appendChild(modal);
-      // First time the modal is built — wire the Show toggles (they
-      // live inside the modal now, so the handlers can only attach
-      // after the markup exists). Each change applies instantly to the
-      // body class + persists via saveFilters.
-      for (const [id, bodyCls] of _ELEMENT_TOGGLES) {
-        const cb = modal.querySelector('#' + id);
-        if (!cb) continue;
-        cb.addEventListener('change', () => {
-          document.body.classList.toggle(bodyCls, !cb.checked);
-          saveFilters();
-        });
-      }
-      const hl = modal.querySelector('#highlight-toggle');
-      if (hl) {
-        hl.addEventListener('change', () => {
-          document.body.classList.toggle('no-highlights', !hl.checked);
-          saveFilters();
-        });
-      }
-    }
-    // Sync checkbox state from the current body classes every time the
-    // modal is opened (handles the case where another browser tab
-    // changed localStorage and this tab re-synced on refresh).
-    const _syncToggle = (id, bodyCls) => {
-      const cb = modal.querySelector('#' + id);
-      if (cb) cb.checked = !document.body.classList.contains(bodyCls);
-    };
-    _syncToggle('highlight-toggle', 'no-highlights');
-    for (const [id, bodyCls] of _ELEMENT_TOGGLES) _syncToggle(id, bodyCls);
-    const urlInput = modal.querySelector('#cs-url');
-    urlInput.value = _getPinnedClaudeChatUrl();
-    const lang = _getClaudeLang();
-    modal.querySelectorAll('input[name="cs-lang"]').forEach(r => {
-      r.checked = (r.value === lang);
-    });
-    const runawayInput = modal.querySelector('#cs-runaway');
-    runawayInput.value = RUNAWAY_THRESHOLD;
-    modal.classList.add('visible');
-    setTimeout(() => urlInput.focus(), 50);
-    const cleanup = (result) => {
-      modal.classList.remove('visible');
-      modal.querySelector('#cs-cancel').onclick = null;
-      modal.querySelector('#cs-save').onclick = null;
-      resolve(result);
-    };
-    modal.querySelector('#cs-cancel').onclick = () => cleanup(null);
-    modal.querySelector('#cs-save').onclick = () => {
-      const chosenLang = (modal.querySelector('input[name="cs-lang"]:checked')?.value) || 'en';
-      const runaway = parseInt(runawayInput.value, 10);
-      cleanup({
-        url: urlInput.value.trim(),
-        lang: chosenLang,
-        runaway_threshold: Number.isFinite(runaway) && runaway >= 10 ? runaway : null,
-      });
-    };
-  });
-}
-
-document.getElementById('claude-chat-url-setup')?.addEventListener('click', async () => {
-  const answers = await openClaudeSettingsModal();
-  if (!answers) return;
-  _setPinnedClaudeChatUrl(answers.url);
-  _setClaudeLang(answers.lang);
-  if (answers.runaway_threshold != null && answers.runaway_threshold !== RUNAWAY_THRESHOLD) {
-    try {
-      const base = location.protocol === 'file:' ? SERVER_URL : '';
-      const r = await fetch(base + '/set-settings', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({runaway_threshold: answers.runaway_threshold}),
-      });
-      if (!r.ok) throw new Error('http ' + r.status);
-      // No reload — the next /refresh picks up the new threshold.
-    } catch (e) {
-      alert('Settings save failed: ' + e.message);
-    }
-  }
-});
+// The ⚙ gear now navigates to /settings (served by _render_settings_html).
+// Nothing further to wire client-side — the <a> handles navigation, and
+// Ctrl+, is routed below via the ACTION_SHORTCUTS map.
 
 /* ------------------------------------------------------------------
    Edit-companies modal (🏢 button).
@@ -9112,14 +8945,16 @@ document.addEventListener('keydown', (e) => {
     'r': 'refresh-btn',
     'i': 'claude-score-all',
     'e': 'edit-sources-setup',
-    ',': 'claude-chat-url-setup',
+    ',': 'settings-link',
   };
   const btnId = map[e.key.toLowerCase()] || map[e.key];
   if (!btnId) return;
-  const btn = document.getElementById(btnId);
-  if (btn && !btn.disabled) {
+  const el = document.getElementById(btnId);
+  if (el && !el.disabled) {
     e.preventDefault();
-    btn.click();
+    // <a> → navigate; <button> → click. Both do the right thing when we
+    // call .click(), so a single branch covers the mixed element types.
+    el.click();
   }
 });
 
@@ -10538,9 +10373,9 @@ def main():
     # line + global settings (currently just the Highlight toggle) that
     # need to stay reachable on every tab (not only the All tab's
     # filters section).
-    # Settings (⚙) owns the row-element show/hide toggles — see
-    # openSettingsModal in the inline JS. The top bar carries only the
-    # async-action status line.
+    # The /settings page owns the row-element show/hide toggles (served
+    # by _render_settings_html). The top bar carries only the async-
+    # action status line.
     total_bar = (
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'

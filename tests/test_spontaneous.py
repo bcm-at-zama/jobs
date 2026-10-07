@@ -21,6 +21,8 @@ class TestIsSpontaneous(unittest.TestCase):
         "Speculative Application",
         "Don't see the right role?",
         "Don't see a role that fits?",
+        "Candidature Spontanee",           # FR singular
+        "Candidatures Spontanees",         # FR plural — surfaced by Zama's hand-rolled board
     ]
 
     NEGATIVES = [
