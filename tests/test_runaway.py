@@ -282,6 +282,105 @@ class TestRefreshStatusRunawayList(unittest.TestCase):
         self.assertEqual(data["runaway"][0]["jobs"], 150)
 
 
+class TestRefreshStatusProgress(unittest.TestCase):
+    """`/refresh-status` must also surface per-source progress so the
+    floater shows "N/M fetched · latest: X · working on: Y" instead of
+    just an elapsed-seconds counter. Progress is derived from
+    LIST_CACHE_DIR/*.json entries written since the refresh started."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.cache_dir = os.path.join(self.tmp.name, "list_cache")
+        os.makedirs(self.cache_dir, exist_ok=True)
+        self._patches = [
+            mock.patch.object(jobs, "DATA_DIR", self.tmp.name),
+            mock.patch.object(jobs, "LIST_CACHE_DIR", self.cache_dir),
+            mock.patch.object(jobs, "SOURCES", [
+                {"name": "Apple"}, {"name": "Microsoft"}, {"name": "Meta"},
+            ]),
+        ]
+        for p in self._patches:
+            p.start()
+        # Pretend a refresh kicked off 10s ago.
+        self._prev_state = dict(jobs._refresh_state)
+        jobs._refresh_state["status"] = "running"
+        jobs._refresh_state["started_at"] = time.time() - 10
+
+    def tearDown(self):
+        jobs._refresh_state.clear()
+        jobs._refresh_state.update(self._prev_state)
+        for p in self._patches:
+            p.stop()
+        self.tmp.cleanup()
+
+    def _invoke_status(self):
+        body = b"{}"
+
+        class _Shim(jobs.Handler):
+            def __init__(self):
+                self.rfile = BytesIO(body)
+                self.wfile = BytesIO()
+                self.headers = {"Content-Length": str(len(body))}
+                self.path = "/refresh-status"
+                self.command = "POST"
+                self._status = None
+
+            def send_response(self, code, msg=None):
+                self._status = code
+
+            def send_header(self, k, v): pass
+            def end_headers(self): pass
+            def log_message(self, *a, **kw): pass
+
+        shim = _Shim()
+        shim.do_POST()
+        return shim._status, json.loads(shim.wfile.getvalue() or b"{}")
+
+    def _touch_cache(self, name):
+        """Mimic a successful fetch landing a list_cache/<slug>.json."""
+        with open(os.path.join(self.cache_dir, f"{jobs.slug(name)}.json"), "w") as f:
+            json.dump({"jobs": []}, f)
+
+    def test_progress_block_present(self):
+        _, data = self._invoke_status()
+        self.assertIn("progress", data)
+        p = data["progress"]
+        self.assertEqual(p["total"], 3)
+        self.assertEqual(p["done_count"], 0)
+        self.assertIsNone(p["last_done"])
+        # First not-yet-done source is "working on".
+        self.assertEqual(p["currently_working"], "Apple")
+
+    def test_progress_counts_completed_sources(self):
+        self._touch_cache("Apple")
+        self._touch_cache("Microsoft")
+        # Pin mtimes so last_done is deterministic (back-to-back writes
+        # otherwise share mtime at filesystem resolution).
+        now = time.time()
+        os.utime(os.path.join(self.cache_dir, f"{jobs.slug('Apple')}.json"),
+                 (now - 2, now - 2))
+        os.utime(os.path.join(self.cache_dir, f"{jobs.slug('Microsoft')}.json"),
+                 (now - 1, now - 1))
+        _, data = self._invoke_status()
+        p = data["progress"]
+        self.assertEqual(p["done_count"], 2)
+        self.assertEqual(p["total"], 3)
+        # last_done is the most-recently-written cache file.
+        self.assertEqual(p["last_done"], "Microsoft")
+        # Only Meta is left.
+        self.assertEqual(p["currently_working"], "Meta")
+
+    def test_progress_ignores_stale_pre_refresh_caches(self):
+        """A JSON file whose mtime predates the refresh start must NOT
+        count — otherwise a cold start would read "3/3 done" instantly."""
+        self._touch_cache("Apple")
+        stale = os.path.join(self.cache_dir, f"{jobs.slug('Apple')}.json")
+        old = time.time() - 1000  # well before started_at
+        os.utime(stale, (old, old))
+        _, data = self._invoke_status()
+        self.assertEqual(data["progress"]["done_count"], 0)
+
+
 class TestFetcherIntegration(unittest.TestCase):
     """End-to-end: a fetcher thread calls check_runaway, the test writes
     a decision file that mimics the browser modal, and the thread wakes

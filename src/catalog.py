@@ -687,6 +687,1536 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'origin': 'https://jobs.lydia-app.com',
   'wait_selector': "a[href*='/jobs/']",
   'group': 'Welcome to the Jungle'},
+ {'name': '6sense', 'kind': 'wttj_company', 'slug': '6sense',
+  'board': 'https://www.welcometothejungle.com/fr/companies/6sense',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'ABBYY', 'kind': 'wttj_company', 'slug': 'abbyy',
+  'board': 'https://www.welcometothejungle.com/fr/companies/abbyy',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'AbCellera Biologics', 'kind': 'wttj_company', 'slug': 'abcellera-biologics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/abcellera-biologics',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Abnormal Security', 'kind': 'wttj_company', 'slug': 'abnormal-security',
+  'board': 'https://www.welcometothejungle.com/fr/companies/abnormal-security',
+  'group': 'Welcome to the Jungle'},  # 30 jobs
+ {'name': 'Abridge', 'kind': 'wttj_company', 'slug': 'abridge',
+  'board': 'https://www.welcometothejungle.com/fr/companies/abridge',
+  'group': 'Welcome to the Jungle'},  # 34 jobs
+ {'name': 'Acadenice', 'kind': 'wttj_company', 'slug': 'acadenice',
+  'board': 'https://www.welcometothejungle.com/fr/companies/acadenice',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'ACAI Travel', 'kind': 'wttj_company', 'slug': 'acai-travel',
+  'board': 'https://www.welcometothejungle.com/fr/companies/acai-travel',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'acceldata', 'kind': 'wttj_company', 'slug': 'acceldata',
+  'board': 'https://www.welcometothejungle.com/fr/companies/acceldata',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Achievers', 'kind': 'wttj_company', 'slug': 'achievers',
+  'board': 'https://www.welcometothejungle.com/fr/companies/achievers',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'ActiveCampaign', 'kind': 'wttj_company', 'slug': 'activecampaign',
+  'board': 'https://www.welcometothejungle.com/fr/companies/activecampaign',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Ada', 'kind': 'wttj_company', 'slug': 'ada',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ada',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Adthena', 'kind': 'wttj_company', 'slug': 'adthena',
+  'board': 'https://www.welcometothejungle.com/fr/companies/adthena',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Aera Technology', 'kind': 'wttj_company', 'slug': 'aera-technology',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aera-technology',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Aeva', 'kind': 'wttj_company', 'slug': 'aeva',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aeva',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Agility Robotics', 'kind': 'wttj_company', 'slug': 'agility-robotics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/agility-robotics',
+  'group': 'Welcome to the Jungle'},  # 12 jobs
+ {'name': 'AiDash', 'kind': 'wttj_company', 'slug': 'aidash',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aidash',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Aidence', 'kind': 'wttj_company', 'slug': 'aidence',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aidence',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Aily Labs', 'kind': 'wttj_company', 'slug': 'aily-labs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aily-labs',
+  'group': 'Welcome to the Jungle'},  # 13 jobs
+ {'name': 'Air Space Intelligence', 'kind': 'wttj_company', 'slug': 'air-space-intelligence',
+  'board': 'https://www.welcometothejungle.com/fr/companies/air-space-intelligence',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'AirDNA', 'kind': 'wttj_company', 'slug': 'airdna',
+  'board': 'https://www.welcometothejungle.com/fr/companies/airdna',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'AISI', 'kind': 'wttj_company', 'slug': 'aisi',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aisi',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'AKASA', 'kind': 'wttj_company', 'slug': 'akasa',
+  'board': 'https://www.welcometothejungle.com/fr/companies/akasa',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'akirolabs', 'kind': 'wttj_company', 'slug': 'akirolabs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/akirolabs',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'AKUR8', 'kind': 'wttj_company', 'slug': 'akur8-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/akur8-1',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Alation', 'kind': 'wttj_company', 'slug': 'alation',
+  'board': 'https://www.welcometothejungle.com/fr/companies/alation',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'AlayaCare', 'kind': 'wttj_company', 'slug': 'alayacare',
+  'board': 'https://www.welcometothejungle.com/fr/companies/alayacare',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'ALCYCONIE', 'kind': 'wttj_company', 'slug': 'alcyconie',
+  'board': 'https://www.welcometothejungle.com/fr/companies/alcyconie',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Alethea', 'kind': 'wttj_company', 'slug': 'alethea',
+  'board': 'https://www.welcometothejungle.com/fr/companies/alethea',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Alluxio', 'kind': 'wttj_company', 'slug': 'alluxio',
+  'board': 'https://www.welcometothejungle.com/fr/companies/alluxio',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Altana', 'kind': 'wttj_company', 'slug': 'altana',
+  'board': 'https://www.welcometothejungle.com/fr/companies/altana',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Alteryx', 'kind': 'wttj_company', 'slug': 'alteryx',
+  'board': 'https://www.welcometothejungle.com/fr/companies/alteryx',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'Ambience Healthcare', 'kind': 'wttj_company', 'slug': 'ambience-healthcare',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ambience-healthcare',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'AMP', 'kind': 'wttj_company', 'slug': 'amp',
+  'board': 'https://www.welcometothejungle.com/fr/companies/amp',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Amperity', 'kind': 'wttj_company', 'slug': 'amperity',
+  'board': 'https://www.welcometothejungle.com/fr/companies/amperity',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Amplemarket', 'kind': 'wttj_company', 'slug': 'amplemarket',
+  'board': 'https://www.welcometothejungle.com/fr/companies/amplemarket',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Anomali', 'kind': 'wttj_company', 'slug': 'anomali',
+  'board': 'https://www.welcometothejungle.com/fr/companies/anomali',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Anvilogic', 'kind': 'wttj_company', 'slug': 'anvilogic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/anvilogic',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Apheris', 'kind': 'wttj_company', 'slug': 'apheris',
+  'board': 'https://www.welcometothejungle.com/fr/companies/apheris',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Applied Intuition', 'kind': 'wttj_company', 'slug': 'applied-intuition',
+  'board': 'https://www.welcometothejungle.com/fr/companies/applied-intuition',
+  'group': 'Welcome to the Jungle'},  # 162 jobs
+ {'name': 'Applovin', 'kind': 'wttj_company', 'slug': 'applovin',
+  'board': 'https://www.welcometothejungle.com/fr/companies/applovin',
+  'group': 'Welcome to the Jungle'},  # 28 jobs
+ {'name': 'AppZen', 'kind': 'wttj_company', 'slug': 'appzen',
+  'board': 'https://www.welcometothejungle.com/fr/companies/appzen',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Aqemia', 'kind': 'wttj_company', 'slug': 'aqemia-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aqemia-1',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Aqua Security', 'kind': 'wttj_company', 'slug': 'aqua-security',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aqua-security',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Arctic Wolf', 'kind': 'wttj_company', 'slug': 'arctic-wolf',
+  'board': 'https://www.welcometothejungle.com/fr/companies/arctic-wolf',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Argile', 'kind': 'wttj_company', 'slug': 'remi',
+  'board': 'https://www.welcometothejungle.com/fr/companies/remi',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Arista', 'kind': 'wttj_company', 'slug': 'arista',
+  'board': 'https://www.welcometothejungle.com/fr/companies/arista',
+  'group': 'Welcome to the Jungle'},  # 48 jobs
+ {'name': 'Arondite', 'kind': 'wttj_company', 'slug': 'arondite',
+  'board': 'https://www.welcometothejungle.com/fr/companies/arondite',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'ASAPP', 'kind': 'wttj_company', 'slug': 'asapp',
+  'board': 'https://www.welcometothejungle.com/fr/companies/asapp',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Ask for the moon', 'kind': 'wttj_company', 'slug': 'ask-for-the-moon',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ask-for-the-moon',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'AssetWatch', 'kind': 'wttj_company', 'slug': 'assetwatch',
+  'board': 'https://www.welcometothejungle.com/fr/companies/assetwatch',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'Astera Labs', 'kind': 'wttj_company', 'slug': 'astera-labs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/astera-labs',
+  'group': 'Welcome to the Jungle'},  # 32 jobs
+ {'name': 'Ataccama', 'kind': 'wttj_company', 'slug': 'ataccama',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ataccama',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Atomic AI', 'kind': 'wttj_company', 'slug': 'atomic-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/atomic-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'AutogenAI', 'kind': 'wttj_company', 'slug': 'autogenai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/autogenai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'AutoLeadStar', 'kind': 'wttj_company', 'slug': 'autoleadstar',
+  'board': 'https://www.welcometothejungle.com/fr/companies/autoleadstar',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Automation Anywhere', 'kind': 'wttj_company', 'slug': 'automation-anywhere',
+  'board': 'https://www.welcometothejungle.com/fr/companies/automation-anywhere',
+  'group': 'Welcome to the Jungle'},  # 12 jobs
+ {'name': 'AVEVA', 'kind': 'wttj_company', 'slug': 'aveva',
+  'board': 'https://www.welcometothejungle.com/fr/companies/aveva',
+  'group': 'Welcome to the Jungle'},  # 24 jobs
+ {'name': 'Axelera AI', 'kind': 'wttj_company', 'slug': 'axelera-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/axelera-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Axion Ray', 'kind': 'wttj_company', 'slug': 'axion-ray',
+  'board': 'https://www.welcometothejungle.com/fr/companies/axion-ray',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Axuall', 'kind': 'wttj_company', 'slug': 'axuall',
+  'board': 'https://www.welcometothejungle.com/fr/companies/axuall',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'AZmed', 'kind': 'wttj_company', 'slug': 'azmed-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/azmed-1',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Babbar', 'kind': 'wttj_company', 'slug': 'babbar',
+  'board': 'https://www.welcometothejungle.com/fr/companies/babbar',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Banz-Ai', 'kind': 'wttj_company', 'slug': 'banz-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/banz-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Basetwo', 'kind': 'wttj_company', 'slug': 'basetwo',
+  'board': 'https://www.welcometothejungle.com/fr/companies/basetwo',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Beacon Biosignals', 'kind': 'wttj_company', 'slug': 'beacon-biosignals',
+  'board': 'https://www.welcometothejungle.com/fr/companies/beacon-biosignals',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Beam', 'kind': 'wttj_company', 'slug': 'beam-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/beam-1',
+  'group': 'Welcome to the Jungle'},  # 30 jobs
+ {'name': 'Bear Robotics', 'kind': 'wttj_company', 'slug': 'bear-robotics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/bear-robotics',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Berkshire Grey', 'kind': 'wttj_company', 'slug': 'berkshire-grey',
+  'board': 'https://www.welcometothejungle.com/fr/companies/berkshire-grey',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'BigHat Biosciences', 'kind': 'wttj_company', 'slug': 'bighat-biosciences',
+  'board': 'https://www.welcometothejungle.com/fr/companies/bighat-biosciences',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Billy Grace', 'kind': 'wttj_company', 'slug': 'billy-grace',
+  'board': 'https://www.welcometothejungle.com/fr/companies/billy-grace',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Bizzdesign', 'kind': 'wttj_company', 'slug': 'bizzdesign',
+  'board': 'https://www.welcometothejungle.com/fr/companies/bizzdesign',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Blackbird AI', 'kind': 'wttj_company', 'slug': 'blackbird-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/blackbird-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'BlackSky Global', 'kind': 'wttj_company', 'slug': 'blacksky-global',
+  'board': 'https://www.welcometothejungle.com/fr/companies/blacksky-global',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Blend', 'kind': 'wttj_company', 'slug': 'blend-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/blend-1',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Blue J Legal', 'kind': 'wttj_company', 'slug': 'blue-j-legal',
+  'board': 'https://www.welcometothejungle.com/fr/companies/blue-j-legal',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Blue River Technology', 'kind': 'wttj_company', 'slug': 'blue-river-technology',
+  'board': 'https://www.welcometothejungle.com/fr/companies/blue-river-technology',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Breek', 'kind': 'wttj_company', 'slug': 'breek',
+  'board': 'https://www.welcometothejungle.com/fr/companies/breek',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Brighter AI', 'kind': 'wttj_company', 'slug': 'brighter-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/brighter-ai',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'BrightHire', 'kind': 'wttj_company', 'slug': 'brighthire',
+  'board': 'https://www.welcometothejungle.com/fr/companies/brighthire',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'BulQ', 'kind': 'wttj_company', 'slug': 'bulq',
+  'board': 'https://www.welcometothejungle.com/fr/companies/bulq',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Burq', 'kind': 'wttj_company', 'slug': 'burq',
+  'board': 'https://www.welcometothejungle.com/fr/companies/burq',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Bynder', 'kind': 'wttj_company', 'slug': 'bynder',
+  'board': 'https://www.welcometothejungle.com/fr/companies/bynder',
+  'group': 'Welcome to the Jungle'},  # 16 jobs
+ {'name': 'C3.ai', 'kind': 'wttj_company', 'slug': 'c3-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/c3-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'CAiDENN', 'kind': 'wttj_company', 'slug': 'caidenn',
+  'board': 'https://www.welcometothejungle.com/fr/companies/caidenn',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Campus Cyber', 'kind': 'wttj_company', 'slug': 'campus-cyber',
+  'board': 'https://www.welcometothejungle.com/fr/companies/campus-cyber',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Candid Health', 'kind': 'wttj_company', 'slug': 'candid-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/candid-health',
+  'group': 'Welcome to the Jungle'},  # 32 jobs
+ {'name': 'Canoe', 'kind': 'wttj_company', 'slug': 'canoe',
+  'board': 'https://www.welcometothejungle.com/fr/companies/canoe',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Capmo', 'kind': 'wttj_company', 'slug': 'capmo',
+  'board': 'https://www.welcometothejungle.com/fr/companies/capmo',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Caspar Health', 'kind': 'wttj_company', 'slug': 'caspar-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/caspar-health',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'CAST AI', 'kind': 'wttj_company', 'slug': 'cast-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cast-ai',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'CB Insights', 'kind': 'wttj_company', 'slug': 'cb-insights',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cb-insights',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Chalk', 'kind': 'wttj_company', 'slug': 'chalk',
+  'board': 'https://www.welcometothejungle.com/fr/companies/chalk',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'Chance', 'kind': 'wttj_company', 'slug': 'chance',
+  'board': 'https://www.welcometothejungle.com/fr/companies/chance',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Character.ai', 'kind': 'wttj_company', 'slug': 'character-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/character-ai',
+  'group': 'Welcome to the Jungle'},  # 13 jobs
+ {'name': 'Checkr', 'kind': 'wttj_company', 'slug': 'checkr',
+  'board': 'https://www.welcometothejungle.com/fr/companies/checkr',
+  'group': 'Welcome to the Jungle'},  # 25 jobs
+ {'name': 'CI&T', 'kind': 'wttj_company', 'slug': 'ci-t',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ci-t',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Circus Group', 'kind': 'wttj_company', 'slug': 'circus-group',
+  'board': 'https://www.welcometothejungle.com/fr/companies/circus-group',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Citizen Health', 'kind': 'wttj_company', 'slug': 'citizen-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/citizen-health',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Citylitics', 'kind': 'wttj_company', 'slug': 'citylitics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/citylitics',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Cleerly', 'kind': 'wttj_company', 'slug': 'cleerly',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cleerly',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Cloudera', 'kind': 'wttj_company', 'slug': 'cloudera',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cloudera',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'CO2 AI', 'kind': 'wttj_company', 'slug': 'co2-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/co2-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Code Metal', 'kind': 'wttj_company', 'slug': 'code-metal',
+  'board': 'https://www.welcometothejungle.com/fr/companies/code-metal',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'Cognism', 'kind': 'wttj_company', 'slug': 'cognism',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cognism',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Cohere Health', 'kind': 'wttj_company', 'slug': 'cohere-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cohere-health',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'CommerceIQ', 'kind': 'wttj_company', 'slug': 'commerceiq',
+  'board': 'https://www.welcometothejungle.com/fr/companies/commerceiq',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Connectly.ai', 'kind': 'wttj_company', 'slug': 'connectly-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/connectly-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Coralogix', 'kind': 'wttj_company', 'slug': 'coralogix',
+  'board': 'https://www.welcometothejungle.com/fr/companies/coralogix',
+  'group': 'Welcome to the Jungle'},  # 20 jobs
+ {'name': 'Corelight', 'kind': 'wttj_company', 'slug': 'corelight',
+  'board': 'https://www.welcometothejungle.com/fr/companies/corelight',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Counsel Health', 'kind': 'wttj_company', 'slug': 'counsel-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/counsel-health',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Coupa', 'kind': 'wttj_company', 'slug': 'coupa',
+  'board': 'https://www.welcometothejungle.com/fr/companies/coupa',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Co–Star Astrology', 'kind': 'wttj_company', 'slug': 'co-star-astrology',
+  'board': 'https://www.welcometothejungle.com/fr/companies/co-star-astrology',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Creative Fabrica', 'kind': 'wttj_company', 'slug': 'creative-fabrica',
+  'board': 'https://www.welcometothejungle.com/fr/companies/creative-fabrica',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Credo AI', 'kind': 'wttj_company', 'slug': 'credo-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/credo-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Cresta', 'kind': 'wttj_company', 'slug': 'cresta',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cresta',
+  'group': 'Welcome to the Jungle'},  # 58 jobs
+ {'name': 'CrewAI', 'kind': 'wttj_company', 'slug': 'crewai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/crewai',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Current AI', 'kind': 'wttj_company', 'slug': 'current-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/current-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Cyberhaven', 'kind': 'wttj_company', 'slug': 'cyberhaven',
+  'board': 'https://www.welcometothejungle.com/fr/companies/cyberhaven',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'd-Matrix', 'kind': 'wttj_company', 'slug': 'd-matrix',
+  'board': 'https://www.welcometothejungle.com/fr/companies/d-matrix',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'Darktrace', 'kind': 'wttj_company', 'slug': 'darktrace',
+  'board': 'https://www.welcometothejungle.com/fr/companies/darktrace',
+  'group': 'Welcome to the Jungle'},  # 35 jobs
+ {'name': 'Dashmote', 'kind': 'wttj_company', 'slug': 'dashmote',
+  'board': 'https://www.welcometothejungle.com/fr/companies/dashmote',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'DataRobot', 'kind': 'wttj_company', 'slug': 'datarobot',
+  'board': 'https://www.welcometothejungle.com/fr/companies/datarobot',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Datasnipper', 'kind': 'wttj_company', 'slug': 'datasnipper',
+  'board': 'https://www.welcometothejungle.com/fr/companies/datasnipper',
+  'group': 'Welcome to the Jungle'},  # 34 jobs
+ {'name': 'DealHub.io', 'kind': 'wttj_company', 'slug': 'dealhub-io',
+  'board': 'https://www.welcometothejungle.com/fr/companies/dealhub-io',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'DEFCON AI', 'kind': 'wttj_company', 'slug': 'defcon-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/defcon-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Defense Unicorns', 'kind': 'wttj_company', 'slug': 'defense-unicorns',
+  'board': 'https://www.welcometothejungle.com/fr/companies/defense-unicorns',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Delphina', 'kind': 'wttj_company', 'slug': 'delphina',
+  'board': 'https://www.welcometothejungle.com/fr/companies/delphina',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Descript', 'kind': 'wttj_company', 'slug': 'descript',
+  'board': 'https://www.welcometothejungle.com/fr/companies/descript',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'DevRev', 'kind': 'wttj_company', 'slug': 'devrev',
+  'board': 'https://www.welcometothejungle.com/fr/companies/devrev',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'Dext France', 'kind': 'wttj_company', 'slug': 'dext',
+  'board': 'https://www.welcometothejungle.com/fr/companies/dext',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Dexterity', 'kind': 'wttj_company', 'slug': 'dexterity',
+  'board': 'https://www.welcometothejungle.com/fr/companies/dexterity',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Diligent Robotics', 'kind': 'wttj_company', 'slug': 'diligent-robotics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/diligent-robotics',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'DISCO', 'kind': 'wttj_company', 'slug': 'disco-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/disco-1',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'Distyl', 'kind': 'wttj_company', 'slug': 'distyl',
+  'board': 'https://www.welcometothejungle.com/fr/companies/distyl',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Doma', 'kind': 'wttj_company', 'slug': 'doma',
+  'board': 'https://www.welcometothejungle.com/fr/companies/doma',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Domino Data Lab', 'kind': 'wttj_company', 'slug': 'domino-data-lab',
+  'board': 'https://www.welcometothejungle.com/fr/companies/domino-data-lab',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Doppel', 'kind': 'wttj_company', 'slug': 'doppel',
+  'board': 'https://www.welcometothejungle.com/fr/companies/doppel',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Doxel', 'kind': 'wttj_company', 'slug': 'doxel',
+  'board': 'https://www.welcometothejungle.com/fr/companies/doxel',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'Drips', 'kind': 'wttj_company', 'slug': 'drips',
+  'board': 'https://www.welcometothejungle.com/fr/companies/drips',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'DXC Technology', 'kind': 'wttj_company', 'slug': 'dxc-technology',
+  'board': 'https://www.welcometothejungle.com/fr/companies/dxc-technology',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Ed.ai', 'kind': 'wttj_company', 'slug': 'ed-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ed-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'EGYM', 'kind': 'wttj_company', 'slug': 'egym',
+  'board': 'https://www.welcometothejungle.com/fr/companies/egym',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Eleos Health', 'kind': 'wttj_company', 'slug': 'eleos-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/eleos-health',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Elixirr', 'kind': 'wttj_company', 'slug': 'elixirr',
+  'board': 'https://www.welcometothejungle.com/fr/companies/elixirr',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Ello', 'kind': 'wttj_company', 'slug': 'ello',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ello',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Ema', 'kind': 'wttj_company', 'slug': 'ema',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ema',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'Emburse', 'kind': 'wttj_company', 'slug': 'emburse',
+  'board': 'https://www.welcometothejungle.com/fr/companies/emburse',
+  'group': 'Welcome to the Jungle'},  # 19 jobs
+ {'name': 'EnergyHub', 'kind': 'wttj_company', 'slug': 'energyhub',
+  'board': 'https://www.welcometothejungle.com/fr/companies/energyhub',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Enova', 'kind': 'wttj_company', 'slug': 'enova',
+  'board': 'https://www.welcometothejungle.com/fr/companies/enova',
+  'group': 'Welcome to the Jungle'},  # 17 jobs
+ {'name': 'Entera', 'kind': 'wttj_company', 'slug': 'entera',
+  'board': 'https://www.welcometothejungle.com/fr/companies/entera',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Enterpret', 'kind': 'wttj_company', 'slug': 'enterpret',
+  'board': 'https://www.welcometothejungle.com/fr/companies/enterpret',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Ethyca', 'kind': 'wttj_company', 'slug': 'ethyca',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ethyca',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'eToro', 'kind': 'wttj_company', 'slug': 'etoro',
+  'board': 'https://www.welcometothejungle.com/fr/companies/etoro',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'EVA.AI', 'kind': 'wttj_company', 'slug': 'eva-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/eva-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'EvenUp', 'kind': 'wttj_company', 'slug': 'evenup',
+  'board': 'https://www.welcometothejungle.com/fr/companies/evenup',
+  'group': 'Welcome to the Jungle'},  # 31 jobs
+ {'name': 'ever-T', 'kind': 'wttj_company', 'slug': 'ever-t',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ever-t',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'EvolutionIQ', 'kind': 'wttj_company', 'slug': 'evolutioniq',
+  'board': 'https://www.welcometothejungle.com/fr/companies/evolutioniq',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Evolv Technology', 'kind': 'wttj_company', 'slug': 'evolv-technology',
+  'board': 'https://www.welcometothejungle.com/fr/companies/evolv-technology',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Exa', 'kind': 'wttj_company', 'slug': 'exa',
+  'board': 'https://www.welcometothejungle.com/fr/companies/exa',
+  'group': 'Welcome to the Jungle'},  # 42 jobs
+ {'name': 'Exiger', 'kind': 'wttj_company', 'slug': 'exiger',
+  'board': 'https://www.welcometothejungle.com/fr/companies/exiger',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Expat-U', 'kind': 'wttj_company', 'slug': 'expat-u',
+  'board': 'https://www.welcometothejungle.com/fr/companies/expat-u',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'ExtraHop', 'kind': 'wttj_company', 'slug': 'extrahop',
+  'board': 'https://www.welcometothejungle.com/fr/companies/extrahop',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Fairmarkit', 'kind': 'wttj_company', 'slug': 'fairmarkit',
+  'board': 'https://www.welcometothejungle.com/fr/companies/fairmarkit',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Fiddler AI', 'kind': 'wttj_company', 'slug': 'fiddler-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/fiddler-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Figure', 'kind': 'wttj_company', 'slug': 'figure-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/figure-1',
+  'group': 'Welcome to the Jungle'},  # 29 jobs
+ {'name': 'FinQuery', 'kind': 'wttj_company', 'slug': 'finquery',
+  'board': 'https://www.welcometothejungle.com/fr/companies/finquery',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Firsthand', 'kind': 'wttj_company', 'slug': 'firsthand',
+  'board': 'https://www.welcometothejungle.com/fr/companies/firsthand',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Flo', 'kind': 'wttj_company', 'slug': 'flo',
+  'board': 'https://www.welcometothejungle.com/fr/companies/flo',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Flock', 'kind': 'wttj_company', 'slug': 'flock',
+  'board': 'https://www.welcometothejungle.com/fr/companies/flock',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Flock Safety', 'kind': 'wttj_company', 'slug': 'flock-safety',
+  'board': 'https://www.welcometothejungle.com/fr/companies/flock-safety',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'FlowX.AI', 'kind': 'wttj_company', 'slug': 'flowx-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/flowx-ai',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'Fonio.ai', 'kind': 'wttj_company', 'slug': 'fonio-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/fonio-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Forma.ai', 'kind': 'wttj_company', 'slug': 'forma-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/forma-ai',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Forter', 'kind': 'wttj_company', 'slug': 'forter',
+  'board': 'https://www.welcometothejungle.com/fr/companies/forter',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Fourth', 'kind': 'wttj_company', 'slug': 'fourth',
+  'board': 'https://www.welcometothejungle.com/fr/companies/fourth',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'FRANCE IA', 'kind': 'wttj_company', 'slug': 'france-ia-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/france-ia-1',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'French Tech Grand Paris', 'kind': 'wttj_company', 'slug': 'french-tech-paris',
+  'board': 'https://www.welcometothejungle.com/fr/companies/french-tech-paris',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Front', 'kind': 'wttj_company', 'slug': 'front-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/front-1',
+  'group': 'Welcome to the Jungle'},  # 17 jobs
+ {'name': 'GIC', 'kind': 'wttj_company', 'slug': 'gic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/gic',
+  'group': 'Welcome to the Jungle'},  # 24 jobs
+ {'name': 'Glia', 'kind': 'wttj_company', 'slug': 'glia',
+  'board': 'https://www.welcometothejungle.com/fr/companies/glia',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Globality', 'kind': 'wttj_company', 'slug': 'globality',
+  'board': 'https://www.welcometothejungle.com/fr/companies/globality',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'GoDaddy', 'kind': 'wttj_company', 'slug': 'godaddy',
+  'board': 'https://www.welcometothejungle.com/fr/companies/godaddy',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'GoGuardian', 'kind': 'wttj_company', 'slug': 'goguardian',
+  'board': 'https://www.welcometothejungle.com/fr/companies/goguardian',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Govini', 'kind': 'wttj_company', 'slug': 'govini',
+  'board': 'https://www.welcometothejungle.com/fr/companies/govini',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'GPTZero', 'kind': 'wttj_company', 'slug': 'gptzero',
+  'board': 'https://www.welcometothejungle.com/fr/companies/gptzero',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Graphcore', 'kind': 'wttj_company', 'slug': 'graphcore',
+  'board': 'https://www.welcometothejungle.com/fr/companies/graphcore',
+  'group': 'Welcome to the Jungle'},  # 62 jobs
+ {'name': 'Grayce', 'kind': 'wttj_company', 'slug': 'grayce',
+  'board': 'https://www.welcometothejungle.com/fr/companies/grayce',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'H2O.ai', 'kind': 'wttj_company', 'slug': 'h2o-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/h2o-ai',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'HackerRank', 'kind': 'wttj_company', 'slug': 'hackerrank',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hackerrank',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Hadrian', 'kind': 'wttj_company', 'slug': 'hadrian',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hadrian',
+  'group': 'Welcome to the Jungle'},  # 48 jobs
+ {'name': 'Halcyon', 'kind': 'wttj_company', 'slug': 'halcyon',
+  'board': 'https://www.welcometothejungle.com/fr/companies/halcyon',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'HarfangLab', 'kind': 'wttj_company', 'slug': 'harfanglab-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/harfanglab-1',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Hayden AI', 'kind': 'wttj_company', 'slug': 'hayden-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hayden-ai',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Healx', 'kind': 'wttj_company', 'slug': 'healx',
+  'board': 'https://www.welcometothejungle.com/fr/companies/healx',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Hedra', 'kind': 'wttj_company', 'slug': 'hedra',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hedra',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Hippocratic AI', 'kind': 'wttj_company', 'slug': 'hippocratic-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hippocratic-ai',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'HOLENEK INGENIERIE', 'kind': 'wttj_company', 'slug': 'holenek-ingenierie',
+  'board': 'https://www.welcometothejungle.com/fr/companies/holenek-ingenierie',
+  'group': 'Welcome to the Jungle'},  # 19 jobs
+ {'name': 'honeysales', 'kind': 'wttj_company', 'slug': 'honeysales',
+  'board': 'https://www.welcometothejungle.com/fr/companies/honeysales',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Hopper', 'kind': 'wttj_company', 'slug': 'hopper',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hopper',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Horizon Surgical Systems', 'kind': 'wttj_company', 'slug': 'horizon-surgical-systems',
+  'board': 'https://www.welcometothejungle.com/fr/companies/horizon-surgical-systems',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Horizon3', 'kind': 'wttj_company', 'slug': 'horizon3',
+  'board': 'https://www.welcometothejungle.com/fr/companies/horizon3',
+  'group': 'Welcome to the Jungle'},  # 60 jobs
+ {'name': 'HP Enterprise', 'kind': 'wttj_company', 'slug': 'hp-enterprise',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hp-enterprise',
+  'group': 'Welcome to the Jungle'},  # 30 jobs
+ {'name': 'Hugging Face', 'kind': 'wttj_company', 'slug': 'hugging-face',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hugging-face',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Humanoid', 'kind': 'wttj_company', 'slug': 'humanoid-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/humanoid-1',
+  'group': 'Welcome to the Jungle'},  # 95 jobs
+ {'name': 'HumanSignal', 'kind': 'wttj_company', 'slug': 'humansignal',
+  'board': 'https://www.welcometothejungle.com/fr/companies/humansignal',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Hume AI', 'kind': 'wttj_company', 'slug': 'hume-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hume-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Hypatos', 'kind': 'wttj_company', 'slug': 'hypatos',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hypatos',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Hyperbolic', 'kind': 'wttj_company', 'slug': 'hyperbolic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hyperbolic',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Hyperscience', 'kind': 'wttj_company', 'slug': 'hyperscience',
+  'board': 'https://www.welcometothejungle.com/fr/companies/hyperscience',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Icertis', 'kind': 'wttj_company', 'slug': 'icertis',
+  'board': 'https://www.welcometothejungle.com/fr/companies/icertis',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Ideogram', 'kind': 'wttj_company', 'slug': 'ideogram',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ideogram',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'IEX', 'kind': 'wttj_company', 'slug': 'iex',
+  'board': 'https://www.welcometothejungle.com/fr/companies/iex',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Illuma Technology', 'kind': 'wttj_company', 'slug': 'illuma-technology',
+  'board': 'https://www.welcometothejungle.com/fr/companies/illuma-technology',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Imagen Technologies', 'kind': 'wttj_company', 'slug': 'imagen-technologies',
+  'board': 'https://www.welcometothejungle.com/fr/companies/imagen-technologies',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Incode Technologies', 'kind': 'wttj_company', 'slug': 'incode-technologies',
+  'board': 'https://www.welcometothejungle.com/fr/companies/incode-technologies',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Innovapptive', 'kind': 'wttj_company', 'slug': 'innovapptive',
+  'board': 'https://www.welcometothejungle.com/fr/companies/innovapptive',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Insurify', 'kind': 'wttj_company', 'slug': 'insurify',
+  'board': 'https://www.welcometothejungle.com/fr/companies/insurify',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Intenseye', 'kind': 'wttj_company', 'slug': 'intenseye',
+  'board': 'https://www.welcometothejungle.com/fr/companies/intenseye',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Intent HQ', 'kind': 'wttj_company', 'slug': 'intent-hq',
+  'board': 'https://www.welcometothejungle.com/fr/companies/intent-hq',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Intrinsic', 'kind': 'wttj_company', 'slug': 'intrinsic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/intrinsic',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'IoT Valley', 'kind': 'wttj_company', 'slug': 'iot-valley',
+  'board': 'https://www.welcometothejungle.com/fr/companies/iot-valley',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'IQVIA', 'kind': 'wttj_company', 'slug': 'iqvia-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/iqvia-1',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'Ironclad', 'kind': 'wttj_company', 'slug': 'ironclad',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ironclad',
+  'group': 'Welcome to the Jungle'},  # 28 jobs
+ {'name': 'Iterative Health', 'kind': 'wttj_company', 'slug': 'iterative-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/iterative-health',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Ivo AI Inc', 'kind': 'wttj_company', 'slug': 'ivo-ai-inc',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ivo-ai-inc',
+  'group': 'Welcome to the Jungle'},  # 36 jobs
+ {'name': 'Jacobian', 'kind': 'wttj_company', 'slug': 'jacobian',
+  'board': 'https://www.welcometothejungle.com/fr/companies/jacobian',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Jampp', 'kind': 'wttj_company', 'slug': 'jampp',
+  'board': 'https://www.welcometothejungle.com/fr/companies/jampp',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'January', 'kind': 'wttj_company', 'slug': 'january',
+  'board': 'https://www.welcometothejungle.com/fr/companies/january',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Jellyfish', 'kind': 'wttj_company', 'slug': 'jellyfish',
+  'board': 'https://www.welcometothejungle.com/fr/companies/jellyfish',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Jumio', 'kind': 'wttj_company', 'slug': 'jumio',
+  'board': 'https://www.welcometothejungle.com/fr/companies/jumio',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'K Health', 'kind': 'wttj_company', 'slug': 'k-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/k-health',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Kalepa', 'kind': 'wttj_company', 'slug': 'kalepa',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kalepa',
+  'group': 'Welcome to the Jungle'},  # 21 jobs
+ {'name': 'Kayrros', 'kind': 'wttj_company', 'slug': 'kayrros',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kayrros',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'kea', 'kind': 'wttj_company', 'slug': 'kea',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kea',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Ketryx', 'kind': 'wttj_company', 'slug': 'ketryx',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ketryx',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Kinetic', 'kind': 'wttj_company', 'slug': 'kinetic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kinetic',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'KINEXON', 'kind': 'wttj_company', 'slug': 'kinexon',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kinexon',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'KNIME', 'kind': 'wttj_company', 'slug': 'knime',
+  'board': 'https://www.welcometothejungle.com/fr/companies/knime',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Kodiak Robotics', 'kind': 'wttj_company', 'slug': 'kodiak-robotics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kodiak-robotics',
+  'group': 'Welcome to the Jungle'},  # 29 jobs
+ {'name': 'Kody', 'kind': 'wttj_company', 'slug': 'kody',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kody',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Kontakt.io', 'kind': 'wttj_company', 'slug': 'kontakt-io',
+  'board': 'https://www.welcometothejungle.com/fr/companies/kontakt-io',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Labelbox', 'kind': 'wttj_company', 'slug': 'labelbox-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/labelbox-1',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Landbot', 'kind': 'wttj_company', 'slug': 'landbot',
+  'board': 'https://www.welcometothejungle.com/fr/companies/landbot',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'LanguageWire', 'kind': 'wttj_company', 'slug': 'languagewire',
+  'board': 'https://www.welcometothejungle.com/fr/companies/languagewire',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Leah AI', 'kind': 'wttj_company', 'slug': 'leah-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/leah-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'LeanDNA', 'kind': 'wttj_company', 'slug': 'leandna',
+  'board': 'https://www.welcometothejungle.com/fr/companies/leandna',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Lendbuzz', 'kind': 'wttj_company', 'slug': 'lendbuzz',
+  'board': 'https://www.welcometothejungle.com/fr/companies/lendbuzz',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Levelpath', 'kind': 'wttj_company', 'slug': 'levelpath',
+  'board': 'https://www.welcometothejungle.com/fr/companies/levelpath',
+  'group': 'Welcome to the Jungle'},  # 17 jobs
+ {'name': 'Lexroom', 'kind': 'wttj_company', 'slug': 'query-juriste',
+  'board': 'https://www.welcometothejungle.com/fr/companies/query-juriste',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Lightmatter', 'kind': 'wttj_company', 'slug': 'lightmatter',
+  'board': 'https://www.welcometothejungle.com/fr/companies/lightmatter',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'LogicMonitor', 'kind': 'wttj_company', 'slug': 'logicmonitor',
+  'board': 'https://www.welcometothejungle.com/fr/companies/logicmonitor',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'Loopio', 'kind': 'wttj_company', 'slug': 'loopio',
+  'board': 'https://www.welcometothejungle.com/fr/companies/loopio',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'LoopMe', 'kind': 'wttj_company', 'slug': 'loopme',
+  'board': 'https://www.welcometothejungle.com/fr/companies/loopme',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'mabl', 'kind': 'wttj_company', 'slug': 'mabl',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mabl',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'MadHive', 'kind': 'wttj_company', 'slug': 'madhive',
+  'board': 'https://www.welcometothejungle.com/fr/companies/madhive',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Magic', 'kind': 'wttj_company', 'slug': 'magic-2',
+  'board': 'https://www.welcometothejungle.com/fr/companies/magic-2',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Mapp', 'kind': 'wttj_company', 'slug': 'mapp',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mapp',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Mashgin', 'kind': 'wttj_company', 'slug': 'mashgin',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mashgin',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Matic', 'kind': 'wttj_company', 'slug': 'matic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/matic',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Matroid', 'kind': 'wttj_company', 'slug': 'matroid',
+  'board': 'https://www.welcometothejungle.com/fr/companies/matroid',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Mechanical Orchard', 'kind': 'wttj_company', 'slug': 'mechanical-orchard',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mechanical-orchard',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Merantix', 'kind': 'wttj_company', 'slug': 'merantix',
+  'board': 'https://www.welcometothejungle.com/fr/companies/merantix',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Mercanis', 'kind': 'wttj_company', 'slug': 'mercanis',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mercanis',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Merlin Labs', 'kind': 'wttj_company', 'slug': 'merlin-labs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/merlin-labs',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Metropolis', 'kind': 'wttj_company', 'slug': 'metropolis',
+  'board': 'https://www.welcometothejungle.com/fr/companies/metropolis',
+  'group': 'Welcome to the Jungle'},  # 31 jobs
+ {'name': 'Mintlify', 'kind': 'wttj_company', 'slug': 'mintlify',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mintlify',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Mirage', 'kind': 'wttj_company', 'slug': 'mirage',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mirage',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Mithril', 'kind': 'wttj_company', 'slug': 'mithril',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mithril',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Modular', 'kind': 'wttj_company', 'slug': 'modular',
+  'board': 'https://www.welcometothejungle.com/fr/companies/modular',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Moloco', 'kind': 'wttj_company', 'slug': 'moloco',
+  'board': 'https://www.welcometothejungle.com/fr/companies/moloco',
+  'group': 'Welcome to the Jungle'},  # 17 jobs
+ {'name': 'MotherDuck', 'kind': 'wttj_company', 'slug': 'motherduck',
+  'board': 'https://www.welcometothejungle.com/fr/companies/motherduck',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Motive', 'kind': 'wttj_company', 'slug': 'motive',
+  'board': 'https://www.welcometothejungle.com/fr/companies/motive',
+  'group': 'Welcome to the Jungle'},  # 42 jobs
+ {'name': 'MRI Software', 'kind': 'wttj_company', 'slug': 'mri-software',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mri-software',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Multiverse', 'kind': 'wttj_company', 'slug': 'multiverse-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/multiverse-1',
+  'group': 'Welcome to the Jungle'},  # 43 jobs
+ {'name': 'Multiverse Computing', 'kind': 'wttj_company', 'slug': 'multiverse-computing',
+  'board': 'https://www.welcometothejungle.com/fr/companies/multiverse-computing',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Music World Media', 'kind': 'wttj_company', 'slug': 'music-world-media',
+  'board': 'https://www.welcometothejungle.com/fr/companies/music-world-media',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Mutiny', 'kind': 'wttj_company', 'slug': 'mutiny',
+  'board': 'https://www.welcometothejungle.com/fr/companies/mutiny',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Naratis', 'kind': 'wttj_company', 'slug': 'vaquita',
+  'board': 'https://www.welcometothejungle.com/fr/companies/vaquita',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'NavVis', 'kind': 'wttj_company', 'slug': 'navvis',
+  'board': 'https://www.welcometothejungle.com/fr/companies/navvis',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Nayya', 'kind': 'wttj_company', 'slug': 'nayya',
+  'board': 'https://www.welcometothejungle.com/fr/companies/nayya',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'NEC Software Solutions', 'kind': 'wttj_company', 'slug': 'nec-software-solutions',
+  'board': 'https://www.welcometothejungle.com/fr/companies/nec-software-solutions',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Netomi', 'kind': 'wttj_company', 'slug': 'netomi',
+  'board': 'https://www.welcometothejungle.com/fr/companies/netomi',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Netradyne', 'kind': 'wttj_company', 'slug': 'netradyne',
+  'board': 'https://www.welcometothejungle.com/fr/companies/netradyne',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'NewsBreak', 'kind': 'wttj_company', 'slug': 'newsbreak',
+  'board': 'https://www.welcometothejungle.com/fr/companies/newsbreak',
+  'group': 'Welcome to the Jungle'},  # 39 jobs
+ {'name': 'NewtonX', 'kind': 'wttj_company', 'slug': 'newtonx',
+  'board': 'https://www.welcometothejungle.com/fr/companies/newtonx',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'NextRoll', 'kind': 'wttj_company', 'slug': 'nextroll',
+  'board': 'https://www.welcometothejungle.com/fr/companies/nextroll',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Nooks', 'kind': 'wttj_company', 'slug': 'nooks',
+  'board': 'https://www.welcometothejungle.com/fr/companies/nooks',
+  'group': 'Welcome to the Jungle'},  # 47 jobs
+ {'name': 'Norm AI', 'kind': 'wttj_company', 'slug': 'norm-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/norm-ai',
+  'group': 'Welcome to the Jungle'},  # 12 jobs
+ {'name': 'Normal Computing', 'kind': 'wttj_company', 'slug': 'normal-computing',
+  'board': 'https://www.welcometothejungle.com/fr/companies/normal-computing',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Northbeam', 'kind': 'wttj_company', 'slug': 'northbeam',
+  'board': 'https://www.welcometothejungle.com/fr/companies/northbeam',
+  'group': 'Welcome to the Jungle'},  # 20 jobs
+ {'name': 'Nosto', 'kind': 'wttj_company', 'slug': 'nosto',
+  'board': 'https://www.welcometothejungle.com/fr/companies/nosto',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'nuvo', 'kind': 'wttj_company', 'slug': 'nuvo',
+  'board': 'https://www.welcometothejungle.com/fr/companies/nuvo',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Obligo', 'kind': 'wttj_company', 'slug': 'obligo',
+  'board': 'https://www.welcometothejungle.com/fr/companies/obligo',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Observe.AI', 'kind': 'wttj_company', 'slug': 'observe-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/observe-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'ODAIA', 'kind': 'wttj_company', 'slug': 'odaia',
+  'board': 'https://www.welcometothejungle.com/fr/companies/odaia',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'OLX Group', 'kind': 'wttj_company', 'slug': 'olx-group',
+  'board': 'https://www.welcometothejungle.com/fr/companies/olx-group',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Omaha Insights', 'kind': 'wttj_company', 'slug': 'omaha',
+  'board': 'https://www.welcometothejungle.com/fr/companies/omaha',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Omnea', 'kind': 'wttj_company', 'slug': 'omnea',
+  'board': 'https://www.welcometothejungle.com/fr/companies/omnea',
+  'group': 'Welcome to the Jungle'},  # 38 jobs
+ {'name': 'Omnidian', 'kind': 'wttj_company', 'slug': 'omnidian',
+  'board': 'https://www.welcometothejungle.com/fr/companies/omnidian',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'OnCorps AI', 'kind': 'wttj_company', 'slug': 'oncorps-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/oncorps-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Onebrief', 'kind': 'wttj_company', 'slug': 'onebrief',
+  'board': 'https://www.welcometothejungle.com/fr/companies/onebrief',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Ontra', 'kind': 'wttj_company', 'slug': 'ontra',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ontra',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Open Cosmos', 'kind': 'wttj_company', 'slug': 'open-cosmos',
+  'board': 'https://www.welcometothejungle.com/fr/companies/open-cosmos',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'OpenText', 'kind': 'wttj_company', 'slug': 'opentext',
+  'board': 'https://www.welcometothejungle.com/fr/companies/opentext',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Oportun', 'kind': 'wttj_company', 'slug': 'oportun',
+  'board': 'https://www.welcometothejungle.com/fr/companies/oportun',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Optimove', 'kind': 'wttj_company', 'slug': 'optimove',
+  'board': 'https://www.welcometothejungle.com/fr/companies/optimove',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Orasio', 'kind': 'wttj_company', 'slug': 'orasio',
+  'board': 'https://www.welcometothejungle.com/fr/companies/orasio',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Orum', 'kind': 'wttj_company', 'slug': 'orum',
+  'board': 'https://www.welcometothejungle.com/fr/companies/orum',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Osaro', 'kind': 'wttj_company', 'slug': 'osaro',
+  'board': 'https://www.welcometothejungle.com/fr/companies/osaro',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'OTERIA', 'kind': 'wttj_company', 'slug': 'oteriacyberschool',
+  'board': 'https://www.welcometothejungle.com/fr/companies/oteriacyberschool',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Otter.ai', 'kind': 'wttj_company', 'slug': 'otter-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/otter-ai',
+  'group': 'Welcome to the Jungle'},  # 19 jobs
+ {'name': 'Outreach', 'kind': 'wttj_company', 'slug': 'outreach',
+  'board': 'https://www.welcometothejungle.com/fr/companies/outreach',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Overstory', 'kind': 'wttj_company', 'slug': 'overstory',
+  'board': 'https://www.welcometothejungle.com/fr/companies/overstory',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'Owl Labs', 'kind': 'wttj_company', 'slug': 'owl-labs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/owl-labs',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Pagaya Investments', 'kind': 'wttj_company', 'slug': 'pagaya-investments',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pagaya-investments',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'PagerDuty', 'kind': 'wttj_company', 'slug': 'pagerduty',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pagerduty',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'PAIR Finance', 'kind': 'wttj_company', 'slug': 'pair-finance',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pair-finance',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Pallet', 'kind': 'wttj_company', 'slug': 'pallet',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pallet',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'Panaya', 'kind': 'wttj_company', 'slug': 'panaya',
+  'board': 'https://www.welcometothejungle.com/fr/companies/panaya',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Pano AI', 'kind': 'wttj_company', 'slug': 'pano-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pano-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Papaya', 'kind': 'wttj_company', 'slug': 'papaya-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/papaya-1',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Parloa', 'kind': 'wttj_company', 'slug': 'parloa',
+  'board': 'https://www.welcometothejungle.com/fr/companies/parloa',
+  'group': 'Welcome to the Jungle'},  # 23 jobs
+ {'name': 'Partnerize', 'kind': 'wttj_company', 'slug': 'partnerize',
+  'board': 'https://www.welcometothejungle.com/fr/companies/partnerize',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'PathAI', 'kind': 'wttj_company', 'slug': 'pathai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pathai',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Pathway', 'kind': 'wttj_company', 'slug': 'pathway',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pathway',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Pattern Bioscience', 'kind': 'wttj_company', 'slug': 'pattern-bioscience',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pattern-bioscience',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'PayZen', 'kind': 'wttj_company', 'slug': 'payzen',
+  'board': 'https://www.welcometothejungle.com/fr/companies/payzen',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Pearl', 'kind': 'wttj_company', 'slug': 'pearl',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pearl',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Pentera', 'kind': 'wttj_company', 'slug': 'pentera',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pentera',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'People.ai', 'kind': 'wttj_company', 'slug': 'people-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/people-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'PermitFlow', 'kind': 'wttj_company', 'slug': 'permitflow',
+  'board': 'https://www.welcometothejungle.com/fr/companies/permitflow',
+  'group': 'Welcome to the Jungle'},  # 31 jobs
+ {'name': 'Perplexity AI', 'kind': 'wttj_company', 'slug': 'perplexity-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/perplexity-ai',
+  'group': 'Welcome to the Jungle'},  # 100 jobs
+ {'name': 'Personalis', 'kind': 'wttj_company', 'slug': 'personalis',
+  'board': 'https://www.welcometothejungle.com/fr/companies/personalis',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Phagos', 'kind': 'wttj_company', 'slug': 'phagos-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/phagos-1',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Phaidra', 'kind': 'wttj_company', 'slug': 'phaidra',
+  'board': 'https://www.welcometothejungle.com/fr/companies/phaidra',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Pimloc', 'kind': 'wttj_company', 'slug': 'pimloc',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pimloc',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Pinewood.AI', 'kind': 'wttj_company', 'slug': 'pinewood-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pinewood-ai',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Plain Concepts', 'kind': 'wttj_company', 'slug': 'plain-concepts',
+  'board': 'https://www.welcometothejungle.com/fr/companies/plain-concepts',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Plume Design', 'kind': 'wttj_company', 'slug': 'plume-design',
+  'board': 'https://www.welcometothejungle.com/fr/companies/plume-design',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'PlusAI', 'kind': 'wttj_company', 'slug': 'plusai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/plusai',
+  'group': 'Welcome to the Jungle'},  # 29 jobs
+ {'name': 'Pony.ai', 'kind': 'wttj_company', 'slug': 'pony-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pony-ai',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Praktika.ai', 'kind': 'wttj_company', 'slug': 'praktika-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/praktika-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Procurement Sciences AI', 'kind': 'wttj_company', 'slug': 'procurement-sciences-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/procurement-sciences-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Protex AI', 'kind': 'wttj_company', 'slug': 'protex-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/protex-ai',
+  'group': 'Welcome to the Jungle'},  # 13 jobs
+ {'name': 'Proton.ai', 'kind': 'wttj_company', 'slug': 'proton-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/proton-ai',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Proximie', 'kind': 'wttj_company', 'slug': 'proximie',
+  'board': 'https://www.welcometothejungle.com/fr/companies/proximie',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'PulsePoint', 'kind': 'wttj_company', 'slug': 'pulsepoint',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pulsepoint',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Pyl.tech', 'kind': 'wttj_company', 'slug': 'pyl-tech',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pyl-tech',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Pôle Sud', 'kind': 'wttj_company', 'slug': 'pole-sud-1',
+  'board': 'https://www.welcometothejungle.com/fr/companies/pole-sud-1',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Quantexa', 'kind': 'wttj_company', 'slug': 'quantexa',
+  'board': 'https://www.welcometothejungle.com/fr/companies/quantexa',
+  'group': 'Welcome to the Jungle'},  # 16 jobs
+ {'name': 'quantilope', 'kind': 'wttj_company', 'slug': 'quantilope',
+  'board': 'https://www.welcometothejungle.com/fr/companies/quantilope',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Quantinuum', 'kind': 'wttj_company', 'slug': 'quantinuum',
+  'board': 'https://www.welcometothejungle.com/fr/companies/quantinuum',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Quinyx', 'kind': 'wttj_company', 'slug': 'quinyx',
+  'board': 'https://www.welcometothejungle.com/fr/companies/quinyx',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Quora', 'kind': 'wttj_company', 'slug': 'quora',
+  'board': 'https://www.welcometothejungle.com/fr/companies/quora',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Rad AI', 'kind': 'wttj_company', 'slug': 'rad-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/rad-ai',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Radar', 'kind': 'wttj_company', 'slug': 'radar',
+  'board': 'https://www.welcometothejungle.com/fr/companies/radar',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Range', 'kind': 'wttj_company', 'slug': 'range',
+  'board': 'https://www.welcometothejungle.com/fr/companies/range',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'RapidAI', 'kind': 'wttj_company', 'slug': 'rapidai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/rapidai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Reach Security', 'kind': 'wttj_company', 'slug': 'reach-security',
+  'board': 'https://www.welcometothejungle.com/fr/companies/reach-security',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'RealAdvisor', 'kind': 'wttj_company', 'slug': 'realadvisor',
+  'board': 'https://www.welcometothejungle.com/fr/companies/realadvisor',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'Reality Defender', 'kind': 'wttj_company', 'slug': 'reality-defender',
+  'board': 'https://www.welcometothejungle.com/fr/companies/reality-defender',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Relativity Space', 'kind': 'wttj_company', 'slug': 'relativity-space',
+  'board': 'https://www.welcometothejungle.com/fr/companies/relativity-space',
+  'group': 'Welcome to the Jungle'},  # 50 jobs
+ {'name': 'Relay Therapeutics', 'kind': 'wttj_company', 'slug': 'relay-therapeutics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/relay-therapeutics',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Relex', 'kind': 'wttj_company', 'slug': 'relex',
+  'board': 'https://www.welcometothejungle.com/fr/companies/relex',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Replicant', 'kind': 'wttj_company', 'slug': 'replicant',
+  'board': 'https://www.welcometothejungle.com/fr/companies/replicant',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Replika', 'kind': 'wttj_company', 'slug': 'replika',
+  'board': 'https://www.welcometothejungle.com/fr/companies/replika',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Resolver', 'kind': 'wttj_company', 'slug': 'resolver',
+  'board': 'https://www.welcometothejungle.com/fr/companies/resolver',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Revenue', 'kind': 'wttj_company', 'slug': 'revenue',
+  'board': 'https://www.welcometothejungle.com/fr/companies/revenue',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Revv', 'kind': 'wttj_company', 'slug': 'revv',
+  'board': 'https://www.welcometothejungle.com/fr/companies/revv',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Rigetti Computing', 'kind': 'wttj_company', 'slug': 'rigetti-computing',
+  'board': 'https://www.welcometothejungle.com/fr/companies/rigetti-computing',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Right-Hand', 'kind': 'wttj_company', 'slug': 'right-hand',
+  'board': 'https://www.welcometothejungle.com/fr/companies/right-hand',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Ripjar', 'kind': 'wttj_company', 'slug': 'ripjar',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ripjar',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Riskified', 'kind': 'wttj_company', 'slug': 'riskified',
+  'board': 'https://www.welcometothejungle.com/fr/companies/riskified',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Rivercell', 'kind': 'wttj_company', 'slug': 'rivercell',
+  'board': 'https://www.welcometothejungle.com/fr/companies/rivercell',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Rokt', 'kind': 'wttj_company', 'slug': 'rokt',
+  'board': 'https://www.welcometothejungle.com/fr/companies/rokt',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Root Global', 'kind': 'wttj_company', 'slug': 'root-global',
+  'board': 'https://www.welcometothejungle.com/fr/companies/root-global',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Rootly', 'kind': 'wttj_company', 'slug': 'rootly',
+  'board': 'https://www.welcometothejungle.com/fr/companies/rootly',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Rotageek', 'kind': 'wttj_company', 'slug': 'rotageek',
+  'board': 'https://www.welcometothejungle.com/fr/companies/rotageek',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Safe Security', 'kind': 'wttj_company', 'slug': 'safe-security',
+  'board': 'https://www.welcometothejungle.com/fr/companies/safe-security',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Sahara AI', 'kind': 'wttj_company', 'slug': 'sahara-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sahara-ai',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Salt Security', 'kind': 'wttj_company', 'slug': 'salt-security',
+  'board': 'https://www.welcometothejungle.com/fr/companies/salt-security',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Samaya', 'kind': 'wttj_company', 'slug': 'samaya',
+  'board': 'https://www.welcometothejungle.com/fr/companies/samaya',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Samba TV', 'kind': 'wttj_company', 'slug': 'samba-tv',
+  'board': 'https://www.welcometothejungle.com/fr/companies/samba-tv',
+  'group': 'Welcome to the Jungle'},  # 33 jobs
+ {'name': 'SambaNova Systems', 'kind': 'wttj_company', 'slug': 'sambanova-systems',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sambanova-systems',
+  'group': 'Welcome to the Jungle'},  # 27 jobs
+ {'name': 'Sancare', 'kind': 'wttj_company', 'slug': 'sancare',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sancare',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Sardine', 'kind': 'wttj_company', 'slug': 'sardine',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sardine',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'Saronic', 'kind': 'wttj_company', 'slug': 'saronic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/saronic',
+  'group': 'Welcome to the Jungle'},  # 48 jobs
+ {'name': 'Scandit', 'kind': 'wttj_company', 'slug': 'scandit',
+  'board': 'https://www.welcometothejungle.com/fr/companies/scandit',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'SchooLinks', 'kind': 'wttj_company', 'slug': 'schoolinks',
+  'board': 'https://www.welcometothejungle.com/fr/companies/schoolinks',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Sea Machines Robotics', 'kind': 'wttj_company', 'slug': 'sea-machines-robotics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sea-machines-robotics',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'SeeChange Technologies', 'kind': 'wttj_company', 'slug': 'seechange-technologies',
+  'board': 'https://www.welcometothejungle.com/fr/companies/seechange-technologies',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Sense', 'kind': 'wttj_company', 'slug': 'sense',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sense',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Sensi.AI', 'kind': 'wttj_company', 'slug': 'sensi-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sensi-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'SentinelOne', 'kind': 'wttj_company', 'slug': 'sentinelone',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sentinelone',
+  'group': 'Welcome to the Jungle'},  # 57 jobs
+ {'name': 'SEON', 'kind': 'wttj_company', 'slug': 'seon',
+  'board': 'https://www.welcometothejungle.com/fr/companies/seon',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Shield AI', 'kind': 'wttj_company', 'slug': 'shield-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/shield-ai',
+  'group': 'Welcome to the Jungle'},  # 47 jobs
+ {'name': 'Siena', 'kind': 'wttj_company', 'slug': 'siena',
+  'board': 'https://www.welcometothejungle.com/fr/companies/siena',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Sift', 'kind': 'wttj_company', 'slug': 'sift',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sift',
+  'group': 'Welcome to the Jungle'},  # 34 jobs
+ {'name': 'Simbe', 'kind': 'wttj_company', 'slug': 'simbe',
+  'board': 'https://www.welcometothejungle.com/fr/companies/simbe',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Simple Machines', 'kind': 'wttj_company', 'slug': 'simple-machines',
+  'board': 'https://www.welcometothejungle.com/fr/companies/simple-machines',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Sinch', 'kind': 'wttj_company', 'slug': 'sinch',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sinch',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Siro', 'kind': 'wttj_company', 'slug': 'siro',
+  'board': 'https://www.welcometothejungle.com/fr/companies/siro',
+  'group': 'Welcome to the Jungle'},  # 16 jobs
+ {'name': 'SkinVision', 'kind': 'wttj_company', 'slug': 'skinvision',
+  'board': 'https://www.welcometothejungle.com/fr/companies/skinvision',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Skydio', 'kind': 'wttj_company', 'slug': 'skydio',
+  'board': 'https://www.welcometothejungle.com/fr/companies/skydio',
+  'group': 'Welcome to the Jungle'},  # 60 jobs
+ {'name': 'Skyral', 'kind': 'wttj_company', 'slug': 'skyral',
+  'board': 'https://www.welcometothejungle.com/fr/companies/skyral',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'SkySpecs', 'kind': 'wttj_company', 'slug': 'skyspecs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/skyspecs',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Skyways', 'kind': 'wttj_company', 'slug': 'skyways',
+  'board': 'https://www.welcometothejungle.com/fr/companies/skyways',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Slingshot Aerospace', 'kind': 'wttj_company', 'slug': 'slingshot-aerospace',
+  'board': 'https://www.welcometothejungle.com/fr/companies/slingshot-aerospace',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Smartly.io', 'kind': 'wttj_company', 'slug': 'smartly-io',
+  'board': 'https://www.welcometothejungle.com/fr/companies/smartly-io',
+  'group': 'Welcome to the Jungle'},  # 19 jobs
+ {'name': 'SnapLogic', 'kind': 'wttj_company', 'slug': 'snaplogic',
+  'board': 'https://www.welcometothejungle.com/fr/companies/snaplogic',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Snapsheet', 'kind': 'wttj_company', 'slug': 'snapsheet',
+  'board': 'https://www.welcometothejungle.com/fr/companies/snapsheet',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Snorkel AI', 'kind': 'wttj_company', 'slug': 'snorkel-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/snorkel-ai',
+  'group': 'Welcome to the Jungle'},  # 32 jobs
+ {'name': 'SOCi', 'kind': 'wttj_company', 'slug': 'soci',
+  'board': 'https://www.welcometothejungle.com/fr/companies/soci',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Socure', 'kind': 'wttj_company', 'slug': 'socure',
+  'board': 'https://www.welcometothejungle.com/fr/companies/socure',
+  'group': 'Welcome to the Jungle'},  # 57 jobs
+ {'name': 'Solidus Labs', 'kind': 'wttj_company', 'slug': 'solidus-labs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/solidus-labs',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'SOPHiA GENETICS', 'kind': 'wttj_company', 'slug': 'sophia-genetics',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sophia-genetics',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Sophos', 'kind': 'wttj_company', 'slug': 'sophos',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sophos',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'SoundHound AI', 'kind': 'wttj_company', 'slug': 'soundhound-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/soundhound-ai',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Speak', 'kind': 'wttj_company', 'slug': 'speak',
+  'board': 'https://www.welcometothejungle.com/fr/companies/speak',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'Speechify', 'kind': 'wttj_company', 'slug': 'speechify',
+  'board': 'https://www.welcometothejungle.com/fr/companies/speechify',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'SponsorUnited', 'kind': 'wttj_company', 'slug': 'sponsorunited',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sponsorunited',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Spot AI', 'kind': 'wttj_company', 'slug': 'spot-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/spot-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'SPREAD AI', 'kind': 'wttj_company', 'slug': 'spread-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/spread-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Sprig', 'kind': 'wttj_company', 'slug': 'sprig',
+  'board': 'https://www.welcometothejungle.com/fr/companies/sprig',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Square Enix', 'kind': 'wttj_company', 'slug': 'square-enix',
+  'board': 'https://www.welcometothejungle.com/fr/companies/square-enix',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Stability AI', 'kind': 'wttj_company', 'slug': 'stability-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/stability-ai',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Standard Bots', 'kind': 'wttj_company', 'slug': 'standard-bots',
+  'board': 'https://www.welcometothejungle.com/fr/companies/standard-bots',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'SuiteSpot', 'kind': 'wttj_company', 'slug': 'suitespot',
+  'board': 'https://www.welcometothejungle.com/fr/companies/suitespot',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Suki', 'kind': 'wttj_company', 'slug': 'suki',
+  'board': 'https://www.welcometothejungle.com/fr/companies/suki',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Super Annotate', 'kind': 'wttj_company', 'slug': 'super-annotate',
+  'board': 'https://www.welcometothejungle.com/fr/companies/super-annotate',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'super.AI', 'kind': 'wttj_company', 'slug': 'super-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/super-ai',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Swapcard', 'kind': 'wttj_company', 'slug': 'swapcard',
+  'board': 'https://www.welcometothejungle.com/fr/companies/swapcard',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Swayable', 'kind': 'wttj_company', 'slug': 'swayable',
+  'board': 'https://www.welcometothejungle.com/fr/companies/swayable',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'System', 'kind': 'wttj_company', 'slug': 'system',
+  'board': 'https://www.welcometothejungle.com/fr/companies/system',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Tabs', 'kind': 'wttj_company', 'slug': 'tabs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tabs',
+  'group': 'Welcome to the Jungle'},  # 20 jobs
+ {'name': 'tacton', 'kind': 'wttj_company', 'slug': 'tacton',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tacton',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Taktile', 'kind': 'wttj_company', 'slug': 'taktile',
+  'board': 'https://www.welcometothejungle.com/fr/companies/taktile',
+  'group': 'Welcome to the Jungle'},  # 31 jobs
+ {'name': 'Tandem Health', 'kind': 'wttj_company', 'slug': 'tandem-health-global-sas',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tandem-health-global-sas',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Tavus', 'kind': 'wttj_company', 'slug': 'tavus',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tavus',
+  'group': 'Welcome to the Jungle'},  # 13 jobs
+ {'name': 'TBAuctions', 'kind': 'wttj_company', 'slug': 'tbauctions',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tbauctions',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'TEAMWAY', 'kind': 'wttj_company', 'slug': 'teamway',
+  'board': 'https://www.welcometothejungle.com/fr/companies/teamway',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Techspert', 'kind': 'wttj_company', 'slug': 'techspert',
+  'board': 'https://www.welcometothejungle.com/fr/companies/techspert',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Tenable', 'kind': 'wttj_company', 'slug': 'tenable',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tenable',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Tennr', 'kind': 'wttj_company', 'slug': 'tennr',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tennr',
+  'group': 'Welcome to the Jungle'},  # 23 jobs
+ {'name': 'Tensordyne', 'kind': 'wttj_company', 'slug': 'tensordyne',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tensordyne',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'TetraScience', 'kind': 'wttj_company', 'slug': 'tetrascience',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tetrascience',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'text.cortex', 'kind': 'wttj_company', 'slug': 'text-cortex',
+  'board': 'https://www.welcometothejungle.com/fr/companies/text-cortex',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Textio', 'kind': 'wttj_company', 'slug': 'textio',
+  'board': 'https://www.welcometothejungle.com/fr/companies/textio',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Thread AI', 'kind': 'wttj_company', 'slug': 'thread-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/thread-ai',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'TIFIN', 'kind': 'wttj_company', 'slug': 'tifin',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tifin',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Tiger Data', 'kind': 'wttj_company', 'slug': 'tiger-data',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tiger-data',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Tipalti', 'kind': 'wttj_company', 'slug': 'tipalti',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tipalti',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'Tome', 'kind': 'wttj_company', 'slug': 'tome',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tome',
+  'group': 'Welcome to the Jungle'},  # 18 jobs
+ {'name': 'Topline Pro', 'kind': 'wttj_company', 'slug': 'topline-pro',
+  'board': 'https://www.welcometothejungle.com/fr/companies/topline-pro',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Topsort', 'kind': 'wttj_company', 'slug': 'topsort',
+  'board': 'https://www.welcometothejungle.com/fr/companies/topsort',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Torq', 'kind': 'wttj_company', 'slug': 'torq',
+  'board': 'https://www.welcometothejungle.com/fr/companies/torq',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'traide', 'kind': 'wttj_company', 'slug': 'traide',
+  'board': 'https://www.welcometothejungle.com/fr/companies/traide',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'TribalScale', 'kind': 'wttj_company', 'slug': 'tribalscale',
+  'board': 'https://www.welcometothejungle.com/fr/companies/tribalscale',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Trullion', 'kind': 'wttj_company', 'slug': 'trullion',
+  'board': 'https://www.welcometothejungle.com/fr/companies/trullion',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Trunk Tools', 'kind': 'wttj_company', 'slug': 'trunk-tools',
+  'board': 'https://www.welcometothejungle.com/fr/companies/trunk-tools',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Twelve Labs', 'kind': 'wttj_company', 'slug': 'twelve-labs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/twelve-labs',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Twin Health', 'kind': 'wttj_company', 'slug': 'twin-health',
+  'board': 'https://www.welcometothejungle.com/fr/companies/twin-health',
+  'group': 'Welcome to the Jungle'},  # 16 jobs
+ {'name': 'uberall', 'kind': 'wttj_company', 'slug': 'uberall',
+  'board': 'https://www.welcometothejungle.com/fr/companies/uberall',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'UJET', 'kind': 'wttj_company', 'slug': 'ujet',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ujet',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'UltraEdge', 'kind': 'wttj_company', 'slug': 'ultraedge',
+  'board': 'https://www.welcometothejungle.com/fr/companies/ultraedge',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'unitQ', 'kind': 'wttj_company', 'slug': 'unitq',
+  'board': 'https://www.welcometothejungle.com/fr/companies/unitq',
+  'group': 'Welcome to the Jungle'},  # 5 jobs
+ {'name': 'Unzer', 'kind': 'wttj_company', 'slug': 'unzer',
+  'board': 'https://www.welcometothejungle.com/fr/companies/unzer',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Updraft', 'kind': 'wttj_company', 'slug': 'updraft',
+  'board': 'https://www.welcometothejungle.com/fr/companies/updraft',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Urbint', 'kind': 'wttj_company', 'slug': 'urbint',
+  'board': 'https://www.welcometothejungle.com/fr/companies/urbint',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'UVeye', 'kind': 'wttj_company', 'slug': 'uveye',
+  'board': 'https://www.welcometothejungle.com/fr/companies/uveye',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Valdera', 'kind': 'wttj_company', 'slug': 'valdera',
+  'board': 'https://www.welcometothejungle.com/fr/companies/valdera',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Vectara', 'kind': 'wttj_company', 'slug': 'vectara',
+  'board': 'https://www.welcometothejungle.com/fr/companies/vectara',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Vectra AI', 'kind': 'wttj_company', 'slug': 'vectra-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/vectra-ai',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Vendelux', 'kind': 'wttj_company', 'slug': 'vendelux',
+  'board': 'https://www.welcometothejungle.com/fr/companies/vendelux',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Veriff', 'kind': 'wttj_company', 'slug': 'veriff',
+  'board': 'https://www.welcometothejungle.com/fr/companies/veriff',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Vic.ai', 'kind': 'wttj_company', 'slug': 'vic-ai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/vic-ai',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'VideaHealth', 'kind': 'wttj_company', 'slug': 'videahealth',
+  'board': 'https://www.welcometothejungle.com/fr/companies/videahealth',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'Vise', 'kind': 'wttj_company', 'slug': 'vise',
+  'board': 'https://www.welcometothejungle.com/fr/companies/vise',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Visian', 'kind': 'wttj_company', 'slug': 'visian',
+  'board': 'https://www.welcometothejungle.com/fr/companies/visian',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Viz', 'kind': 'wttj_company', 'slug': 'viz',
+  'board': 'https://www.welcometothejungle.com/fr/companies/viz',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Vocca', 'kind': 'wttj_company', 'slug': 'vocca',
+  'board': 'https://www.welcometothejungle.com/fr/companies/vocca',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'Volta software', 'kind': 'wttj_company', 'slug': 'volta',
+  'board': 'https://www.welcometothejungle.com/fr/companies/volta',
+  'group': 'Welcome to the Jungle'},  # 4 jobs
+ {'name': 'Voxel', 'kind': 'wttj_company', 'slug': 'voxel',
+  'board': 'https://www.welcometothejungle.com/fr/companies/voxel',
+  'group': 'Welcome to the Jungle'},  # 7 jobs
+ {'name': 'Voxie Inc', 'kind': 'wttj_company', 'slug': 'voxie-inc',
+  'board': 'https://www.welcometothejungle.com/fr/companies/voxie-inc',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Voyado', 'kind': 'wttj_company', 'slug': 'voyado',
+  'board': 'https://www.welcometothejungle.com/fr/companies/voyado',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Waiv, formerly Owkin Dx', 'kind': 'wttj_company', 'slug': 'waiv',
+  'board': 'https://www.welcometothejungle.com/fr/companies/waiv',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Wealth.com', 'kind': 'wttj_company', 'slug': 'wealth-com',
+  'board': 'https://www.welcometothejungle.com/fr/companies/wealth-com',
+  'group': 'Welcome to the Jungle'},  # 13 jobs
+ {'name': 'webAI', 'kind': 'wttj_company', 'slug': 'webai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/webai',
+  'group': 'Welcome to the Jungle'},  # 14 jobs
+ {'name': 'WEKA', 'kind': 'wttj_company', 'slug': 'weka',
+  'board': 'https://www.welcometothejungle.com/fr/companies/weka',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'WellSaid Labs', 'kind': 'wttj_company', 'slug': 'wellsaid-labs',
+  'board': 'https://www.welcometothejungle.com/fr/companies/wellsaid-labs',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Wilgo', 'kind': 'wttj_company', 'slug': 'bongoway',
+  'board': 'https://www.welcometothejungle.com/fr/companies/bongoway',
+  'group': 'Welcome to the Jungle'},  # 3 jobs
+ {'name': 'Windfall', 'kind': 'wttj_company', 'slug': 'windfall',
+  'board': 'https://www.welcometothejungle.com/fr/companies/windfall',
+  'group': 'Welcome to the Jungle'},  # 11 jobs
+ {'name': 'WireScreen', 'kind': 'wttj_company', 'slug': 'wirescreen',
+  'board': 'https://www.welcometothejungle.com/fr/companies/wirescreen',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Workato', 'kind': 'wttj_company', 'slug': 'workato',
+  'board': 'https://www.welcometothejungle.com/fr/companies/workato',
+  'group': 'Welcome to the Jungle'},  # 21 jobs
+ {'name': 'Writer', 'kind': 'wttj_company', 'slug': 'writer',
+  'board': 'https://www.welcometothejungle.com/fr/companies/writer',
+  'group': 'Welcome to the Jungle'},  # 29 jobs
+ {'name': 'xAI', 'kind': 'wttj_company', 'slug': 'xai',
+  'board': 'https://www.welcometothejungle.com/fr/companies/xai',
+  'group': 'Welcome to the Jungle'},  # 74 jobs
+ {'name': 'YESWEHACK', 'kind': 'wttj_company', 'slug': 'yeswehack',
+  'board': 'https://www.welcometothejungle.com/fr/companies/yeswehack',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Yext', 'kind': 'wttj_company', 'slug': 'yext',
+  'board': 'https://www.welcometothejungle.com/fr/companies/yext',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'you.com', 'kind': 'wttj_company', 'slug': 'you-com',
+  'board': 'https://www.welcometothejungle.com/fr/companies/you-com',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'Yourban', 'kind': 'wttj_company', 'slug': 'yourban',
+  'board': 'https://www.welcometothejungle.com/fr/companies/yourban',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Yxir', 'kind': 'wttj_company', 'slug': 'yxir',
+  'board': 'https://www.welcometothejungle.com/fr/companies/yxir',
+  'group': 'Welcome to the Jungle'},  # 2 jobs
+ {'name': 'zaizi', 'kind': 'wttj_company', 'slug': 'zaizi',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zaizi',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
+ {'name': 'Zefir', 'kind': 'wttj_company', 'slug': 'zefir',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zefir',
+  'group': 'Welcome to the Jungle'},  # 9 jobs
+ {'name': 'Zeitview', 'kind': 'wttj_company', 'slug': 'zeitview',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zeitview',
+  'group': 'Welcome to the Jungle'},  # 6 jobs
+ {'name': 'Zendar', 'kind': 'wttj_company', 'slug': 'zendar',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zendar',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'Zenika', 'kind': 'wttj_company', 'slug': 'zenika',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zenika',
+  'group': 'Welcome to the Jungle'},  # 51 jobs
+ {'name': 'Zilliz', 'kind': 'wttj_company', 'slug': 'zilliz',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zilliz',
+  'group': 'Welcome to the Jungle'},  # 8 jobs
+ {'name': 'ZILO', 'kind': 'wttj_company', 'slug': 'zilo',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zilo',
+  'group': 'Welcome to the Jungle'},  # 1 jobs
+ {'name': 'ZoomInfo', 'kind': 'wttj_company', 'slug': 'zoominfo',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zoominfo',
+  'group': 'Welcome to the Jungle'},  # 15 jobs
+ {'name': 'Zum', 'kind': 'wttj_company', 'slug': 'zum',
+  'board': 'https://www.welcometothejungle.com/fr/companies/zum',
+  'group': 'Welcome to the Jungle'},  # 10 jobs
  {'name': 'Fhenix',
   'kind': 'pw',
   'slug': 'fhenix',

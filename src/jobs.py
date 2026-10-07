@@ -7261,7 +7261,16 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
           for (const entry of s.runaway) _showRunawayModal(entry);
         }
         if (s.status === 'running') {
-          const msg = label + '… ' + s.elapsed + 's';
+          // Mirror onboarding's "N/M · latest · working on" line so the
+          // user sees which sources have landed instead of a bare timer.
+          const parts = [label + '… ' + s.elapsed + 's'];
+          const p = s.progress || null;
+          if (p && p.total) {
+            parts.push(p.done_count + ' / ' + p.total + ' companies fetched');
+            if (p.last_done) parts.push('latest: ' + p.last_done);
+            if (p.currently_working) parts.push('working on: ' + p.currently_working);
+          }
+          const msg = parts.join(' · ');
           status.textContent = msg;
           _showFloater(msg);
         } else if (s.status === 'done') {
@@ -9609,6 +9618,50 @@ _refresh_state = {"status": "idle", "started_at": None, "error": None, "log_tail
 _refresh_lock = threading.Lock()
 
 
+def _refresh_progress():
+    """Mirror onboarding's _launch_progress: inspect LIST_CACHE_DIR for
+    JSON files written since the refresh started, so the browser floater
+    can show "N/M fetched · latest: X · working on: Y" instead of a bare
+    elapsed-seconds counter. Each successful source fetch writes one
+    JSON file, so file count = completed source count."""
+    with _refresh_lock:
+        started = _refresh_state["started_at"]
+    total = sum(1 for s in SOURCES if s.get("name"))
+    slug_to_name = {slug(s["name"]): s["name"] for s in SOURCES if s.get("name")}
+    done = []
+    if started is not None and os.path.isdir(LIST_CACHE_DIR):
+        try:
+            for name in os.listdir(LIST_CACHE_DIR):
+                if not name.endswith(".json"):
+                    continue
+                try:
+                    mtime = os.path.getmtime(os.path.join(LIST_CACHE_DIR, name))
+                except OSError:
+                    continue
+                # Only count files written after the refresh kicked off —
+                # defends against stale caches from a prior session being
+                # mistaken for current-run progress.
+                if mtime >= started:
+                    done.append((name[:-5], mtime))
+        except OSError:
+            pass
+    done.sort(key=lambda x: x[1])
+    done_slugs = {s for s, _ in done}
+    last_done = slug_to_name.get(done[-1][0], done[-1][0]) if done else None
+    currently_working = None
+    for s in SOURCES:
+        nm = s.get("name")
+        if nm and slug(nm) not in done_slugs:
+            currently_working = nm
+            break
+    return {
+        "done_count": len(done),
+        "total": total,
+        "last_done": last_done,
+        "currently_working": currently_working,
+    }
+
+
 def _run_refresh_subprocess(mode="refresh"):
     """Regenerate jobs.html in a subprocess. Updates _refresh_state."""
     global _refresh_state
@@ -10090,6 +10143,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "error": st["error"],
                 "log_tail": st["log_tail"],
                 "runaway": runaway,
+                "progress": _refresh_progress(),
             }).encode()
             self.send_response(200); self._cors()
             self.send_header("Content-Type", "application/json")
