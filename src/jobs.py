@@ -9286,9 +9286,9 @@ document.querySelectorAll('.reject-section').forEach(btn => {
   });
 });
 
-// Unfollow: drop this company from data/user_config.py SOURCES. Prompts
-// first (not undoable from Cmd+Z — the backup file on disk is the only
-// recovery). On success we hide the section immediately so the board
+// Unfollow: drop this company from data/user_config.py SOURCES. No confirm
+// prompt — the on-disk backup is the recovery path if the click was a
+// mistake. On success we hide the section immediately so the board
 // reflects the new state without waiting for a refresh.
 document.querySelectorAll('.unfollow-company').forEach(btn => {
   btn.addEventListener('click', async (e) => {
@@ -9297,7 +9297,6 @@ document.querySelectorAll('.unfollow-company').forEach(btn => {
     const name = btn.dataset.name;
     const sid = btn.dataset.sid;
     if (!name) return;
-    if (!confirm('Unfollow ' + name + '? You will stop seeing their jobs.')) return;
     btn.disabled = true;
     try {
       const base = location.protocol === 'file:' ? SERVER_URL : '';
