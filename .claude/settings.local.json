@@ -24,7 +24,10 @@
       "Bash(grep \"Ran \\\\|OK$\\\\|FAIL\")",
       "Bash(git check-ignore *)",
       "Bash(make kill *)",
-      "Bash(PYTHONPATH=src python3 src/jobs.py --help)"
+      "Bash(PYTHONPATH=src python3 src/jobs.py --help)",
+      "Bash(rm -rf /tmp/jobs-oss-test)",
+      "Bash(bash /workspace/script/export-opensource.sh /tmp/jobs-oss-test)",
+      "Read(//tmp/jobs-oss-test/**)"
     ]
   }
 }

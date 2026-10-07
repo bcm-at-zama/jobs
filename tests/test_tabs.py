@@ -1,9 +1,10 @@
 """Primary-tabs rendering.
 
-render_html_tabs() emits the 7 tab buttons (All / Liked / To Apply /
-Pipeline / Top fit / Spontaneous / New) that drive the per-view presets
-on the client side. The JS reads the data-tab attribute to look up its
-preset in TAB_PRESETS, so the IDs must stay stable.
+render_html_tabs() emits the 8 tab buttons (All / New / Untouched /
+Ranked / Spontaneous / Liked / To Apply / Pipeline) that drive the
+per-view presets on the client side. The JS reads the data-tab
+attribute to look up its preset in TAB_PRESETS, so the IDs must stay
+stable.
 
 Run:  python3 -m unittest tests.test_tabs
 """
@@ -14,7 +15,7 @@ import jobs
 
 class TestRenderHtmlTabs(unittest.TestCase):
 
-    EXPECTED_IDS = ["all", "new", "ranked", "spontaneous",
+    EXPECTED_IDS = ["all", "new", "untouched", "ranked", "spontaneous",
                     "liked", "toapply", "pipeline"]
 
     def test_all_tab_ids_present(self):
@@ -38,6 +39,27 @@ class TestRenderHtmlTabs(unittest.TestCase):
             self.assertGreater(pos, -1, f"{tid} not rendered")
         sorted_by_pos = sorted(positions, key=lambda kv: kv[1])
         self.assertEqual([tid for tid, _ in sorted_by_pos], self.EXPECTED_IDS)
+
+
+class TestUntouchedTab(unittest.TestCase):
+    """Untouched = jobs with none of liked/toapply/applied/app-rejected.
+    Sits between New and Ranked. Must be wired through the three parallel
+    structures: TABS (Python), TAB_PRESETS + CSS + counter (JS). We only
+    inspect the rendered HTML blob here — the JS side has no node runtime
+    in our test env — but the per-tab CSS and the TAB_PRESETS/selectors/
+    counter strings all live in jobs.py's HTML template, so grepping the
+    full output catches regressions in any of them."""
+
+    def test_untouched_tab_sits_after_new(self):
+        out = jobs.render_html_tabs()
+        pos_new = out.find('data-tab="new"')
+        pos_unt = out.find('data-tab="untouched"')
+        pos_ranked = out.find('data-tab="ranked"')
+        self.assertGreater(pos_new, -1)
+        self.assertGreater(pos_unt, pos_new,
+                           "Untouched must come after New")
+        self.assertGreater(pos_ranked, pos_unt,
+                           "Ranked must come after Untouched")
 
 
 class TestFiltersStripped(unittest.TestCase):

@@ -4060,6 +4060,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
 TABS = [
     ("all",         "All"),
     ("new",         "New"),
+    ("untouched",   "Untouched"),
     ("ranked",      "Ranked"),
     ("spontaneous", "Spontaneous"),
     ("liked",       "Liked"),
@@ -4507,12 +4508,14 @@ HTML_TEMPLATE = """<!doctype html>
     .tab[data-tab="ranked"]      { color: #0969da;        border-left: 4px solid #0969da; }
     .tab[data-tab="spontaneous"] { color: var(--severe);  border-left: 4px solid var(--severe); }
     .tab[data-tab="new"]         { color: var(--danger-emphasis); border-left: 4px solid var(--danger-emphasis); }
+    .tab[data-tab="untouched"]   { color: var(--fg-muted);        border-left: 4px solid var(--fg-muted); }
     .tab[data-tab="liked"].active       { background: var(--success);        border-color: var(--success-emphasis); }
     .tab[data-tab="toapply"].active     { background: var(--danger);         border-color: var(--danger-emphasis); }
     .tab[data-tab="pipeline"].active    { background: #8250df;               border-color: #6639ba; }
     .tab[data-tab="ranked"].active      { background: #0969da;               border-color: var(--accent-emphasis); }
     .tab[data-tab="spontaneous"].active { background: var(--severe);         border-color: #a44215; }
     .tab[data-tab="new"].active         { background: var(--danger-emphasis); border-color: #7a0e1f; }
+    .tab[data-tab="untouched"].active   { background: var(--fg-muted);        border-color: var(--fg); }
     .tab.active { color: #ffffff; }
     /* ---- Shared per-tab visibility rules ------------------------------
        All, Ranked, Spontaneous, Top fit, New each already drive <li.job>
@@ -4562,6 +4565,19 @@ HTML_TEMPLATE = """<!doctype html>
     body.tab-new li.job:not(:has(.badge.new-badge)) { display: none; }
     body.tab-new .spontaneous-row { display: none; }
     body.tab-new .company-section:not(:has(li.job .badge.new-badge)) { display: none; }
+
+    /* Untouched tab: show only jobs the user has NOT acted on yet —
+       no +1, no To Apply, no Applied, no app-rejected. The raw review
+       pile. Rejected (×) rows are already filtered out server-side so
+       they don't need to be excluded here. Spontaneous rows live in
+       their own tab, so hide them too. Sections with zero untouched
+       rows collapse so the user isn't scrolling past empty headers. */
+    body.tab-untouched li.job.liked,
+    body.tab-untouched li.job.toapply,
+    body.tab-untouched li.job.applied,
+    body.tab-untouched li.job.app-rejected { display: none; }
+    body.tab-untouched .spontaneous-row { display: none; }
+    body.tab-untouched .company-section:not(:has(li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected))) { display: none; }
 
     /* Ranked tab: flat cross-company list sorted by Claude fit DESC.
        JS moves every <li.job> into #ranked-list; CSS hides the company
@@ -7116,6 +7132,7 @@ const TAB_PRESETS = {
   ranked:      'tab-ranked',
   spontaneous: 'tab-spontaneous',
   new:         'tab-new',
+  untouched:   'tab-untouched',
 };
 const _TAB_BODY_CLASSES = Object.values(TAB_PRESETS);
 // Which rows each tab's ⌘/Alt/Shift-click shortcuts should act on.
@@ -7129,6 +7146,7 @@ const TAB_URL_SELECTORS = {
   ranked:      'li.job',
   spontaneous: '.spontaneous-row',
   new:         'li.job:has(.badge.new-badge)',
+  untouched:   'li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected)',
 };
 
 // Ranked view: pull every <li.job> out of its section into #ranked-list
@@ -7377,6 +7395,7 @@ function _computeTabCounts() {
                                    : q('.spontaneous-row:has(.badge.claude-fit)')),
     spontaneous: q('.spontaneous-row'),
     new:         q('li.job:has(.badge.new-badge)'),
+    untouched:   q('li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected)'),
   };
 }
 function _updateTabCounts() {

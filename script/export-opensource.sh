@@ -7,6 +7,7 @@
 #   - data/      — personal preferences, caches, state DBs
 #   - business/  — market-analysis artifact written for the owner
 #   - planning/  — internal tickets / roadmap mentioning the owner
+#   - .claude/   — local Claude Code settings (permissions, workflow)
 #
 # Also drops .git history (open source should start from a fresh init).
 #
@@ -33,16 +34,13 @@ cd "$REPO_ROOT"
 
 mkdir -p "$TARGET"
 
-# Export tracked files at HEAD (ignores untracked debug/, venvs, caches),
-# then strip the three personal directories at extract time.
-git archive --format=tar HEAD \
-  | tar -x -C "$TARGET" \
-      --exclude='data/*' \
-      --exclude='business/*' \
-      --exclude='planning/*'
-
-# Belt-and-braces: remove any now-empty top-level dirs the exclude left behind.
-rmdir "$TARGET/data" "$TARGET/business" "$TARGET/planning" 2>/dev/null || true
+# Copy tracked files only (via `git ls-files`), from the WORKING TREE
+# so local uncommitted edits are included. Strip personal directories.
+# `git ls-files` already excludes untracked debug/, venvs, caches.
+git ls-files \
+  | grep -Ev '^(data|business|planning|\.claude)/' \
+  | tar -cf - -T - \
+  | tar -xf - -C "$TARGET"
 
 echo "  Exported clean snapshot → $TARGET"
 echo "  Next steps for the open-source copy:"
