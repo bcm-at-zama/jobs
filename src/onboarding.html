@@ -112,27 +112,31 @@
     }
     details.group[open] > summary::before { transform: rotate(90deg); }
     .group-count {
-      margin-left: auto;
       font-weight: normal;
       color: var(--fg-muted);
       font-size: 0.9rem;
     }
     .group-count.has-picks { color: var(--success); font-weight: 600; }
 
-    .group-actions {
-      padding: 0.3rem 0 0.7rem;
-      display: flex;
-      gap: 0.5rem;
+    /* Inline All / None buttons live inside <summary> so they stay
+       visible when the group is collapsed. margin-left:auto pushes the
+       whole right-side cluster (buttons + count) to the end. */
+    .group-actions-inline {
+      margin-left: auto;
+      display: inline-flex;
+      gap: 0.3rem;
     }
-    .group-actions button {
+    .group-actions-inline button {
       background: var(--bg);
       border: 1px solid var(--border);
-      padding: 0.3rem 0.7rem;
-      border-radius: 5px;
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--fg);
     }
-    .group-actions button:hover {
+    .group-actions-inline button:hover {
       background: var(--bg-inset);
       border-color: var(--fg-subtle);
     }
@@ -709,16 +713,13 @@ function renderGroups() {
     const summary = document.createElement('summary');
     summary.innerHTML =
       '<span class="group-name"></span>' +
+      '<span class="group-actions-inline">' +
+        '<button type="button" data-act="all" title="Check every company in this group">All</button>' +
+        '<button type="button" data-act="none" title="Uncheck every company in this group">None</button>' +
+      '</span>' +
       '<span class="group-count"><span class="n-on">0</span>/' + entries.length + '</span>';
     summary.querySelector('.group-name').textContent = groupName;
     details.appendChild(summary);
-
-    const actions = document.createElement('div');
-    actions.className = 'group-actions';
-    actions.innerHTML =
-      '<button type="button" data-act="all">All in group</button>' +
-      '<button type="button" data-act="none">None in group</button>';
-    details.appendChild(actions);
 
     const grid = document.createElement('div');
     grid.className = 'company-grid';
@@ -736,13 +737,17 @@ function renderGroups() {
     }
     details.appendChild(grid);
 
-    actions.querySelector('[data-act="all"]').addEventListener('click', (ev) => {
+    // Prevent the native <summary> toggle when clicking All / None so
+    // the group doesn't expand/collapse under the user as a side effect.
+    summary.querySelector('[data-act="all"]').addEventListener('click', (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       details.querySelectorAll('.company-cb').forEach(cb => { cb.checked = true; });
       _refreshCompanyCounters(details);
     });
-    actions.querySelector('[data-act="none"]').addEventListener('click', (ev) => {
+    summary.querySelector('[data-act="none"]').addEventListener('click', (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       details.querySelectorAll('.company-cb').forEach(cb => { cb.checked = false; });
       _refreshCompanyCounters(details);
     });
