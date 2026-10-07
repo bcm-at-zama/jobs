@@ -8003,17 +8003,25 @@ function _saveSeenCatalog(set) {
   catch (e) {}
 }
 
+// First page load (localStorage empty) means the user just finished
+// onboarding OR hand-edited data/user_config.py. In both cases they've
+// already reviewed the whole catalog as it currently exists — companies
+// they declined aren't "new" to them. Seed `seen` with the full catalog
+// so the badge only flags entries added to catalog.py in future
+// releases. Persist so the one-shot seed survives reloads.
+function _effectiveSeenCatalog() {
+  let seen = _getSeenCatalog();
+  if (seen.size === 0) {
+    seen = new Set(CATALOG_FOR_EDIT.map(e => e.name));
+    _saveSeenCatalog(seen);
+  }
+  return seen;
+}
+
 function _refreshNewCompaniesBadge() {
   const badge = document.getElementById('new-companies-badge');
   if (!badge) return;
-  const seen = _getSeenCatalog();
-  // On the very first page load (seen = empty) we don't want to flag
-  // every company as "new" — that defeats the point. We treat the
-  // user's current SOURCES as implicitly seen too.
-  let effectiveSeen = seen;
-  if (seen.size === 0) {
-    effectiveSeen = new Set(SOURCES_NAMES);
-  }
+  const effectiveSeen = _effectiveSeenCatalog();
   const n = CATALOG_FOR_EDIT.filter(e => !effectiveSeen.has(e.name)).length;
   if (n > 0) {
     badge.textContent = n;
@@ -8027,8 +8035,7 @@ function openEditCompaniesModal() {
   // Build the modal lazily on first open.
   let modal = document.getElementById('edit-sources-modal');
   const selected = new Set(SOURCES_NAMES);
-  const seen = _getSeenCatalog();
-  const effectiveSeen = seen.size === 0 ? new Set(SOURCES_NAMES) : seen;
+  const effectiveSeen = _effectiveSeenCatalog();
 
   if (!modal) {
     modal = document.createElement('div');

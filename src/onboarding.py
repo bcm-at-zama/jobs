@@ -51,6 +51,18 @@ HIGHLIGHT_PRESETS = [
     "Engineering Manager", "CTO",
 ]
 
+# Hard-coded chip suggestions for Step 5 ("Filter by title"). Shown as
+# the baseline; `_load_html` merges in any additional terms it finds in
+# the user's existing data/user_config.py so returning users see their
+# own patterns too.
+QUERY_PRESETS = [
+    "security", "cryptography", "AI", "ML", "LLM", "GPU",
+    "infrastructure", "cloud", "platform",
+    "Rust", "Go", "Python", "Kubernetes",
+    "manager", "Engineering Manager", "Director", "VP", "CTO",
+    "Senior", "Staff", "Principal",
+]
+
 # Grouped by continent so the wizard can show a <details> per group.
 # Includes a "Regions" group at the top for the common multi-country
 # aggregates (APAC, EMEA, LATAM, …). All UN member states are listed so
@@ -230,6 +242,67 @@ def _backup_path(path: str) -> str:
     return f"{path}.bak.{stamp}"
 
 
+def _resolve_queries(
+    selected: set,
+    *,
+    queries_global: list,
+    queries_per_group: dict,
+    queries_per_company: dict,
+    previous: dict,
+) -> dict:
+    """Compute final per-company queries from Step 5 inputs.
+
+    Priority (highest wins):
+      1. Per-company override (step 5 "advanced" panel).
+      2. Per-group override (step 5 accordion row for the company's group).
+      3. Previous queries if the company already existed in user_config.py
+         (any value, including `[]` — this is how we "respect catalog []":
+         a company the user had deliberately left unfiltered keeps that
+         semantics unless they explicitly override at the group/company
+         level).
+      4. Global queries (quick-path chips) — applies to brand-new picks.
+
+    Returns {company_name: [queries]} for every name in `selected`.
+    """
+    name_to_group = {e["name"]: e.get("group") for e in CATALOG}
+    out = {}
+    for name in selected:
+        if name in queries_per_company:
+            qs = queries_per_company[name]
+        elif name_to_group.get(name) in queries_per_group:
+            qs = queries_per_group[name_to_group[name]]
+        elif name in previous:
+            qs = previous[name]
+        else:
+            qs = queries_global
+        out[name] = _dedupe_preserve_order([str(q) for q in qs])
+    return out
+
+
+def _load_previous_queries(path: str) -> dict:
+    """Return {company_name: [queries...]} from an existing user_config.py.
+    Empty dict if the file is missing or unreadable. Used by Step 5 so
+    the wizard can (a) pre-populate the quick-path chips with the user's
+    existing query terms and (b) preserve each company's prior queries
+    unless the user explicitly overrides them in the wizard."""
+    if not os.path.isfile(path):
+        return {}
+    try:
+        spec = _ilu.spec_from_file_location("_existing_uc_q", path)
+        mod = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        out = {}
+        for s in getattr(mod, "SOURCES", []) or []:
+            name = s.get("name")
+            if not name:
+                continue
+            qs = s.get("queries") or []
+            out[name] = [str(q) for q in qs if isinstance(q, str)]
+        return out
+    except Exception:
+        return {}
+
+
 def _summarize_existing(path: str) -> dict:
     """Return a dict describing an existing user_config.py (sources
     count + modification time) so the wizard can show a sensible
@@ -294,11 +367,26 @@ def _load_html(data_dir: str, out_path: str) -> bytes:
         existing = _summarize_existing(out_path)
         existing["backup_path"] = _backup_path(out_path)
     catalog_json = json.dumps(CATALOG, ensure_ascii=False)
+    # Step 5 needs the previous per-company queries so the UI can show
+    # which companies will be preserved and pre-select the quick-path
+    # chips from the union of what the user already uses.
+    prev_queries = _load_previous_queries(out_path)
+    existing["queries_per_company"] = prev_queries
     existing_json = json.dumps(existing, ensure_ascii=False)
+    # Merge QUERY_PRESETS with every unique non-empty query term the
+    # user already has in their config — returning users see their own
+    # patterns as first-class chips. Dedupe case-insensitively, order:
+    # user terms first (they're more relevant), then presets.
+    user_terms = _dedupe_preserve_order(
+        [q for qs in prev_queries.values() for q in qs if q]
+    )
+    merged_query_presets = _dedupe_preserve_order(user_terms + QUERY_PRESETS)
     presets_json = json.dumps({
         "highlights": HIGHLIGHT_PRESETS,
         "location_groups": LOCATION_BLACKLIST_GROUPS,
         "title_packs": TITLE_BLACKLIST_PACKS,
+        "query_presets": merged_query_presets,
+        "query_initial": user_terms,  # pre-selected chips on first load
     }, ensure_ascii=False)
     html = html.replace(
         "/*__CATALOG__*/ (window.__CATALOG__ || [])",
@@ -502,6 +590,13 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
         highlights = [str(x) for x in (payload.get("highlights") or [])]
         title_blacklist = [str(x) for x in (payload.get("title_blacklist") or [])]
         location_blacklist = [str(x) for x in (payload.get("location_blacklist") or [])]
+        resolved_queries = _resolve_queries(
+            selected,
+            queries_global=payload.get("queries_global") or [],
+            queries_per_group=payload.get("queries_per_group") or {},
+            queries_per_company=payload.get("queries_per_company") or {},
+            previous=_load_previous_queries(self.server.out_path),
+        )
         try:
             os.makedirs(self.server.data_dir, exist_ok=True)
             backup = None
@@ -513,6 +608,7 @@ class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
                 highlights=highlights,
                 title_blacklist=title_blacklist,
                 location_blacklist=location_blacklist,
+                existing_queries=resolved_queries,
             )
             with open(self.server.out_path, "w", encoding="utf-8") as f:
                 f.write(content)

@@ -446,5 +446,232 @@ class TestHttpWizard(unittest.TestCase):
                 self._stop(server)
 
 
+class TestResolveQueries(unittest.TestCase):
+    """Pure test of the Step 5 priority: per-company > per-group >
+    previous (any value) > global."""
+
+    def _group_of(self, name):
+        from catalog import CATALOG
+        for e in CATALOG:
+            if e["name"] == name:
+                return e["group"]
+        raise KeyError(name)
+
+    def test_global_applies_to_fresh_picks(self):
+        """Companies with no previous entry get the global quick-path chips."""
+        out = onboarding._resolve_queries(
+            {"Anthropic", "OpenAI"},
+            queries_global=["security", "CTO"],
+            queries_per_group={},
+            queries_per_company={},
+            previous={},
+        )
+        self.assertEqual(out["Anthropic"], ["security", "CTO"])
+        self.assertEqual(out["OpenAI"], ["security", "CTO"])
+
+    def test_previous_preserved_including_empty(self):
+        """Returning user: previously-set queries are preserved — this
+        includes an explicit `[]` ("show every posting") which the user
+        asked us to respect."""
+        prev = {"Anthropic": ["crypto"], "Suno": []}
+        out = onboarding._resolve_queries(
+            {"Anthropic", "Suno", "OpenAI"},
+            queries_global=["security", "CTO"],
+            queries_per_group={},
+            queries_per_company={},
+            previous=prev,
+        )
+        self.assertEqual(out["Anthropic"], ["crypto"])  # preserved non-empty
+        self.assertEqual(out["Suno"], [])               # preserved empty (the ask)
+        self.assertEqual(out["OpenAI"], ["security", "CTO"])  # new pick → global
+
+    def test_group_override_beats_previous_and_global(self):
+        g = self._group_of("Anthropic")
+        out = onboarding._resolve_queries(
+            {"Anthropic"},
+            queries_global=["global-only"],
+            queries_per_group={g: ["group-override"]},
+            queries_per_company={},
+            previous={"Anthropic": ["was-previous"]},
+        )
+        self.assertEqual(out["Anthropic"], ["group-override"])
+
+    def test_company_override_beats_group(self):
+        g = self._group_of("Anthropic")
+        out = onboarding._resolve_queries(
+            {"Anthropic"},
+            queries_global=["global"],
+            queries_per_group={g: ["group"]},
+            queries_per_company={"Anthropic": ["company-wins"]},
+            previous={"Anthropic": ["previous"]},
+        )
+        self.assertEqual(out["Anthropic"], ["company-wins"])
+
+    def test_dedupes_case_insensitive(self):
+        out = onboarding._resolve_queries(
+            {"Anthropic"},
+            queries_global=["security", "Security", "  SECURITY  ", "CTO"],
+            queries_per_group={},
+            queries_per_company={},
+            previous={},
+        )
+        self.assertEqual(out["Anthropic"], ["security", "CTO"])
+
+
+class TestLoadPreviousQueries(unittest.TestCase):
+
+    def test_returns_empty_when_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(
+                onboarding._load_previous_queries(os.path.join(tmp, "nope.py")),
+                {},
+            )
+
+    def test_reads_queries_per_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "user_config.py")
+            with open(path, "w") as f:
+                f.write(
+                    "HIGHLIGHTS=[]\nTITLE_BLACKLIST=[]\nLOCATION_BLACKLIST=[]\n"
+                    "SOURCES=[{'name':'A','kind':'greenhouse','slug':'a','queries':['x','y']},\n"
+                    "         {'name':'B','kind':'ashby','slug':'b','queries':[]}]\n"
+                )
+            got = onboarding._load_previous_queries(path)
+            self.assertEqual(got, {"A": ["x", "y"], "B": []})
+
+
+class TestOnboardingWritesQueries(unittest.TestCase):
+    """End-to-end: POST /write-user-config with the Step 5 payload →
+    verify the generated file has the right queries per source."""
+
+    def _start_server(self, tmpdir):
+        port = onboarding._pick_free_port()
+        done = threading.Event()
+        server = onboarding._OnboardingServer(
+            ("127.0.0.1", port), onboarding._OnboardingHandler,
+            data_dir=tmpdir,
+            out_path=os.path.join(tmpdir, "user_config.py"),
+            done_event=done,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        time.sleep(0.05)
+        return server, thread, f"http://127.0.0.1:{port}"
+
+    @staticmethod
+    def _stop(server):
+        server.shutdown()
+        server.server_close()
+
+    @staticmethod
+    def _group_of(name):
+        from catalog import CATALOG
+        for e in CATALOG:
+            if e["name"] == name:
+                return e["group"]
+        return None
+
+    def _post_write(self, url, payload):
+        req = urllib.request.Request(
+            url + "/write-user-config",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())
+
+    def _load(self, path):
+        spec = importlib.util.spec_from_file_location("_uc_q", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return {s["name"]: s for s in mod.SOURCES}
+
+    def test_global_chips_written_to_every_new_pick(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            server, _, url = self._start_server(tmp)
+            try:
+                self._post_write(url, {
+                    "names": ["Anthropic", "OpenAI"],
+                    "queries_global": ["security", "CTO"],
+                })
+                by_name = self._load(os.path.join(tmp, "user_config.py"))
+                self.assertEqual(by_name["Anthropic"]["queries"], ["security", "CTO"])
+                self.assertEqual(by_name["OpenAI"]["queries"], ["security", "CTO"])
+            finally:
+                self._stop(server)
+
+    def test_previous_queries_preserved_on_resave(self):
+        """Returning user re-runs onboarding — prior per-company queries
+        (including empty) survive unless explicitly overridden."""
+        with tempfile.TemporaryDirectory() as tmp:
+            existing = os.path.join(tmp, "user_config.py")
+            with open(existing, "w") as f:
+                f.write(
+                    "HIGHLIGHTS=[]\nTITLE_BLACKLIST=[]\nLOCATION_BLACKLIST=[]\n"
+                    "SOURCES=[{'name':'Anthropic','kind':'greenhouse','slug':'anthropic',"
+                    "'queries':['crypto']},\n"
+                    "         {'name':'Suno','kind':'ashby','slug':'suno','queries':[]}]\n"
+                )
+            server, _, url = self._start_server(tmp)
+            try:
+                self._post_write(url, {
+                    "names": ["Anthropic", "Suno", "OpenAI"],
+                    "queries_global": ["security"],
+                })
+                by_name = self._load(existing)
+                self.assertEqual(by_name["Anthropic"]["queries"], ["crypto"])
+                self.assertEqual(by_name["Suno"]["queries"], [])
+                self.assertEqual(by_name["OpenAI"]["queries"], ["security"])
+            finally:
+                self._stop(server)
+
+    def test_per_group_and_per_company_overrides_flow_through(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            server, _, url = self._start_server(tmp)
+            try:
+                g = self._group_of("Anthropic")
+                self._post_write(url, {
+                    "names": ["Anthropic", "OpenAI"],
+                    "queries_global": ["global"],
+                    "queries_per_group": {g: ["group-wins"]},
+                    "queries_per_company": {"Anthropic": ["company-wins"]},
+                })
+                by_name = self._load(os.path.join(tmp, "user_config.py"))
+                self.assertEqual(by_name["Anthropic"]["queries"], ["company-wins"])
+                # OpenAI shares Anthropic's group → group override applies.
+                if self._group_of("OpenAI") == g:
+                    self.assertEqual(by_name["OpenAI"]["queries"], ["group-wins"])
+                else:
+                    self.assertEqual(by_name["OpenAI"]["queries"], ["global"])
+            finally:
+                self._stop(server)
+
+    def test_html_inlines_query_presets_and_initial(self):
+        """Returning user: /onboarding.html must inline the merged
+        query_presets (hard-coded + extracted) and query_initial (union
+        of their existing non-empty queries) so Step 5 pre-populates."""
+        with tempfile.TemporaryDirectory() as tmp:
+            existing = os.path.join(tmp, "user_config.py")
+            with open(existing, "w") as f:
+                f.write(
+                    "HIGHLIGHTS=[]\nTITLE_BLACKLIST=[]\nLOCATION_BLACKLIST=[]\n"
+                    "SOURCES=[{'name':'Anthropic','kind':'greenhouse','slug':'anthropic',"
+                    "'queries':['Codemender','SEAR']}]\n"
+                )
+            server, _, url = self._start_server(tmp)
+            try:
+                with urllib.request.urlopen(url + "/onboarding.html") as r:
+                    body = r.read().decode()
+                # Hard-coded preset present.
+                self.assertIn('"security"', body)
+                # User-extracted terms present (merged into query_presets)
+                # and in query_initial for pre-selection.
+                self.assertIn("Codemender", body)
+                self.assertIn("SEAR", body)
+            finally:
+                self._stop(server)
+
+
 if __name__ == "__main__":
     unittest.main()

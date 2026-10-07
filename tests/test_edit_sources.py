@@ -275,5 +275,53 @@ class TestUpdateQueriesEndpoint(unittest.TestCase):
         self.assertEqual(by_name["Anthropic"]["queries"], ["freshly-added"])
 
 
+class TestNewCompaniesBadgeFallback(unittest.TestCase):
+    """REGRESSION — the "new companies" red badge used to seed its
+    first-load `effectiveSeen` from the user's current SOURCES only.
+    Right after onboarding with (say) just Apple, that made the badge
+    show `catalog_size - 1` (~164) even though the user had just
+    reviewed and declined every other company in the wizard.
+
+    The fix seeds `effectiveSeen` with the FULL catalog on first load
+    and persists it, so the badge counts only companies added to
+    catalog.py in a FUTURE release the user hasn't acknowledged.
+
+    Testing client-side JS from Python is coarse; we pin the fix by
+    asserting the shared helper exists in jobs.py and the old buggy
+    fallback pattern (`new Set(SOURCES_NAMES)` inside a seen-size
+    guard) is gone from both badge + modal paths."""
+
+    def setUp(self):
+        import pathlib
+        self.src = pathlib.Path(jobs.__file__).read_text()
+
+    def test_shared_helper_exists(self):
+        self.assertIn("function _effectiveSeenCatalog(", self.src,
+                      "Shared seen-catalog helper is missing — did the fix "
+                      "get reverted?")
+
+    def test_helper_seeds_from_full_catalog(self):
+        # Spot-check the helper body: on empty seen, it must build from
+        # CATALOG_FOR_EDIT (not SOURCES_NAMES) and persist.
+        import re
+        m = re.search(
+            r"function _effectiveSeenCatalog\([^)]*\)\s*\{(.+?)\n\}",
+            self.src, re.DOTALL)
+        self.assertIsNotNone(m, "helper body not found")
+        body = m.group(1)
+        self.assertIn("CATALOG_FOR_EDIT.map", body,
+                      "helper must seed from the catalog, not SOURCES")
+        self.assertIn("_saveSeenCatalog", body,
+                      "helper must persist so the seed is one-shot")
+
+    def test_old_buggy_fallback_pattern_is_gone(self):
+        # The pre-fix inlined pattern — must not reappear in either the
+        # badge refresher or the modal opener.
+        self.assertNotIn(
+            "seen.size === 0 ? new Set(SOURCES_NAMES)", self.src,
+            "Old buggy fallback has returned — use _effectiveSeenCatalog().",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

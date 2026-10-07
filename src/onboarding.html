@@ -341,6 +341,73 @@
       line-height: 1.4;
     }
 
+    /* Step 5 — per-group / per-company override panels. */
+    details.qf-advanced {
+      margin-top: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-subtle);
+      padding: 0 0.9rem;
+    }
+    details.qf-advanced[open] { padding-bottom: 0.9rem; }
+    details.qf-advanced > summary {
+      cursor: pointer;
+      padding: 0.75rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    details.qf-advanced .group-count {
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+      font-weight: 500;
+      padding: 0.15rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+    }
+    .qf-group-row {
+      border: 1px solid var(--border-muted);
+      border-radius: 6px;
+      margin: 0.5rem 0;
+      padding: 0.6rem 0.8rem;
+      background: var(--bg);
+    }
+    .qf-group-row .qf-group-head {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-weight: 600;
+    }
+    .qf-group-row .qf-group-head .n-companies {
+      font-weight: 500;
+      color: var(--fg-muted);
+      font-size: 0.85rem;
+    }
+    .qf-group-row.off .qf-group-body { display: none; }
+    .qf-group-body { margin-top: 0.5rem; }
+    .qf-company-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px dashed var(--border-muted);
+    }
+    .qf-company-row:last-child { border-bottom: none; }
+    .qf-company-row .qf-company-name {
+      font-weight: 600;
+      min-width: 10rem;
+    }
+    .qf-company-row .chip-row { margin: 0; flex: 1; }
+    .qf-company-row .chip-remove-row {
+      background: none;
+      border: none;
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0 0.3rem;
+    }
+
     .sticky-footer {
       position: fixed;
       bottom: 0;
@@ -415,6 +482,7 @@
     <span class="step-chip" data-step="2">2 · Keywords</span>
     <span class="step-chip" data-step="3">3 · Hide titles</span>
     <span class="step-chip" data-step="4">4 · Hide locations</span>
+    <span class="step-chip" data-step="5">5 · Filter by title</span>
   </div>
 
   <!-- Step 1: Companies ------------------------------------------------ -->
@@ -483,6 +551,46 @@
     <div class="chip-row" id="loc-selected"></div>
   </div>
 
+  <!-- Step 5: Query filter (per-source title query) --------------------- -->
+  <div class="page" id="page-5">
+    <h2>Filter jobs by title <span class="optional-tag">optional</span></h2>
+    <p class="subtitle">Keywords applied as a title filter when fetching
+    each company. Pick a set once below and it applies to every company
+    you selected in Step 1; expand <strong>Customize per group</strong>
+    or <strong>Per-company override</strong> to go finer. Leave empty to
+    fetch every posting (recommended for small companies).</p>
+    <div><strong>Quick path — suggestions</strong> (click to toggle):</div>
+    <div class="chip-row" id="qf-presets"></div>
+    <div><strong>Your filter</strong> (type then press Enter):</div>
+    <input type="text" id="qf-input" class="chip-input"
+           placeholder="e.g. security, cryptography, Staff">
+    <div class="chip-row" id="qf-selected"></div>
+
+    <p class="subtitle" id="qf-preserve-note" style="margin-top:1rem"></p>
+
+    <details class="qf-advanced">
+      <summary><strong>Customize per group</strong>
+        <span class="group-count"><span id="qf-group-overrides-count">0</span> overridden</span>
+      </summary>
+      <p class="subtitle">Each row inherits the quick path above by default.
+      Tick a row to override — the chips you pick there apply to every
+      company in that group instead of the global set.</p>
+      <div id="qf-groups-container"></div>
+    </details>
+
+    <details class="qf-advanced">
+      <summary><strong>Per-company override</strong>
+        <span class="group-count"><span id="qf-company-overrides-count">0</span> overridden</span>
+      </summary>
+      <p class="subtitle">Search for one of your selected companies and
+      give it a bespoke filter. Overrides win over group and quick-path.</p>
+      <input type="text" id="qf-company-search" class="chip-input"
+             placeholder="Search a company you picked in Step 1…">
+      <div id="qf-company-search-results" class="search-results"></div>
+      <div id="qf-company-overrides"></div>
+    </details>
+  </div>
+
   <!-- Build-progress screen -------------------------------------------- -->
   <div id="building" class="done-screen">
     <h2>Building your board…</h2>
@@ -517,7 +625,7 @@ const PRESETS = /*__PRESETS__*/ (window.__PRESETS__ || {
   highlights: [], location_groups: {}, title_packs: {}
 });
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 let currentStep = 1;
 
 /* ========================================================================
@@ -732,11 +840,11 @@ function _wireBulkActions() {
    Shared implementation: _ChipPicker
    ======================================================================== */
 
-function _ChipPicker(prefix, presets) {
+function _ChipPicker(prefix, presets, initial) {
   const presetsEl = document.getElementById(prefix + '-presets');
   const selectedEl = document.getElementById(prefix + '-selected');
   const input = document.getElementById(prefix + '-input');
-  const state = new Set();
+  const state = new Set(initial || []);
 
   function render() {
     presetsEl.innerHTML = '';
@@ -871,7 +979,242 @@ function _GroupedChipPicker(prefix, groups) {
   return {collect: () => [...state]};
 }
 
-let kwPicker, locPicker;
+let kwPicker, locPicker, qfQuickPicker;
+
+/* ========================================================================
+   Step 5 — Filter jobs by title.
+
+   State:
+     - qfQuickPicker: the global chip picker (quick path).
+     - qfGroupOverrides: Map<groupName, {on: bool, chips: Set}>.
+     - qfCompanyOverrides: Map<companyName, Set>.
+
+   Resolution happens server-side; the UI only reports what the user
+   picked. Priority (highest wins) is per-company > per-group > previous
+   (preserved on resave) > global.
+   ======================================================================== */
+
+const qfGroupOverrides = new Map();   // groupName -> {on: bool, chips: Set<string>}
+const qfCompanyOverrides = new Map(); // companyName -> Set<string>
+
+function _qfSelectedCompanyNames() {
+  return new Set(collectCompanies());
+}
+function _qfSelectedGroups() {
+  // Groups with at least one selected company — order follows CATALOG insertion.
+  const names = _qfSelectedCompanyNames();
+  const seen = new Set();
+  const out = [];
+  for (const e of CATALOG) {
+    if (!names.has(e.name) || seen.has(e.group)) continue;
+    seen.add(e.group);
+    out.push(e.group);
+  }
+  return out;
+}
+function _qfCompaniesInGroup(group) {
+  const names = _qfSelectedCompanyNames();
+  return CATALOG.filter(e => e.group === group && names.has(e.name))
+                .map(e => e.name);
+}
+
+/* Lightweight chip editor: text input + a chip-row. No preset grid —
+   used inside the per-group / per-company override rows where space
+   is tight. */
+function _attachMiniChipEditor(input, chipRowEl, state, onChange) {
+  function render() {
+    chipRowEl.innerHTML = '';
+    for (const v of state) {
+      const chip = document.createElement('span');
+      chip.className = 'chip selected';
+      chip.appendChild(document.createTextNode(v));
+      const x = document.createElement('span');
+      x.className = 'chip-remove';
+      x.textContent = '×';
+      x.addEventListener('click', () => { state.delete(v); render(); onChange && onChange(); });
+      chip.appendChild(x);
+      chipRowEl.appendChild(chip);
+    }
+  }
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
+    for (const p of parts) state.add(p);
+    input.value = '';
+    render();
+    onChange && onChange();
+  });
+  render();
+}
+
+function _qfRenderGroupRows() {
+  const container = document.getElementById('qf-groups-container');
+  container.innerHTML = '';
+  const groups = _qfSelectedGroups();
+  if (groups.length === 0) {
+    container.innerHTML = '<p class="subtitle" style="margin:0">Pick companies in Step 1 first.</p>';
+    _qfRefreshCounters();
+    return;
+  }
+  for (const g of groups) {
+    const state = qfGroupOverrides.get(g) || {on: false, chips: new Set()};
+    qfGroupOverrides.set(g, state);
+    const row = document.createElement('div');
+    row.className = 'qf-group-row' + (state.on ? '' : ' off');
+
+    const head = document.createElement('div');
+    head.className = 'qf-group-head';
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.checked = state.on;
+    toggle.addEventListener('change', () => {
+      state.on = toggle.checked;
+      row.classList.toggle('off', !state.on);
+      _qfRefreshCounters();
+    });
+    head.appendChild(toggle);
+    const name = document.createElement('span');
+    name.textContent = g;
+    head.appendChild(name);
+    const nComp = document.createElement('span');
+    nComp.className = 'n-companies';
+    nComp.textContent = _qfCompaniesInGroup(g).length + ' companies in your picks';
+    head.appendChild(nComp);
+    row.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'qf-group-body';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'chip-input';
+    input.placeholder = 'e.g. security, Staff — press Enter';
+    body.appendChild(input);
+    const chips = document.createElement('div');
+    chips.className = 'chip-row';
+    body.appendChild(chips);
+    _attachMiniChipEditor(input, chips, state.chips, _qfRefreshCounters);
+    row.appendChild(body);
+
+    container.appendChild(row);
+  }
+  _qfRefreshCounters();
+}
+
+function _qfRenderCompanyOverrides() {
+  const container = document.getElementById('qf-company-overrides');
+  container.innerHTML = '';
+  for (const [name, chips] of qfCompanyOverrides) {
+    const row = document.createElement('div');
+    row.className = 'qf-company-row';
+    const label = document.createElement('span');
+    label.className = 'qf-company-name';
+    label.textContent = name;
+    row.appendChild(label);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'chip-input';
+    input.placeholder = 'chip, chip — Enter';
+    input.style.flex = '0 0 14rem';
+    row.appendChild(input);
+    const chipRow = document.createElement('div');
+    chipRow.className = 'chip-row';
+    row.appendChild(chipRow);
+    _attachMiniChipEditor(input, chipRow, chips, _qfRefreshCounters);
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'chip-remove-row';
+    rm.textContent = '×';
+    rm.title = 'Remove this override';
+    rm.addEventListener('click', () => {
+      qfCompanyOverrides.delete(name);
+      _qfRenderCompanyOverrides();
+      _qfRefreshCounters();
+    });
+    row.appendChild(rm);
+    container.appendChild(row);
+  }
+}
+
+function _qfWireCompanySearch() {
+  const input = document.getElementById('qf-company-search');
+  const results = document.getElementById('qf-company-search-results');
+  function closeDropdown() { results.classList.remove('visible'); results.innerHTML = ''; }
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    results.innerHTML = '';
+    if (q.length < 1) { closeDropdown(); return; }
+    const picks = _qfSelectedCompanyNames();
+    const matches = [...picks].filter(n => n.toLowerCase().includes(q)).slice(0, 20);
+    if (matches.length === 0) {
+      results.innerHTML = '<div class="empty">No matching company in your picks.</div>';
+      results.classList.add('visible');
+      return;
+    }
+    for (const n of matches) {
+      const row = document.createElement('div');
+      row.className = 'result-row';
+      const nameEl = document.createElement('span');
+      nameEl.textContent = n;
+      row.appendChild(nameEl);
+      row.addEventListener('click', () => {
+        if (!qfCompanyOverrides.has(n)) qfCompanyOverrides.set(n, new Set());
+        input.value = '';
+        closeDropdown();
+        _qfRenderCompanyOverrides();
+        _qfRefreshCounters();
+      });
+      results.appendChild(row);
+    }
+    results.classList.add('visible');
+  });
+  input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
+}
+
+function _qfRefreshCounters() {
+  const nGroup = [...qfGroupOverrides.values()].filter(v => v.on && v.chips.size > 0).length;
+  const nCompany = [...qfCompanyOverrides.values()].filter(v => v.size > 0).length;
+  const gEl = document.getElementById('qf-group-overrides-count');
+  const cEl = document.getElementById('qf-company-overrides-count');
+  if (gEl) gEl.textContent = nGroup;
+  if (cEl) cEl.textContent = nCompany;
+  _qfRefreshPreserveNote();
+  refreshFooter();
+}
+
+function _qfRefreshPreserveNote() {
+  const note = document.getElementById('qf-preserve-note');
+  if (!note) return;
+  const picks = _qfSelectedCompanyNames();
+  const prev = (EXISTING && EXISTING.queries_per_company) || {};
+  let preserved = 0;
+  for (const name of picks) {
+    if (name in prev) preserved++;
+  }
+  if (preserved === 0) {
+    note.textContent = '';
+    note.style.display = 'none';
+  } else {
+    note.style.display = '';
+    note.textContent =
+      preserved + ' of your picks already have a filter in your current ' +
+      'config — those are preserved as-is unless you override at the group ' +
+      'or company level below.';
+  }
+}
+
+function _qfCollectPayload() {
+  const queries_global = qfQuickPicker ? qfQuickPicker.collect() : [];
+  const queries_per_group = {};
+  for (const [g, v] of qfGroupOverrides) {
+    if (v.on) queries_per_group[g] = [...v.chips];
+  }
+  const queries_per_company = {};
+  for (const [n, chips] of qfCompanyOverrides) {
+    queries_per_company[n] = [...chips];
+  }
+  return {queries_global, queries_per_group, queries_per_company};
+}
 
 /* ========================================================================
    Step 3 — Title blacklist (preset packs + textarea)
@@ -939,6 +1282,14 @@ function showStep(n) {
   for (let i = 1; i <= TOTAL_STEPS; i++) {
     document.getElementById('page-' + i).classList.toggle('visible', i === n);
   }
+  // Entering Step 5: rebuild the per-group rows against the current
+  // Step-1 picks (which may have changed since the last visit) and
+  // refresh the "N preserved" note.
+  if (n === 5) {
+    _qfRenderGroupRows();
+    _qfRenderCompanyOverrides();
+    _qfRefreshPreserveNote();
+  }
   // Step indicator chips
   for (const chip of document.querySelectorAll('.step-indicator .step-chip')) {
     const s = parseInt(chip.dataset.step, 10);
@@ -957,14 +1308,14 @@ function refreshFooter() {
   const skip = document.getElementById('skip-btn');
   const launch = document.getElementById('launch-btn');
 
-  // Back: visible on steps 2-4.
+  // Back: visible on steps 2..N.
   back.style.display = currentStep > 1 ? '' : 'none';
-  // Skip: visible on optional steps only (2, 3). Step 4 shows Save-and-launch
-  // directly instead (no need to skip since we're at the last step).
-  skip.style.display = (currentStep >= 2 && currentStep <= 3) ? '' : 'none';
-  // Next: step 1, 2, 3.
+  // Skip: visible on optional steps only (2..N-1). The final step shows
+  // Save-and-launch directly instead (no need to skip from the last page).
+  skip.style.display = (currentStep >= 2 && currentStep < TOTAL_STEPS) ? '' : 'none';
+  // Next: every step except the last.
   next.style.display = currentStep < TOTAL_STEPS ? '' : 'none';
-  // Save-and-launch: only on step 4 (the user hit "Next" on every page).
+  // Save-and-launch: only on the last step (user hit Next on every page).
   launch.style.display = currentStep === TOTAL_STEPS ? '' : 'none';
 
   // Context-aware counter.
@@ -977,8 +1328,16 @@ function refreshFooter() {
   } else if (currentStep === 3) {
     counter.textContent = collectTitleBlacklist().length + ' titles to hide';
     next.disabled = false;
-  } else {
+  } else if (currentStep === 4) {
     counter.textContent = (locPicker?.collect().length || 0) + ' locations to hide';
+    next.disabled = false;
+  } else {
+    const q = qfQuickPicker ? qfQuickPicker.collect().length : 0;
+    const g = [...qfGroupOverrides.values()].filter(v => v.on && v.chips.size > 0).length;
+    const c = [...qfCompanyOverrides.values()].filter(v => v.size > 0).length;
+    counter.textContent =
+      q + ' global · ' + g + ' group override' + (g === 1 ? '' : 's') +
+      ' · ' + c + ' company override' + (c === 1 ? '' : 's');
     launch.disabled = false;
   }
 }
@@ -988,11 +1347,19 @@ function refreshFooter() {
    ======================================================================== */
 
 async function saveAndLaunch() {
+  // Collect queries payload — only meaningful once the user has entered
+  // Step 5. Skipping earlier means no overrides and no quick-path chips.
+  const qf = (currentStep >= 5)
+    ? _qfCollectPayload()
+    : {queries_global: [], queries_per_group: {}, queries_per_company: {}};
   const payload = {
     names: collectCompanies(),
     highlights: currentStep >= 2 ? kwPicker.collect() : [],
     title_blacklist: currentStep >= 3 ? collectTitleBlacklist() : [],
     location_blacklist: currentStep >= 4 ? locPicker.collect() : [],
+    queries_global: qf.queries_global,
+    queries_per_group: qf.queries_per_group,
+    queries_per_company: qf.queries_per_company,
   };
   if (payload.names.length === 0) {
     document.getElementById('status').textContent =
@@ -1129,6 +1496,10 @@ _wireBulkActions();
 renderTitlePacks();
 kwPicker  = _ChipPicker('kw',  PRESETS.highlights || []);
 locPicker = _GroupedChipPicker('loc', PRESETS.location_groups || {});
+qfQuickPicker = _ChipPicker('qf',
+  PRESETS.query_presets || [],
+  PRESETS.query_initial || []);
+_qfWireCompanySearch();
 
 document.getElementById('cancel-btn').addEventListener('click', cancel);
 document.getElementById('back-btn').addEventListener('click', () => showStep(currentStep - 1));
@@ -1145,6 +1516,8 @@ document.getElementById('page-3').addEventListener('change', refreshFooter);
 // the footer on any click bubbling up.
 document.getElementById('page-2').addEventListener('click', () => setTimeout(refreshFooter, 0));
 document.getElementById('page-4').addEventListener('click', () => setTimeout(refreshFooter, 0));
+document.getElementById('page-5').addEventListener('click', () => setTimeout(refreshFooter, 0));
+document.getElementById('qf-input').addEventListener('input', refreshFooter);
 
 showStep(1);
 </script>
