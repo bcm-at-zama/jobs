@@ -94,7 +94,10 @@ test-verbose:
 	fi
 
 # `make run` → full pipeline: fetch every source, score, render HTML,
-# open the browser, keep serving. Extra flags can be passed through:
+# open the browser, keep serving. The rendered page auto-triggers a
+# `/refresh` on first load so stale per-source caches get wiped with
+# the in-page progress indicator visible, instead of making the user
+# wait on a blank terminal. Extra flags can be passed through:
 #   make run ARGS="--skip-llm --only Anthropic,OpenAI"
 # Pass PORT=N to bind the HTTP server on a non-default port (default 8765).
 run:

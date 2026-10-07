@@ -57,11 +57,36 @@
       margin: 0;
       font-size: 1.5rem;
     }
+    /* Back button — a filled pill in the top-right of the header AND
+       repeated at the bottom. Styled as a prominent action so the way
+       back to the board is impossible to miss. */
     .back-link {
-      font-size: 0.9rem;
-      color: var(--fg-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #ffffff;
+      background: var(--accent);
+      border: 1px solid var(--accent-emphasis);
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      white-space: nowrap;
     }
-    .back-link:hover { color: var(--accent); }
+    .back-link:hover {
+      background: var(--accent-emphasis);
+      color: #ffffff;
+      text-decoration: none;
+    }
+    .back-link .mi { font-size: 1rem; vertical-align: -0.15rem; }
+
+    footer.page-foot {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: center;
+    }
 
     section.settings-section {
       margin-bottom: 1.8rem;
@@ -179,7 +204,7 @@
 <body>
   <header class="page-head">
     <h1>Settings</h1>
-    <a class="back-link" href="/">← Back to jobs</a>
+    <a class="back-link" href="/"><span class="mi" aria-hidden="true">arrow_back</span>Back to jobs</a>
   </header>
 
   <section class="settings-section">
@@ -238,8 +263,12 @@
     </div>
   </section>
 
+  <footer class="page-foot">
+    <a class="back-link" href="/"><span class="mi" aria-hidden="true">arrow_back</span>Back to jobs</a>
+  </footer>
+
   <p class="shortcut-hint">
-    Shortcuts: <kbd>⌘,</kbd> (or <kbd>Ctrl ,</kbd>) opens this page from the board. <kbd>Esc</kbd> or the back link returns you to the jobs list.
+    Shortcuts: <kbd>⌘,</kbd> (or <kbd>Ctrl ,</kbd>) opens this page from the board. <kbd>Esc</kbd> returns you to the jobs list.
   </p>
 
 <script>
