@@ -32,14 +32,20 @@ def _page(hits, nb_hits):
 class TestFetchCandidates(unittest.TestCase):
 
     def test_single_page_result(self):
+        # Real Algolia schema (verified 2026-10-07 via
+        # debug/probe_algolia_raw.py). `sectors` is a list of
+        # {name, parent_name} dicts; `jobs_count` is top-level.
         hits = [
             {"slug": "zama", "name": "Zama",
-             "short_description": "FHE",
-             "sectors_name": {"Tech": ["Cybersécurité"]},
-             "website_url": "https://zama.ai",
-             "company_size": "100-249"},
+             "jobs_count": 4,
+             "nb_employees": 60,
+             "sectors": [{"name": "Cybersécurité", "parent_name": "Tech"}],
+             "offices": [{"city": "Paris", "country_code": "FR"}],
+             "reference": "WdolAAr"},
             {"slug": "mistral", "name": "Mistral",
-             "sectors_name": {"Tech": ["Intelligence artificielle / Machine Learning"]}},
+             "jobs_count": 20,
+             "sectors": [{"name": "Intelligence artificielle / Machine Learning",
+                          "parent_name": "Tech"}]},
         ]
         with mock.patch.object(
             wttj_discovery.urllib.request, "urlopen",
@@ -47,9 +53,11 @@ class TestFetchCandidates(unittest.TestCase):
         ):
             out = wttj_discovery.fetch_candidates(max_pages=3)
         self.assertEqual([c["slug"] for c in out], ["zama", "mistral"])
-        self.assertEqual(out[0]["description"], "FHE")
+        self.assertEqual(out[0]["jobs_count"], 4)
+        self.assertEqual(out[0]["nb_employees"], 60)
         self.assertIn("Cybersécurité", out[0]["sectors"])
-        self.assertEqual(out[0]["website_url"], "https://zama.ai")
+        self.assertEqual(out[0]["offices"],
+                         [{"city": "Paris", "country_code": "FR"}])
 
     def test_pagination_stops_at_nbhits(self):
         """We stop once the running total of unique slugs catches up

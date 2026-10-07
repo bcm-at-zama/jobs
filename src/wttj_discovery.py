@@ -150,16 +150,30 @@ def fetch_candidates(sector_facets: list = None, max_pages: int = 50) -> list:
             if not slug or slug in seen_slugs:
                 continue
             seen_slugs.add(slug)
+            # Sectors is a list of {name, parent_name} dicts in the
+            # real Algolia schema — flatten to names.
+            sectors = []
+            for s in (h.get("sectors") or []):
+                if isinstance(s, dict) and s.get("name"):
+                    sectors.append(s["name"])
+            offices = []
+            for o in (h.get("offices") or []):
+                if isinstance(o, dict):
+                    city = (o.get("city") or "").strip()
+                    cc = (o.get("country_code") or "").strip()
+                    if city or cc:
+                        offices.append({"city": city, "country_code": cc})
             out.append({
                 "slug": slug,
                 "name": h.get("name") or slug,
-                "description": (h.get("short_description") or h.get("description") or "")[:200],
-                "sectors": [
-                    s for sector_group in (h.get("sectors_name", {}) or {}).values()
-                    for s in sector_group
-                ] if isinstance(h.get("sectors_name"), dict) else [],
-                "website_url": h.get("website_url") or "",
-                "size": h.get("company_size") or "",
+                # jobs_count tells us whether this company has anything
+                # worth fetching — top-ranked candidates by jobs_count
+                # are the ones to validate first.
+                "jobs_count": h.get("jobs_count") or 0,
+                "nb_employees": h.get("nb_employees"),
+                "sectors": sectors,
+                "offices": offices,
+                "reference": h.get("reference") or "",
             })
         # Stop as soon as we have every advertised hit.
         if len(seen_slugs) >= nb_hits:
