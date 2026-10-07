@@ -1,4 +1,4 @@
-"""Scraper regex extractors run against the on-disk debug/*.html dumps.
+"""Scraper regex extractors + fetch_pw_generic wiring.
 
 Each test:
   1. loads an existing debug dump
@@ -207,6 +207,38 @@ class TestSeymourDuncanRegex(unittest.TestCase):
             len(matches), 0,
             "Seymour Duncan link_re regressed — zero matches on known-good dump",
         )
+
+
+class TestFetchPwGenericScrollFlag(unittest.TestCase):
+    """fetch_pw_generic must thread the `scroll` catalog field into
+    _pw_scrape_links so infinite-scroll boards (GM/DoorDash/Shopify/…)
+    opt in without touching the fetcher code. Guards against a future
+    refactor silently dropping the kwarg."""
+
+    def _call(self, source):
+        from unittest import mock
+        with mock.patch.object(jobs, "_pw_scrape_links", return_value=[]) as m:
+            jobs.fetch_pw_generic(source)
+            return m.call_args
+
+    _BASE = {
+        "name": "TestCo",
+        "search_url": "https://example.com/jobs",
+        "link_re": r'href="(/jobs/[^"]+)"',
+        "origin": "https://example.com",
+    }
+
+    def test_scroll_true_passes_through(self):
+        call = self._call({**self._BASE, "scroll": True})
+        self.assertIs(call.kwargs.get("scroll"), True)
+
+    def test_scroll_absent_defaults_false(self):
+        call = self._call(self._BASE)
+        self.assertIs(call.kwargs.get("scroll"), False)
+
+    def test_scroll_false_passes_through(self):
+        call = self._call({**self._BASE, "scroll": False})
+        self.assertIs(call.kwargs.get("scroll"), False)
 
 
 if __name__ == "__main__":

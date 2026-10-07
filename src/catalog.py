@@ -457,6 +457,27 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  # Verified 2026-10-07 via debug/probe_misses_pw.py — Lever/pw recovered
  # after JS render.
  {'name': 'Zoox', 'kind': 'lever', 'slug': 'zoox', 'group': 'Cars'},
+ # Verified 2026-10-07 via debug/probe_rescue.py (round 3).
+ {'name': 'Toyota',
+  'kind': 'workday',
+  'slug': 'toyota',
+  'board': 'https://toyota.wd503.myworkdayjobs.com/TMNA',
+  'group': 'Cars'},
+ {'name': 'Polestar',
+  'kind': 'workday',
+  'slug': 'polestar',
+  'board': 'https://polestarcars.wd1.myworkdayjobs.com/External',
+  'group': 'Cars'},
+ {'name': 'BMW',
+  'kind': 'pw',
+  'slug': 'bmw',
+  'board': 'https://www.bmwgroup.jobs/en.html',
+  'search_url': 'https://www.bmwgroup.jobs/en.html',
+  'link_re': 'href="(/en/jobfinder/job-description-copy\\.\\d+\\.html)"',
+  'origin': 'https://www.bmwgroup.jobs',
+  'wait_selector': "a[href*='/jobfinder/']",
+  'scroll': True,
+  'group': 'Cars'},
  {'name': 'GM',
   'kind': 'pw',
   'slug': 'gm',
@@ -465,12 +486,19 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'link_re': 'href="(/en/jobs/jr-\\d+/[a-z0-9-]+/)"',
   'origin': 'https://search-careers.gm.com',
   'wait_selector': "a[href*='/jobs/jr-']",
+  'scroll': True,
   'group': 'Cars'},
 
  # Media
  {'name': 'The New York Times', 'kind': 'greenhouse', 'slug': 'thenewyorktimes', 'group': 'Media'},
  # Verified 2026-10-07 via debug/probe_misses_pw.py (JS-render pass).
  {'name': 'Substack', 'kind': 'ashby', 'slug': 'substack', 'group': 'Media'},
+ # Verified 2026-10-07 via debug/probe_rescue.py.
+ {'name': 'Dow Jones',
+  'kind': 'workday',
+  'slug': 'dowjones',
+  'board': 'https://newscorp.wd3.myworkdayjobs.com/Dow_Jones_Careers',
+  'group': 'Media'},
  {'name': 'SoundCloud', 'kind': 'greenhouse', 'slug': 'soundcloud71', 'group': 'Media'},
  {'name': 'The Atlantic',
   'kind': 'workday',
@@ -510,6 +538,8 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Notion', 'kind': 'ashby', 'slug': 'notion', 'group': 'Startups'},
  # Verified 2026-10-07 via debug/probe_misses_pw.py (JS-render pass).
  {'name': 'Zapier', 'kind': 'ashby', 'slug': 'zapier', 'group': 'Startups'},
+ # Verified 2026-10-07 via debug/probe_rescue.py.
+ {'name': 'Convex', 'kind': 'ashby', 'slug': 'convex-dev', 'group': 'AI Startups'},
  {'name': 'DoorDash',
   'kind': 'pw',
   'slug': 'doordash',
@@ -518,6 +548,7 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'link_re': 'href="(https://careersatdoordash\\.com/jobs/[a-z0-9-]+/\\d+)"',
   'origin': 'https://careersatdoordash.com',
   'wait_selector': "a[href*='careersatdoordash.com/jobs/']",
+  'scroll': True,
   'group': 'Startups'},
 
  # pw-generic entries — link_re verified against the saved debug dump.
@@ -530,6 +561,7 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'link_re': 'href="(/careers/[^"#?]+_[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})"',
   'origin': 'https://www.shopify.com',
   'wait_selector': "a[href*='/careers/']",
+  'scroll': True,
   'group': 'Startups'},
  {'name': 'Plaid',
   'kind': 'pw',
@@ -539,6 +571,7 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'link_re': 'href="(/careers/openings/[^"#?]+/[^"#?]+/[^"#?]+/)"',
   'origin': 'https://plaid.com',
   'wait_selector': "a[href*='/careers/openings/']",
+  'scroll': True,
   'group': 'Startups'},
  {'name': 'Retool',
   'kind': 'pw',
@@ -548,6 +581,7 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
   'link_re': 'href="(/careers/[a-z0-9-]+--[a-z0-9-]+--[a-z0-9-]+)"',
   'origin': 'https://retool.com',
   'wait_selector': "a[href*='/careers/']",
+  'scroll': True,
   'group': 'Startups'},
  {'name': 'Fly.io',
   'kind': 'pw',
@@ -611,4 +645,11 @@ CATALOG = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'group': 'AI Startups
  {'name': 'Alchemy', 'kind': 'ashby', 'slug': 'alchemy', 'group': 'Blockchain'},
  {'name': 'Mysten Labs', 'kind': 'ashby', 'slug': 'mystenlabs', 'group': 'Blockchain'},
  {'name': 'Uniswap Labs', 'kind': 'ashby', 'slug': 'uniswap', 'group': 'Blockchain'},
- {'name': 'Immutable', 'kind': 'lever', 'slug': 'immutable', 'group': 'Blockchain'}]
+ {'name': 'Immutable', 'kind': 'lever', 'slug': 'immutable', 'group': 'Blockchain'},
+ # Verified 2026-10-07 via debug/probe_rescue.py.
+ {'name': 'Chainalysis', 'kind': 'ashby', 'slug': 'chainalysis-careers', 'group': 'Blockchain'},
+ {'name': 'Circle',
+  'kind': 'workday',
+  'slug': 'circle',
+  'board': 'https://circle.wd1.myworkdayjobs.com/Circle',
+  'group': 'Blockchain'}]

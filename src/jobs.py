@@ -997,6 +997,54 @@ def _render(page, url, wait_selector=None, timeout=15000, debug_path=None):
     return content
 
 
+def _scroll_until_stable(page, max_scrolls=25, settle_ms=700, debug_name=""):
+    """Drive an infinite-scroll SPA to the bottom until it stops growing.
+
+    Pattern: `scrollTo(bottom)` → wait a beat → compare `scrollHeight` before
+    and after → if unchanged twice in a row, we're done. Cheaper than
+    `networkidle` (analytics beacons keep that alive forever on some pages)
+    and more reliable than a fixed `sleep`.
+
+    Opt in per source via `"scroll": True` on the catalog entry. Default off
+    so small static boards (Zama, Fhenix) don't pay a 10-20 s tax.
+    """
+    try:
+        prev_h = page.evaluate("document.documentElement.scrollHeight")
+    except Exception:
+        return 0
+    stable = 0
+    scrolls = 0
+    for _ in range(max_scrolls):
+        try:
+            page.evaluate(
+                "window.scrollTo(0, document.documentElement.scrollHeight)"
+            )
+        except Exception:
+            break
+        scrolls += 1
+        try:
+            page.wait_for_timeout(settle_ms)
+        except Exception:
+            pass
+        try:
+            new_h = page.evaluate("document.documentElement.scrollHeight")
+        except Exception:
+            break
+        if new_h <= prev_h:
+            stable += 1
+            if stable >= 2:
+                break
+        else:
+            stable = 0
+            prev_h = new_h
+    if debug_name:
+        sys.stdout.write(
+            f"[{debug_name}] scroll: {scrolls} iterations, "
+            f"final height ~{prev_h}px\n"
+        )
+    return scrolls
+
+
 _APPLE_RESULT_COUNT_RE = re.compile(
     r'id="search-result-count"[^>]*>\s*([0-9,]+)\+?\s*Result',
     re.IGNORECASE,
@@ -1280,9 +1328,15 @@ def fetch_microsoft(source):
             "total_board": total_board}
 
 
-def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a"):
+def _pw_scrape_links(source_name, url, link_re_pattern, origin,
+                     wait_selector="a", scroll=False):
     """Render `url` with Playwright, then extract hrefs matching `link_re_pattern`.
-    Titles are derived from the last URL segment. Returns list of job dicts."""
+    Titles are derived from the last URL segment. Returns list of job dicts.
+
+    When `scroll=True`, drives infinite-scroll pagination to the bottom
+    after the initial render — needed for GM / DoorDash / Shopify style
+    boards whose first paint only shows the first 10-25 postings.
+    """
     if not HAS_PLAYWRIGHT:
         err(f"[{source_name}] Playwright not installed")
         return []
@@ -1290,6 +1344,20 @@ def _pw_scrape_links(source_name, url, link_re_pattern, origin, wait_selector="a
     p, browser, page = _open_browser()
     try:
         text = _render(page, url, wait_selector=wait_selector, debug_path=debug)
+        if scroll:
+            _scroll_until_stable(page, debug_name=source_name)
+            # Re-read + re-dump after scroll so our debug file reflects the
+            # full list, not just the first paint.
+            try:
+                text = page.content()
+            except Exception:
+                pass
+            try:
+                _ensure_debug_dir()
+                with open(debug, "w", encoding="utf-8") as f:
+                    f.write(text)
+            except Exception:
+                pass
     finally:
         browser.close()
         p.stop()
@@ -1751,7 +1819,9 @@ def fetch_ibm(source):
 
 
 def fetch_pw_generic(source):
-    """Generic Playwright link scraper. Requires `search_url`, `link_re`, `origin` on source."""
+    """Generic Playwright link scraper. Requires `search_url`, `link_re`,
+    `origin`. Pass `"scroll": True` on the catalog entry to drive
+    infinite-scroll pagination to the bottom before extracting links."""
     if not source.get("search_url") or not source.get("link_re"):
         err(f"[{source['name']}] missing search_url/link_re")
         return {"jobs": [], "spontaneous_url": None}
@@ -1761,6 +1831,7 @@ def fetch_pw_generic(source):
         source["link_re"],
         source.get("origin") or source["search_url"].rsplit("/", 1)[0],
         wait_selector=source.get("wait_selector", "a"),
+        scroll=bool(source.get("scroll", False)),
     )
     return {"jobs": jobs, "spontaneous_url": _pick_spontaneous(jobs)}
 
@@ -4044,6 +4115,14 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
         f'{total_bit}'
         f'</span>'
     )
+    # Per-section bulk reject: rejects only untouched jobs in this section
+    # (the client-side handler filters by :not(.liked):not(.toapply):not(.applied):not(.app-rejected),
+    # mirroring the CSS that hides the per-row × on touched rows).
+    reject_section_btn = (
+        f'<button class="reject-section" data-sid="{sid}" '
+        f'data-name="{html.escape(display, quote=True)}" '
+        f'title="Reject every untouched job in this section">×</button>'
+    )
     board_link = (
         f'<a class="board-link" href="{html.escape(board_url, quote=True)}" '
         f'target="_blank" rel="noopener">{html.escape(display)}</a>'
@@ -4245,7 +4324,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
     section_cls = "company-section" + (" has-spontaneous" if spontaneous_url else "")
     return (
         f'  <section class="{section_cls}" data-section="{sid}">\n'
-        f'  <h1 id="{sid}">{board_link} {query_pills} {counter}</h1>\n'
+        f'  <h1 id="{sid}">{board_link} {query_pills} {counter} {reject_section_btn}</h1>\n'
         f'{company_info_row}'
         f'{spontaneous_row}'
         f'{rejected_block}'
@@ -5624,6 +5703,35 @@ HTML_TEMPLATE = """<!doctype html>
     }
     .reject:disabled { opacity: 0.4; cursor: wait; }
 
+    /* Section-level × — mirrors .reject but a touch larger so it reads as
+       "nuke the whole section" at a glance. Sits in the <h1> next to the
+       counter; hidden when the section has no untouched rows left. */
+    .reject-section {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1.5px solid var(--danger);
+      color: var(--danger);
+      border-radius: 50%;
+      width: 1.5rem;
+      height: 1.5rem;
+      cursor: pointer;
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+      margin-left: 0.3rem;
+      vertical-align: middle;
+    }
+    .reject-section:hover {
+      background: var(--danger);
+      color: #ffffff;
+      border-color: var(--danger-emphasis);
+    }
+    .reject-section:disabled { opacity: 0.4; cursor: wait; }
+    .company-section:not(:has(li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected))) .reject-section {
+      display: none;
+    }
+
     /* Review button: orange circle, only rendered when the job has no state.
        Sends title to planning/TOREVIEW.md + rejects the URL in one click. */
     button.review {
@@ -5928,6 +6036,49 @@ HTML_TEMPLATE = """<!doctype html>
       font-weight: 600;
     }
     #refresh-floater.visible { display: inline-flex; }
+    /* One-shot pill shown after the onboarding wizard redirects here.
+       Same geometry as #refresh-floater but green (success) and offset
+       so both can co-exist if a refresh kicks off during the welcome. */
+    .onboarded-toast {
+      position: fixed;
+      top: 0.8rem;
+      right: 0.8rem;
+      z-index: 999;
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.9rem 0.5rem 0.75rem;
+      background: var(--bg);
+      color: var(--fg);
+      border: 2px solid var(--success);
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .onboarded-toast.visible { display: inline-flex; }
+    .onboarded-toast .onboarded-icon {
+      display: inline-flex;
+      width: 1.1rem; height: 1.1rem;
+      align-items: center; justify-content: center;
+      background: var(--success);
+      color: #ffffff;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .onboarded-toast .onboarded-dismiss {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--fg-muted);
+      font-size: 1.2rem;
+      line-height: 1;
+      padding: 0 0.2rem;
+    }
+    .onboarded-toast .onboarded-dismiss:hover { color: var(--fg); }
+    #refresh-floater.visible + .onboarded-toast,
+    .onboarded-toast + #refresh-floater.visible { top: 4rem; }
     #refresh-floater::before {
       content: "";
       width: 0.65rem; height: 0.65rem;
@@ -7835,14 +7986,47 @@ const RANKED_SHOW_MARKS_KEY = 'jobs:ranked-show-marks';
 (() => {
   const hashMatch = location.hash.match(/tab=([a-zA-Z-]+)/);
   const fromHash = hashMatch && TAB_PRESETS[hashMatch[1]] ? hashMatch[1] : null;
+  const onboardedMatch = location.hash.match(/onboarded=(\\d+)/);
+  const onboardedSecs = onboardedMatch ? parseInt(onboardedMatch[1], 10) : null;
   let last = null;
   try { last = localStorage.getItem(TAB_STORAGE_KEY); } catch (e) {}
   activateTab(fromHash || last || 'all');
-  // Clear the hash so a subsequent reload doesn't re-pin the tab.
-  if (fromHash && history.replaceState) {
+  // Clear the hash so a subsequent reload doesn't re-pin the tab OR
+  // re-pop the onboarding-completed toast.
+  if ((fromHash || onboardedMatch) && history.replaceState) {
     history.replaceState(null, '', location.pathname + location.search);
   }
+  if (onboardedSecs !== null) {
+    _showOnboardingToast(onboardedSecs);
+  }
 })();
+
+function _fmtDuration(secs) {
+  if (secs < 60) return secs + ' s';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return s === 0 ? m + ' min' : m + ' min ' + s + ' s';
+}
+
+/* Sticky pill shown once after onboarding redirects here. Mirrors the
+   refresh floater's position (top-right); stays visible until the user
+   dismisses it so the first-time user has a moment of "it worked, this
+   took N min" before the board grabs their attention. */
+function _showOnboardingToast(secs) {
+  let el = document.getElementById('onboarded-toast');
+  if (el) el.remove();
+  el = document.createElement('div');
+  el.id = 'onboarded-toast';
+  el.className = 'onboarded-toast visible';
+  el.innerHTML =
+    '<span class="onboarded-icon" aria-hidden="true">✓</span>' +
+    '<span class="onboarded-text"></span>' +
+    '<button type="button" class="onboarded-dismiss" aria-label="Dismiss">×</button>';
+  el.querySelector('.onboarded-text').textContent =
+    'Onboarding finished in ' + _fmtDuration(secs) + '. Welcome.';
+  el.querySelector('.onboarded-dismiss').addEventListener('click', () => el.remove());
+  document.body.appendChild(el);
+}
 
 /* --- Like -------------------------------------------------------------- */
 async function apiPost(path, url) {
@@ -8895,6 +9079,49 @@ document.querySelectorAll('.reject').forEach(btn => {
       li.style.opacity = '1';
       alert('Reject failed: ' + err.message);
     }
+  });
+});
+
+// Section × — reject every untouched job (no state) in this company section
+// in one click. Reuses the per-URL /reject endpoint sequentially so each
+// rejection lands on the undo stack and Cmd+Z brings them back one at a
+// time. Rows the user has already touched (liked / to-apply / applied /
+// app-rejected) are skipped: the same CSS that hides the per-row × on
+// those rows applies here.
+document.querySelectorAll('.reject-section').forEach(btn => {
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sid = btn.dataset.sid;
+    const name = btn.dataset.name || sid;
+    const ul = document.querySelector('ul[data-section="' + sid + '"]');
+    if (!ul) return;
+    const rows = [...ul.querySelectorAll(
+      'li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected)'
+    )];
+    if (rows.length === 0) return;
+    if (!confirm('Reject ' + rows.length + ' job' + (rows.length === 1 ? '' : 's')
+                 + ' from ' + name + '?')) return;
+    btn.disabled = true;
+    for (const li of rows) {
+      const rowBtn = li.querySelector('button.reject');
+      const url = rowBtn?.dataset.url;
+      if (!url) continue;
+      li.style.opacity = '0.3';
+      try {
+        await apiPost('/reject', url);
+        const next = li.nextElementSibling;
+        rejectUndoStack.push({url, sid, li, next, ul});
+        li.remove();
+        updateCounters(sid, -1, +1);
+      } catch (err) {
+        li.style.opacity = '1';
+        alert('Reject failed on ' + url + ': ' + err.message);
+        break;
+      }
+    }
+    btn.disabled = false;
+    showUndoToast();
   });
 });
 

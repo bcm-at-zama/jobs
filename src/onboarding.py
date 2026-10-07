@@ -47,8 +47,8 @@ HIGHLIGHT_PRESETS = [
     "Security", "Cryptography", "Cyber", "AI", "ML", "LLM", "GPU",
     "Python", "Rust", "Go", "TypeScript", "Kubernetes", "Terraform",
     "Remote", "Hybrid",
-    "Senior", "Staff", "Principal", "Director", "VP",
-    "Engineering Manager", "CTO",
+    "Senior", "Staff", "Principal", "Director", "Head of",
+    "Engineering Manager",
 ]
 
 # Hard-coded chip suggestions for Step 5 ("Filter by title"). Shown as
@@ -59,7 +59,7 @@ QUERY_PRESETS = [
     "security", "cryptography", "AI", "ML", "LLM", "GPU",
     "infrastructure", "cloud", "platform",
     "Rust", "Go", "Python", "Kubernetes",
-    "manager", "Engineering Manager", "Director", "VP", "CTO",
+    "manager", "Engineering Manager", "Director", "Head of",
     "Senior", "Staff", "Principal",
 ]
 
@@ -536,7 +536,11 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
         return self.launch_state
 
     def _poll_board_ready(self):
-        deadline = time.time() + 900  # 15 min upper bound for first fetch
+        # Upper bound for the first fetch. Microsoft's description-fetching
+        # phase alone can take 5-10 min on a config with 12+ queries, and
+        # a few more sources tail it. 30 min keeps the safety net while
+        # not giving up on a healthy-but-slow Playwright run.
+        deadline = time.time() + 30 * 60
         board_url = self.launch_state["board_url"]
         consecutive_ok = 0
         while time.time() < deadline:
@@ -578,7 +582,10 @@ class _OnboardingServer(http.server.ThreadingHTTPServer):
             time.sleep(1.0)
         with self.launch_lock:
             self.launch_state["status"] = "failed"
-            self.launch_state["error"] = "timed out waiting for the board (15 min)"
+            self.launch_state["error"] = (
+                "timed out waiting for the board (30 min). The subprocess "
+                "may still be alive — try opening the board URL directly."
+            )
 
 
 class _OnboardingHandler(http.server.BaseHTTPRequestHandler):
