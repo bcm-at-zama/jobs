@@ -190,5 +190,13 @@ What's NOT fine is "do you want X? Also Y? Also Z?".
 - If I move on to another topic without answering, you MUST re-ask on your
   next turn. Do not silently drop the question and do not proceed with a
   guess.
+- **Re-ask ONE question at a time, even when a backlog has built up.**
+  Combine with the "Ask one thing at a time" rule above: if I've skipped
+  three pending questions, do NOT dump all three back at me on the next
+  turn — pick the most load-bearing one and ask ONLY that. The others
+  stay on your mental TODO and surface, still one at a time, in later
+  turns as earlier questions get answered.
 - Rationale: it is easy for me to miss a question buried at the end of a
   long paragraph. Losing the question means losing the correct fix.
+  Dumping a backlog of three re-asks has the same failure mode — I
+  answer one, miss two, and we re-converge on nothing.

@@ -5327,6 +5327,47 @@ HTML_TEMPLATE = """<!doctype html>
       padding: 0 0.8rem;
       background: var(--bg-subtle);
     }
+    /* 📡 Discovered-on-WTJ section header + rows. Visually distinct
+       from the catalog groups so users don't confuse "already tracked"
+       with "proposed to add". */
+    .edit-sources-discovered { border-color: var(--accent); }
+    .edit-sources-discovered > summary { color: var(--accent-emphasis); }
+    .es-discovered-hint {
+      font-size: 0.85rem;
+      color: var(--fg-muted);
+      margin: 0.2rem 0 0.6rem;
+    }
+    .es-discovered-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.5rem;
+    }
+    .es-discovered-row {
+      display: block;
+      padding: 0.5rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg);
+      text-decoration: none;
+    }
+    .es-discovered-row:hover { border-color: var(--accent); background: var(--bg-inset); }
+    .es-discovered-name { font-weight: 600; font-size: 0.95rem; }
+    .es-discovered-desc {
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+      margin-top: 0.15rem;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .es-discovered-tags {
+      font-size: 0.75rem;
+      color: var(--accent-emphasis);
+      margin-top: 0.25rem;
+    }
     .edit-sources-group[open] { padding-bottom: 0.8rem; }
     .edit-sources-group > summary {
       cursor: pointer;
@@ -6518,6 +6559,11 @@ const HIGHLIGHTS = __HIGHLIGHTS__;
 // Edit-companies dialog: catalog (menu) + current config (pre-check).
 const CATALOG_FOR_EDIT = __CATALOG_FOR_EDIT__;
 const SOURCES_NAMES = __SOURCES_NAMES__;
+// Discovered on WTJ (via Algolia public API) during the last refresh.
+// List of {slug, name, description, sectors, website_url}. Shown as a
+// read-only "📡 Discovered" section at the top of the Edit-companies
+// modal so the user can browse and decide which to add manually.
+const WTTJ_DISCOVERED = __WTTJ_DISCOVERED__;
 // Server-side per-query runaway threshold (data/user_config.py or default).
 // Shown + editable on the ⚙ Settings page; POST /set-settings persists it.
 const RUNAWAY_THRESHOLD = __RUNAWAY_THRESHOLD__;
@@ -8486,6 +8532,64 @@ function openEditCompaniesModal() {
 
 function _buildEditSourcesContent(modal, selected, effectiveSeen) {
   const body = modal.querySelector('#es-body');
+  // Discovered-on-WTJ section FIRST — companies the Algolia probe
+  // surfaced that are NOT already in the catalog or user's SOURCES.
+  // Read-only (link to WTJ page) — adding is a manual follow-up for
+  // now because each company needs a scraper-specific URL.
+  const catalogNames = new Set(CATALOG_FOR_EDIT.map(e => e.name.toLowerCase()));
+  const inSources = new Set([...selected].map(n => n.toLowerCase()));
+  const discovered = (WTTJ_DISCOVERED || []).filter(c => {
+    const nm = (c.name || '').toLowerCase();
+    const sl = (c.slug || '').toLowerCase();
+    return nm && !catalogNames.has(nm) && !inSources.has(nm) && !catalogNames.has(sl);
+  });
+  if (discovered.length) {
+    const d = document.createElement('details');
+    d.className = 'edit-sources-group edit-sources-discovered';
+    d.open = false;
+    const sum = document.createElement('summary');
+    sum.innerHTML =
+      '<span class="group-name">📡 Discovered on WTJ</span>' +
+      '<span class="group-count"><span class="n-on">' + discovered.length +
+      '</span> new</span>';
+    d.appendChild(sum);
+    const hint = document.createElement('p');
+    hint.className = 'es-discovered-hint';
+    hint.textContent =
+      discovered.length + ' companies seen on Welcome to the Jungle but ' +
+      'not yet tracked. Click to open the company page on WTJ; add to your ' +
+      'config manually once you have a scrape URL.';
+    d.appendChild(hint);
+    const grid = document.createElement('div');
+    grid.className = 'edit-sources-grid es-discovered-grid';
+    for (const c of discovered.slice(0, 300)) {
+      const row = document.createElement('a');
+      row.className = 'es-discovered-row';
+      row.href = c.website_url ||
+        ('https://www.welcometothejungle.com/fr/companies/' + c.slug);
+      row.target = '_blank';
+      row.rel = 'noopener';
+      const nm = document.createElement('div');
+      nm.className = 'es-discovered-name';
+      nm.textContent = c.name;
+      row.appendChild(nm);
+      if (c.description) {
+        const dsc = document.createElement('div');
+        dsc.className = 'es-discovered-desc';
+        dsc.textContent = c.description;
+        row.appendChild(dsc);
+      }
+      if (c.sectors && c.sectors.length) {
+        const tags = document.createElement('div');
+        tags.className = 'es-discovered-tags';
+        tags.textContent = c.sectors.slice(0, 3).join(' · ');
+        row.appendChild(tags);
+      }
+      grid.appendChild(row);
+    }
+    d.appendChild(grid);
+    body.appendChild(d);
+  }
   // Group by `group`, sort groups by size DESC (matches onboarding UX).
   const grouped = new Map();
   for (const e of CATALOG_FOR_EDIT) {
@@ -9093,8 +9197,8 @@ document.querySelectorAll('.reject-section').forEach(btn => {
       'li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected)'
     )];
     if (rows.length === 0) return;
-    if (!confirm('Reject ' + rows.length + ' job' + (rows.length === 1 ? '' : 's')
-                 + ' from ' + name + '?')) return;
+    // No confirm — Cmd+Z brings every reject back (see rejectUndoStack
+    // + showUndoToast), so a misclick is cheap to undo.
     btn.disabled = true;
     for (const li of rows) {
       const rowBtn = li.querySelector('button.reject');
@@ -10794,6 +10898,10 @@ def main():
         from catalog import CATALOG as _CATALOG_FOR_EDIT
     except Exception:
         _CATALOG_FOR_EDIT = []
+    try:
+        from wttj_discovery import load_candidates as _wttj_discovery_load
+    except Exception:
+        _wttj_discovery_load = lambda _p: {}
     _sources_names = sorted({s.get("name") for s in SOURCES if s.get("name")})
     html_output = (
         HTML_TEMPLATE
@@ -10804,6 +10912,10 @@ def main():
         .replace("__CATALOG_FOR_EDIT__", json.dumps(_CATALOG_FOR_EDIT))
         .replace("__SOURCES_NAMES__", json.dumps(_sources_names))
         .replace("__RUNAWAY_THRESHOLD__", json.dumps(_cfg.RUNAWAY_THRESHOLD))
+        .replace("__WTTJ_DISCOVERED__", json.dumps(
+            (_wttj_discovery_load(os.path.join(DATA_DIR, "wttj_discovered.json"))
+             or {}).get("candidates", [])
+        ))
     )
 
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
@@ -10831,6 +10943,22 @@ def main():
     # All Playwright work is done — release the shared Chromium instance so
     # it doesn't leak memory while the HTTP server runs indefinitely.
     _close_shared_browser()
+
+    # WTJ company discovery — one Algolia POST per refresh. Independent
+    # of the fetchers loop (not a source), writes to
+    # data/wttj_discovered.json so the Edit-companies modal can surface
+    # companies not yet in the catalog. Isolated in a try so a WTJ
+    # outage never breaks the render.
+    try:
+        import wttj_discovery
+        candidates = wttj_discovery.fetch_candidates()
+        wttj_discovery.cache_candidates(
+            os.path.join(DATA_DIR, "wttj_discovered.json"),
+            candidates,
+        )
+        timing(f"[wttj_discovery] cached {len(candidates)} candidates")
+    except Exception as e:
+        timing(f"[wttj_discovery] skipped: {e}")
 
     if args.no_serve:
         print("[main] --no-serve: exiting after render", file=sys.stdout)
