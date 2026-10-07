@@ -5897,6 +5897,40 @@ HTML_TEMPLATE = """<!doctype html>
       padding: 0.02rem 0.3rem;
       border-radius: 3px;
     }
+    /* Floating refresh indicator — visible for the entire duration of a
+       /refresh so the user always sees progress, even scrolled a mile
+       down. Starts hidden; JS toggles .visible when the poller is in
+       `running`. Position matches other floating widgets (top-right)
+       so it doesn't collide with the bottom-centered paste bar. */
+    #refresh-floater {
+      position: fixed;
+      top: 0.8rem;
+      right: 0.8rem;
+      z-index: 998;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.9rem;
+      background: var(--bg);
+      color: var(--fg);
+      border: 2px solid var(--accent);
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    #refresh-floater.visible { display: inline-flex; }
+    #refresh-floater::before {
+      content: "";
+      width: 0.65rem; height: 0.65rem;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: refresh-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes refresh-pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.75); }
+      50%      { opacity: 1;   transform: scale(1); }
+    }
     /* Sticky "paste the reply here" bar — appears when you click AI. */
     #claude-paste-bar {
       position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%);
@@ -6929,35 +6963,62 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
     backdrop.querySelector('.runaway-stop').addEventListener('click', () => decide('stop'));
     backdrop.querySelector('.runaway-continue').addEventListener('click', () => decide('continue'));
   }
+  // Floating "Refreshing… Ns" pill — fixed position, so it stays
+  // visible no matter how far the user has scrolled. Shown for the
+  // entire pollUntilDone lifecycle, hidden on terminal.
+  const floater = document.getElementById('refresh-floater');
+  function _showFloater(text) {
+    if (!floater) return;
+    floater.textContent = text;
+    floater.classList.add('visible');
+  }
+  function _hideFloater() {
+    if (!floater) return;
+    floater.classList.remove('visible');
+    floater.textContent = '';
+  }
   async function pollUntilDone(label) {
     _runawayHandled.clear();
-    while (true) {
-      await new Promise(r => setTimeout(r, 2000));
-      let s;
-      try {
-        const r = await fetch(base() + '/refresh-status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
-        s = await r.json();
-      } catch (e) {
-        status.textContent = label + ' status check failed: ' + e.message;
-        return false;
+    _showFloater(label + '…');
+    try {
+      while (true) {
+        await new Promise(r => setTimeout(r, 2000));
+        let s;
+        try {
+          const r = await fetch(base() + '/refresh-status', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+          s = await r.json();
+        } catch (e) {
+          status.textContent = label + ' status check failed: ' + e.message;
+          return false;
+        }
+        // Surface any pending runaway prompts BEFORE acting on terminal
+        // states — a source might trigger right at the end of the fetch.
+        if (Array.isArray(s.runaway)) {
+          for (const entry of s.runaway) _showRunawayModal(entry);
+        }
+        if (s.status === 'running') {
+          const msg = label + '… ' + s.elapsed + 's';
+          status.textContent = msg;
+          _showFloater(msg);
+        } else if (s.status === 'done') {
+          status.textContent = label + ' done — reloading…';
+          _showFloater(label + ' done — reloading…');
+          return true;
+        } else if (s.status === 'failed') {
+          status.textContent = label + ' failed: ' + (s.error || 'unknown');
+          alert(label + ' failed:\\n' + (s.error || 'unknown error'));
+          return false;
+        } else {
+          // idle without ever running — retry once
+          return false;
+        }
       }
-      // Surface any pending runaway prompts BEFORE acting on terminal
-      // states — a source might trigger right at the end of the fetch.
-      if (Array.isArray(s.runaway)) {
-        for (const entry of s.runaway) _showRunawayModal(entry);
-      }
-      if (s.status === 'running') {
-        status.textContent = label + '… ' + s.elapsed + 's';
-      } else if (s.status === 'done') {
-        status.textContent = label + ' done — reloading…';
-        return true;
-      } else if (s.status === 'failed') {
-        status.textContent = label + ' failed: ' + (s.error || 'unknown');
-        alert(label + ' failed:\\n' + (s.error || 'unknown error'));
-        return false;
-      } else {
-        // idle without ever running — retry once
-        return false;
+    } finally {
+      // Only auto-hide on failure/idle; the `done` path reloads the
+      // page, so leaving the pill up until reload gives the user
+      // confirmation that the refresh finished.
+      if (floater && !floater.textContent.includes('reloading')) {
+        _hideFloater();
       }
     }
   }
@@ -7779,7 +7840,7 @@ const RANKED_SHOW_MARKS_KEY = 'jobs:ranked-show-marks';
 // Init: restore last-used tab (defaults to 'all' on first load). Runs AFTER
 // loadFilters so the tab preset wins over any stale saved checkbox state.
 // A URL hash of the form `#tab=<name>` wins over the saved value — used
-// by the onboarding wizard to drop the user straight into the New tab
+// by the onboarding wizard to drop the user straight into the All tab
 // after `make onboarding` has built the board.
 (() => {
   const hashMatch = location.hash.match(/tab=([a-zA-Z-]+)/);
@@ -10382,6 +10443,11 @@ def main():
         f'  <div class="top-bar top-bar-row2">\n'
         f'    <span class="dump-status" id="dump-status" aria-live="polite"></span>\n'
         f'  </div>\n'
+        # Floating refresh indicator — stays visible no matter how far the
+        # user has scrolled. The in-flow #dump-status is kept for the
+        # non-refresh messages ("copied to clipboard", "opening N URLs")
+        # that are tied to a specific action.
+        f'  <div id="refresh-floater" role="status" aria-live="polite"></div>\n'
     )
     # Build a "sources with problems" banner so you can see at a glance
     # which scrapers crashed or returned nothing this run. Broken (red) →
