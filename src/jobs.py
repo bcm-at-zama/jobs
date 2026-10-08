@@ -2827,6 +2827,9 @@ def board_url_for(source):
         return "https://jobs.apple.com/en-us/search"
     if kind == "google":
         return "https://www.google.com/about/careers/applications/jobs/results/"
+    if kind == "eightfold":
+        host = (source.get("host") or "").rstrip("/")
+        return f"{host}/careers" if host else ""
     return ""
 
 
@@ -4387,7 +4390,7 @@ def render_html_section(name, visible, rejected_count, board_url, spontaneous_ur
 TABS = [
     ("all",         "All"),
     ("new",         "New"),
-    ("untouched",   "Untouched"),
+    ("untouched",   "Unclassified"),
     ("ranked",      "Ranked"),
     ("spontaneous", "Spontaneous"),
     ("liked",       "Liked"),
@@ -8836,8 +8839,8 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
       const raw = prompt(
         'Keywords for every company in this group (comma-separated).\\n' +
         'Overrides their current filter on Save.\\n\\n' +
-        'Example: CTO, VP, Head of',
-        'CTO, VP'
+        'Example: manager, engineer',
+        'manager, engineer'
       );
       if (raw === null) return;
       const kws = raw.split(',').map(s => s.trim()).filter(Boolean);
@@ -9950,11 +9953,13 @@ def _build_group_filters():
 
 
 def _render_settings_html():
-    """Load src/settings.html and inline __SERVER_URL__ + __RUNAWAY_THRESHOLD__.
+    """Load src/settings.html and inline __SERVER_URL__, __RUNAWAY_THRESHOLD__,
+    __BOARD_TITLE__, __HIGHLIGHTS__.
 
     Rendered on every GET /settings (not cached) so a mid-session
-    /set-settings POST shows the new value when the user reopens the
-    page. The file is small (~10kB) — rebuilding costs microseconds."""
+    /set-settings or /set-highlights POST shows the new value when the
+    user reopens the page. The file is small (~10kB) — rebuilding costs
+    microseconds."""
     here = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(here, "settings.html"), "r", encoding="utf-8") as f:
         html = f.read()
@@ -9965,6 +9970,7 @@ def _render_settings_html():
         .replace("__SERVER_URL__", server_url)
         .replace("__RUNAWAY_THRESHOLD__", json.dumps(_cfg.RUNAWAY_THRESHOLD))
         .replace("__BOARD_TITLE__", _html.escape(_cfg.BOARD_TITLE))
+        .replace("__HIGHLIGHTS__", json.dumps(list(HIGHLIGHTS)))
     )
     return html.encode("utf-8")
 
@@ -10024,7 +10030,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/claude-fit-paste",
             "/write-user-config", "/update-queries", "/unfollow",
             "/save-probe", "/save-open-selected",
-            "/set-settings",
+            "/set-settings", "/set-highlights",
         ):
             self.send_response(404)
             self.end_headers()
@@ -10112,6 +10118,94 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         )
                 except Exception as e:
                     sys.stdout.write(f"set-settings: html patch failed: {e}\n")
+            self.send_response(204); self._cors(); self.end_headers(); return
+        if self.path == "/set-highlights":
+            # Replace the whole HIGHLIGHTS list in one go — the chip
+            # editor sends the full array on every add/remove so we
+            # don't need per-word endpoints.
+            raw = payload.get("highlights")
+            if not isinstance(raw, list):
+                self.send_response(400); self._cors(); self.end_headers(); return
+            # Dedupe case-insensitively (first occurrence wins) and drop
+            # empties / overlong entries. 60 chars is already generous for
+            # a highlight word; a 10 000-char entry is almost certainly a
+            # paste accident.
+            seen_lower = set()
+            cleaned = []
+            for v in raw:
+                if not isinstance(v, str):
+                    continue
+                w = v.strip()
+                if not w or len(w) > 60:
+                    continue
+                lw = w.lower()
+                if lw in seen_lower:
+                    continue
+                seen_lower.add(lw)
+                cleaned.append(w)
+            if len(cleaned) > 200:
+                self.send_response(400); self._cors(); self.end_headers(); return
+            # Mutate in place so every imported reference (jobs.py's
+            # module-level HIGHLIGHTS, _cfg.HIGHLIGHTS) sees the new list.
+            try:
+                HIGHLIGHTS[:] = cleaned
+                _cfg.HIGHLIGHTS[:] = cleaned
+            except Exception:
+                pass
+            # Persist to data/user_config.py by rewriting the HIGHLIGHTS
+            # line (same regex-replace pattern as /set-settings). We
+            # format with repr-per-item so quotes are escaped correctly.
+            out_path = os.path.join(_cfg.DATA_DIR, "user_config.py")
+            literal = "[" + ", ".join(repr(w) for w in cleaned) + "]"
+            try:
+                txt = ""
+                if os.path.isfile(out_path):
+                    with open(out_path, "r", encoding="utf-8") as f:
+                        txt = f.read()
+                    bak = f"{out_path}.bak.{time.strftime('%Y%m%d-%H%M%S')}"
+                    with open(bak, "w", encoding="utf-8") as f:
+                        f.write(txt)
+                new_line = f"HIGHLIGHTS = {literal}"
+                pat = r"^HIGHLIGHTS\s*=\s*\[[^\]]*\]"
+                if re.search(pat, txt, re.MULTILINE | re.DOTALL):
+                    txt = re.sub(pat, new_line, txt, count=1,
+                                 flags=re.MULTILINE | re.DOTALL)
+                else:
+                    if txt and not txt.endswith("\n"):
+                        txt += "\n"
+                    txt += "\n" + new_line + "\n"
+                os.makedirs(_cfg.DATA_DIR, exist_ok=True)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(txt)
+                sys.stdout.write(
+                    f"set-highlights: {len(cleaned)} words → {out_path}\n"
+                )
+            except Exception as e:
+                sys.stdout.write(f"set-highlights: write failed: {e}\n")
+                self.send_response(500); self._cors(); self.end_headers(); return
+            # Patch data/jobs.html so a page reload shows the new list
+            # without a full /refresh. We only update the `const HIGHLIGHTS`
+            # line used by the client-side highlighter; existing <mark>
+            # tags on titles were rendered server-side and stay stale
+            # until the next refresh.
+            try:
+                if os.path.isfile(OUTPUT_HTML):
+                    with open(OUTPUT_HTML, "r", encoding="utf-8") as f:
+                        _h = f.read()
+                    _h = re.sub(
+                        r"^const HIGHLIGHTS = .*;$",
+                        "const HIGHLIGHTS = " + json.dumps(cleaned) + ";",
+                        _h,
+                        count=1,
+                        flags=re.MULTILINE,
+                    )
+                    with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
+                        f.write(_h)
+                    sys.stdout.write(
+                        f"set-highlights: patched {OUTPUT_HTML}\n"
+                    )
+            except Exception as e:
+                sys.stdout.write(f"set-highlights: html patch failed: {e}\n")
             self.send_response(204); self._cors(); self.end_headers(); return
         if self.path == "/save-probe":
             script = payload.get("script") or ""

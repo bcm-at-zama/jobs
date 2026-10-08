@@ -47,8 +47,17 @@ class TestRenderSettingsHtml(unittest.TestCase):
             ">Section summaries<",
             ">AI assistant<",
             ">Scraping<",
+            ">Highlight keywords<",
         ):
             self.assertIn(heading, text, f"missing heading: {heading}")
+
+    def test_highlights_placeholder_replaced(self):
+        """__HIGHLIGHTS__ must be substituted with a JSON array literal
+        the chip editor can read. Raw placeholder = page JS breaks."""
+        with mock.patch.object(jobs, "HIGHLIGHTS", ["crypto", "security"]):
+            text = jobs._render_settings_html().decode("utf-8")
+        self.assertNotIn("__HIGHLIGHTS__", text)
+        self.assertIn('["crypto", "security"]', text)
 
     def test_back_link_points_to_root(self):
         """The Back link is the only navigation off the page; if it rot
@@ -105,6 +114,77 @@ class TestSettingsGetRoute(unittest.TestCase):
         catch-all 404 branch."""
         status, _, _ = self._invoke("/does-not-exist")
         self.assertEqual(status, 404)
+
+
+class TestSetHighlightsPost(unittest.TestCase):
+    """POST /set-highlights {highlights: [...]} rewrites HIGHLIGHTS in
+    data/user_config.py, mutates the in-memory list, and patches the
+    `const HIGHLIGHTS = …;` line in data/jobs.html so a reload picks up
+    the new list without a full /refresh."""
+
+    def _invoke(self, body_bytes):
+        class _Shim(jobs.Handler):
+            def __init__(self):
+                self.rfile = BytesIO(body_bytes)
+                self.wfile = BytesIO()
+                self.headers = {
+                    "Content-Length": str(len(body_bytes)),
+                    "Content-Type": "application/json",
+                }
+                self.path = "/set-highlights"
+                self.command = "POST"
+                self._status = None
+                self._headers = {}
+
+            def send_response(self, code, msg=None):
+                self._status = code
+
+            def send_header(self, k, v):
+                self._headers[k] = v
+
+            def end_headers(self): pass
+            def log_message(self, *a, **kw): pass
+
+        shim = _Shim()
+        shim.do_POST()
+        return shim._status
+
+    def test_updates_user_config_and_mutates_in_memory(self):
+        import tempfile, json as _json
+        with tempfile.TemporaryDirectory() as tmp:
+            # Pre-populate the user_config.py so the regex replace path hits.
+            with open(os.path.join(tmp, "user_config.py"), "w") as f:
+                f.write("HIGHLIGHTS = ['old']\nSOURCES = []\n")
+            with mock.patch.object(jobs._cfg, "DATA_DIR", tmp), \
+                 mock.patch.object(jobs, "HIGHLIGHTS", ["old"]), \
+                 mock.patch.object(jobs._cfg, "HIGHLIGHTS", ["old"]):
+                body = _json.dumps({"highlights": ["crypto", "security"]})
+                status = self._invoke(body.encode())
+                self.assertEqual(status, 204)
+                # In-memory mutated in place
+                self.assertEqual(jobs.HIGHLIGHTS, ["crypto", "security"])
+                # File on disk rewritten
+                written = open(os.path.join(tmp, "user_config.py")).read()
+                self.assertIn("'crypto'", written)
+                self.assertIn("'security'", written)
+                self.assertNotIn("'old'", written)
+
+    def test_dedupes_case_insensitively(self):
+        import tempfile, json as _json
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "user_config.py"), "w") as f:
+                f.write("HIGHLIGHTS = []\n")
+            with mock.patch.object(jobs._cfg, "DATA_DIR", tmp), \
+                 mock.patch.object(jobs, "HIGHLIGHTS", []), \
+                 mock.patch.object(jobs._cfg, "HIGHLIGHTS", []):
+                body = _json.dumps({"highlights": ["Security", "security", "CRYPTO"]})
+                status = self._invoke(body.encode())
+                self.assertEqual(status, 204)
+                self.assertEqual(jobs.HIGHLIGHTS, ["Security", "CRYPTO"])
+
+    def test_rejects_non_list(self):
+        status = self._invoke(b'{"highlights": "not-a-list"}')
+        self.assertEqual(status, 400)
 
 
 if __name__ == "__main__":

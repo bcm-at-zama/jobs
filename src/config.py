@@ -86,7 +86,7 @@ TITLE_CASE_OVERRIDES = {
     "ui": "UI", "ux": "UX", "os": "OS", "gpu": "GPU", "cpu": "CPU",
     "ci": "CI", "cd": "CD", "sre": "SRE", "qa": "QA", "saas": "SaaS",
     "vp": "VP", "hr": "HR", "it": "IT", "grc": "GRC",
-    "ssd": "SSD", "aiml": "AIML", "ciso": "CISO",
+    "ssd": "SSD", "aiml": "AIML", "ciso": "CISO", "ns2": "NS2", "sap": "SAP",
     "cto": "CTO", "cso": "CSO", "csi": "CSI",
     "ceo": "CEO", "cfo": "CFO", "coo": "COO", "cmo": "CMO", "cro": "CRO",
     "cpo": "CPO", "cdo": "CDO", "cio": "CIO",

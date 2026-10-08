@@ -159,6 +159,57 @@
       box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
     }
 
+    .hl-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-bottom: 0.5rem;
+      min-height: 1.6rem;
+    }
+    .hl-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.15rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      font-size: 0.85rem;
+      color: var(--fg);
+    }
+    .hl-chip button {
+      border: none;
+      background: transparent;
+      color: var(--fg-muted);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0;
+    }
+    .hl-chip button:hover { color: var(--danger); }
+    .hl-add-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .hl-add-row input[type="text"] {
+      flex: 1;
+      max-width: 320px;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font: inherit;
+    }
+    .hl-add-row button {
+      padding: 0.3rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .hl-add-row button:hover { background: var(--bg-subtle); }
     .radio-row {
       display: flex;
       gap: 1.2rem;
@@ -228,6 +279,20 @@
       <input type="text" id="board-title-input" maxlength="100" placeholder="JobBoard">
       <span class="saved-flash" id="board-title-flash">Saved</span>
       <span class="field-hint">Reloads the board on save so the new title appears everywhere.</span>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2>Highlight keywords</h2>
+    <p class="section-hint">Words marked in job titles and descriptions. Applied to every company (there is no per-company list). Changes save immediately; reload the board to see them on titles rendered server-side.</p>
+    <div class="field">
+      <div class="hl-chips" id="hl-chips"></div>
+      <div class="hl-add-row">
+        <input type="text" id="hl-add-input" placeholder="Add a keyword and press Enter" maxlength="60">
+        <button type="button" id="hl-add-btn">Add</button>
+        <span class="saved-flash" id="hl-flash">Saved</span>
+      </div>
+      <span class="field-hint">Matched as whole words, case-insensitive.</span>
     </div>
   </section>
 
@@ -315,6 +380,7 @@
   const SERVER_URL = '__SERVER_URL__';
   const RUNAWAY_THRESHOLD = __RUNAWAY_THRESHOLD__;
   const BOARD_TITLE = "__BOARD_TITLE__";
+  const HIGHLIGHTS_INITIAL = __HIGHLIGHTS__;
 
   // The main board's loadFilters() reads the SAME blob and applies body
   // classes on load, so changes here propagate the moment the user
@@ -441,6 +507,72 @@
       flash('runaway-flash', 'Save failed', false);
     }
   });
+
+  // ---- Highlight keywords: chip editor (server, instant per change) ----
+  // Mirrors the per-source `queries` pills on the main board: one chip per
+  // word, × removes, Enter / Add appends. Each mutation POSTs the full
+  // list to /set-highlights which rewrites user_config.py AND patches
+  // data/jobs.html's `const HIGHLIGHTS` so the next reload picks them up.
+  let highlights = Array.isArray(HIGHLIGHTS_INITIAL) ? HIGHLIGHTS_INITIAL.slice() : [];
+  const hlChips = document.getElementById('hl-chips');
+  const hlInput = document.getElementById('hl-add-input');
+  const hlAddBtn = document.getElementById('hl-add-btn');
+  function _renderHlChips() {
+    hlChips.innerHTML = '';
+    for (const w of highlights) {
+      const chip = document.createElement('span');
+      chip.className = 'hl-chip';
+      chip.textContent = w + ' ';
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.textContent = '×';
+      x.title = 'Remove';
+      x.addEventListener('click', () => _removeHl(w));
+      chip.appendChild(x);
+      hlChips.appendChild(chip);
+    }
+  }
+  async function _saveHl() {
+    try {
+      const base = location.protocol === 'file:' ? SERVER_URL : '';
+      const r = await fetch(base + '/set-highlights', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({highlights}),
+      });
+      if (!r.ok) throw new Error('http ' + r.status);
+      flash('hl-flash', 'Saved', true);
+    } catch (e) {
+      flash('hl-flash', 'Save failed', false);
+    }
+  }
+  function _addHl(raw) {
+    const w = (raw || '').trim();
+    if (!w) return;
+    // Case-insensitive de-dupe to match the server-side regex behavior.
+    const lower = w.toLowerCase();
+    if (highlights.some(h => h.toLowerCase() === lower)) {
+      hlInput.value = '';
+      return;
+    }
+    highlights.push(w);
+    hlInput.value = '';
+    _renderHlChips();
+    _saveHl();
+  }
+  function _removeHl(w) {
+    highlights = highlights.filter(h => h !== w);
+    _renderHlChips();
+    _saveHl();
+  }
+  hlAddBtn.addEventListener('click', () => _addHl(hlInput.value));
+  hlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      _addHl(hlInput.value);
+    }
+  });
+  _renderHlChips();
 
   // Esc returns to the board — matches the shortcut hint at the bottom.
   document.addEventListener('keydown', (e) => {

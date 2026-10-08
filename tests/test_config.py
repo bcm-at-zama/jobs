@@ -141,6 +141,47 @@ class TestGroupOfAutoFill(unittest.TestCase):
         )
 
 
+class TestBoardUrlFor(unittest.TestCase):
+    """Section headers render as `<a class="board-link">` only when
+    board_url_for() returns a non-empty URL — otherwise the h1 falls
+    back to plain text, which inherits the default color (black) and
+    the section visually drifts from the red styling other sources
+    get. Netflix hit this: its catalog entry has no `board` field and
+    `kind="eightfold"` wasn't handled, so the h1 rendered in black
+    while every neighbour was red. Pin the kind handlers so a future
+    eightfold source doesn't regress."""
+
+    def test_eightfold_synthesizes_from_host(self):
+        src = {"kind": "eightfold", "slug": "netflix",
+               "host": "https://explore.jobs.netflix.net",
+               "domain": "netflix.com"}
+        self.assertEqual(jobs.board_url_for(src),
+                         "https://explore.jobs.netflix.net/careers")
+
+    def test_eightfold_host_trailing_slash_stripped(self):
+        src = {"kind": "eightfold", "slug": "x",
+               "host": "https://x.com/", "domain": "x.com"}
+        self.assertEqual(jobs.board_url_for(src), "https://x.com/careers")
+
+    def test_explicit_board_wins(self):
+        src = {"kind": "eightfold", "slug": "x",
+               "host": "https://x.com", "board": "https://custom/jobs"}
+        self.assertEqual(jobs.board_url_for(src), "https://custom/jobs")
+
+
+class TestTitleCaseOverrides(unittest.TestCase):
+    """TITLE_CASE_OVERRIDES rewrites per-word casing when titles are
+    recovered from URL slugs (e.g. SAP postings whose slug yields
+    "Sap Ns2 ..." without the override)."""
+
+    def test_sap_and_ns2_uppercase(self):
+        out = jobs._title_from_slug("sap-ns2-cloud-application-services")
+        self.assertIn("SAP", out)
+        self.assertIn("NS2", out)
+        self.assertNotIn("Sap ", out)
+        self.assertNotIn("Ns2", out)
+
+
 class TestSeniorityConfig(unittest.TestCase):
 
     def test_seniority_rank_covers_groups(self):
