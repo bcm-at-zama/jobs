@@ -652,6 +652,7 @@ GROUP_ORDER = [
     "Cars",
     "Media",
     "Welcome to the Jungle",
+    "Y Combinator",
     "Other",
     "Music Companies",
 ]

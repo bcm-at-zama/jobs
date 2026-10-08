@@ -1,7 +1,7 @@
 # Default target: show what's available.
 .DEFAULT_GOAL := help
 
-.PHONY: help install onboarding test test-verbose run kill commit pdf html clean-pdf wttj-refresh
+.PHONY: help install onboarding test test-verbose run kill commit pdf html clean-pdf wttj-refresh yc-refresh
 
 # Virtualenv lives at ./venv-macos or ./.venv-macos (dot variant is the
 # modern Python convention). If either exists, use its python3; else
@@ -51,6 +51,16 @@ help:
 	@echo "                   in src/wttj_discovery.py to change which sectors"
 	@echo "                   are pulled (default: Cybersecurity + AI/ML)."
 	@echo "                   Takes ~4 minutes. See knowledge/wttj_bulk_populate.md."
+	@echo ""
+	@echo "  make yc-refresh  Rediscover Y Combinator companies via the YC"
+	@echo "                   companies API (filtered by tag), detect each"
+	@echo "                   company's native ATS (greenhouse/lever/ashby/"
+	@echo "                   workable/workday), and append verified ones to"
+	@echo "                   the catalog + user config. Edit DEFAULT_YC_FILTERS"
+	@echo "                   in src/yc_discovery.py to change which tags are"
+	@echo "                   pulled (default: Cybersecurity + AI/ML)."
+	@echo "                   Takes ~20-40 minutes (ATS probe is slow)."
+	@echo "                   See knowledge/yc_bulk_populate.md."
 	@echo ""
 	@echo "  make pdf         Build business/analysis.pdf via Sphinx + latexmk."
 	@echo "  make html        Build business/_build/html via Sphinx."
@@ -138,6 +148,24 @@ kill:
 # `make commit` → forwards to script/push.sh (git add + commit + push).
 commit:
 	@bash script/push.sh
+
+# `make yc-refresh` → re-run the Y Combinator discovery flow:
+#   1. hits api.ycombinator.com/v0.1/companies with DEFAULT_YC_FILTERS
+#      (src/yc_discovery.py)
+#   2. detects each company's native ATS from its careers page HTML
+#      and validates against that ATS's public API
+#   3. dedupes vs the existing catalog + user_config
+#   4. patches src/catalog.py, data/user_config.py, src/config.py
+#   5. runs make test
+#
+# To broaden/narrow the tag filter, edit DEFAULT_YC_FILTERS in
+# src/yc_discovery.py before running this target.
+yc-refresh:
+	@echo "[1/2] Discovering YC companies + validating ATS…"
+	@PYTHONPATH=src $(PYTHON) debug/bulk_populate_yc_catalog.py
+	@echo ""
+	@echo "[2/2] Applying verified companies to catalog + user_config + config…"
+	@$(PYTHON) debug/apply_yc_verified.py
 
 # `make wttj-refresh` → re-run the Welcome-to-the-Jungle discovery flow:
 #   1. hits Algolia with DEFAULT_SECTOR_FACETS (src/wttj_discovery.py)

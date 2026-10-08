@@ -10237,18 +10237,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._cors()
             self.end_headers()
             return
+        # Flag writes that land while a /refresh subprocess is running — the
+        # subprocess loaded rejected/liked/… at startup, and these mid-fetch
+        # writes may not be reflected until the state-reload before render.
+        _mid = " [mid-refresh]" if _refresh_state.get("status") == "running" else ""
         if self.path == "/reject":
-            s = load_rejected(); s.add(url); save_rejected(s)
-            sys.stdout.write(f"rejected: {url}\n")
+            s = load_rejected()
+            _dup = " [already]" if url in s else ""
+            s.add(url); save_rejected(s)
+            sys.stdout.write(f"rejected:{_mid}{_dup} {url}\n")
         elif self.path == "/unreject":
             s = load_rejected(); s.discard(url); save_rejected(s)
-            sys.stdout.write(f"unrejected: {url}\n")
+            sys.stdout.write(f"unrejected:{_mid} {url}\n")
         elif self.path == "/history":
             s = load_history(); s.add(url); save_history(s)
-            sys.stdout.write(f"history+: {url}\n")
+            sys.stdout.write(f"history+:{_mid} {url}\n")
         elif self.path == "/unhistory":
             s = load_history(); s.discard(url); save_history(s)
-            sys.stdout.write(f"history-: {url}\n")
+            sys.stdout.write(f"history-:{_mid} {url}\n")
         elif self.path == "/to-review":
             # Append title to planning/TOREVIEW.md AND reject the URL so
             # the job doesn't come back next run. User cleans up
@@ -10262,19 +10268,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 sys.stdout.write(f"toreview: append failed: {e}\n")
             s = load_rejected(); s.add(url); save_rejected(s)
-            sys.stdout.write(f"toreview: {title!r} · rejected\n")
+            sys.stdout.write(f"toreview:{_mid} {title!r} · rejected\n")
         elif self.path == "/like":
             s = load_liked(); s.add(url); save_liked(s)
-            sys.stdout.write(f"liked:    {url}\n")
+            sys.stdout.write(f"liked:   {_mid} {url}\n")
         elif self.path == "/unlike":
             s = load_liked(); s.discard(url); save_liked(s)
-            sys.stdout.write(f"unliked:  {url}\n")
+            sys.stdout.write(f"unliked: {_mid} {url}\n")
         elif self.path == "/toapply":
             s = load_to_apply(); s.add(url); save_to_apply(s)
-            sys.stdout.write(f"toapply:  {url}\n")
+            sys.stdout.write(f"toapply: {_mid} {url}\n")
         elif self.path == "/untoapply":
             s = load_to_apply(); s.discard(url); save_to_apply(s)
-            sys.stdout.write(f"un-toapp: {url}\n")
+            sys.stdout.write(f"un-toapp:{_mid} {url}\n")
         elif self.path == "/applied":
             d = load_applied()
             # Preserve existing timestamp if the entry already exists
@@ -10282,10 +10288,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if url not in d:
                 d[url] = {"ts": time.strftime("%Y-%m-%d %H:%M:%S")}
             save_applied(d)
-            sys.stdout.write(f"applied:  {url} — ts={d[url]['ts']}\n")
+            sys.stdout.write(f"applied: {_mid} {url} — ts={d[url]['ts']}\n")
         elif self.path == "/unapplied":
             d = load_applied(); d.pop(url, None); save_applied(d)
-            sys.stdout.write(f"un-appl:  {url}\n")
+            sys.stdout.write(f"un-appl: {_mid} {url}\n")
         elif self.path == "/app-rejected":
             d = load_app_rejected()
             d[url] = {
@@ -10294,12 +10300,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "ts":       time.strftime("%Y-%m-%d %H:%M:%S"),
             }
             save_app_rejected(d)
-            sys.stdout.write(f"app-rej:  {url} — reason={d[url]['reason']!r}\n")
+            sys.stdout.write(f"app-rej: {_mid} {url} — reason={d[url]['reason']!r}\n")
         elif self.path == "/un-app-rejected":
             d = load_app_rejected()
             d.pop(url, None)
             save_app_rejected(d)
-            sys.stdout.write(f"un-appR:  {url}\n")
+            sys.stdout.write(f"un-appR: {_mid} {url}\n")
         self.send_response(204)
         self._cors()
         self.end_headers()
@@ -10677,6 +10683,14 @@ def main():
     history = load_history()
     seen = load_seen()
     job_index = load_job_index()
+    sys.stdout.write(
+        f"[state] rejected={len(rejected)} liked={len(liked)} "
+        f"to_apply={len(to_apply)} applied={len(applied)} "
+        f"app_rejected={len(app_rejected)} history={len(history)} "
+        f"seen={len(seen)} job_index={len(job_index)} "
+        f"active_sources={len(active_sources)}/{len(SOURCES)}\n"
+    )
+    sys.stdout.flush()
     # Loaded once and reused when building orphan job dicts — see the
     # per-source render loop below. Kept separate from the live scoring path.
     _score_cache_for_orphans = _load_score_cache()
@@ -10747,6 +10761,40 @@ def main():
     print("Step 3 — render: build HTML section per source (sorted liked → score", file=sys.stdout)
     print("               → seniority) with badges, filters, spontaneous links", file=sys.stdout)
     print("=" * 70, file=sys.stdout)
+    # Pick up any user actions (reject/like/toapply/applied/history/app-rejected)
+    # that landed on disk WHILE the fetch was running. The sets loaded at the
+    # top of main() are a snapshot from startup; a 20-30 s fetch gives the user
+    # plenty of time to reject jobs on the OLD jobs.html, and those rejects
+    # MUST be reflected in the newly-rendered page — otherwise auto-refresh
+    # un-rejects them. This was the "I clean LinkedIn, auto-refresh brings
+    # them back" bug.
+    _r0, _l0, _t0, _a0, _h0, _ar0 = (
+        len(rejected), len(liked), len(to_apply),
+        len(applied), len(history), len(app_rejected),
+    )
+    rejected = load_rejected()
+    liked = load_liked()
+    to_apply = load_to_apply()
+    applied = load_applied()
+    history = load_history()
+    app_rejected = load_app_rejected()
+    _drift = [
+        f"{name}+{d}" for d, name in (
+            (len(rejected) - _r0, "rejected"),
+            (len(liked) - _l0, "liked"),
+            (len(to_apply) - _t0, "to_apply"),
+            (len(applied) - _a0, "applied"),
+            (len(history) - _h0, "history"),
+            (len(app_rejected) - _ar0, "app_rejected"),
+        ) if d > 0
+    ]
+    if _drift:
+        sys.stdout.write(
+            f"[state] reloaded before render — mid-fetch drift: {', '.join(_drift)}\n"
+        )
+    else:
+        sys.stdout.write("[state] reloaded before render — no drift during fetch\n")
+    sys.stdout.flush()
     t_render_start = time.perf_counter()
 
     # Sort active_sources by group, then alphabetically inside each group so the
@@ -11227,6 +11275,40 @@ def main():
     save_job_index(job_index)
 
     elapsed = time.perf_counter() - t0
+    # Per-group visible/rejected counts — easier to see which groups blew
+    # up the board (e.g. a 500-source WTJ bulk-add dominates all other
+    # groups combined). Uses the same GROUP_OF/GROUP_ORDER mapping as the
+    # UI nav.
+    _by_group = {}
+    for src in active_sources:
+        g = GROUP_OF.get(src["name"], "Autres")
+        res = results.get(src["name"], {})
+        vis_in_g = sum(
+            1 for j in res.get("jobs", [])
+            if j["url"] not in rejected and j["url"] not in history
+            and not is_spontaneous(j)
+        )
+        rej_in_g = sum(1 for j in res.get("jobs", []) if j["url"] in rejected)
+        entry = _by_group.setdefault(g, {"sources": 0, "visible": 0, "rejected": 0})
+        entry["sources"] += 1
+        entry["visible"] += vis_in_g
+        entry["rejected"] += rej_in_g
+    sys.stdout.write("[by-group] sources · visible · rejected\n")
+    for g in GROUP_ORDER + sorted(set(_by_group) - set(GROUP_ORDER)):
+        e = _by_group.get(g)
+        if not e:
+            continue
+        sys.stdout.write(
+            f"  {g:30} sources={e['sources']:4}  visible={e['visible']:5}  "
+            f"rejected={e['rejected']:5}\n"
+        )
+    _tot_vis = sum(e["visible"] for e in _by_group.values())
+    _tot_rej = sum(e["rejected"] for e in _by_group.values())
+    sys.stdout.write(
+        f"  {'TOTAL':30} sources={len(active_sources):4}  "
+        f"visible={_tot_vis:5}  rejected={_tot_rej:5}\n"
+    )
+    sys.stdout.flush()
     timing(
         f"wrote {OUTPUT_HTML} · total {elapsed:.1f}s · "
         f"rejected DB: {REJECTED_DB} ({len(rejected)} entries) · "
