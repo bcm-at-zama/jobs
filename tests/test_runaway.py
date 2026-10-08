@@ -381,6 +381,67 @@ class TestRefreshStatusProgress(unittest.TestCase):
         self.assertEqual(data["progress"]["done_count"], 0)
 
 
+class TestRefreshCancelEndpoint(unittest.TestCase):
+    """`/refresh-cancel` SIGTERMs the running fetcher subprocess and
+    flips the state to "cancelling" so the floater's poll sees it."""
+
+    def _invoke(self):
+        body = b"{}"
+
+        class _Shim(jobs.Handler):
+            def __init__(self):
+                self.rfile = BytesIO(body)
+                self.wfile = BytesIO()
+                self.headers = {"Content-Length": str(len(body))}
+                self.path = "/refresh-cancel"
+                self.command = "POST"
+                self._status = None
+
+            def send_response(self, code, msg=None):
+                self._status = code
+
+            def send_header(self, k, v): pass
+            def end_headers(self): pass
+            def log_message(self, *a, **kw): pass
+
+        shim = _Shim()
+        shim.do_POST()
+        return shim._status, json.loads(shim.wfile.getvalue() or b"{}")
+
+    def setUp(self):
+        self._prev_state = dict(jobs._refresh_state)
+
+    def tearDown(self):
+        jobs._refresh_state.clear()
+        jobs._refresh_state.update(self._prev_state)
+
+    def test_not_running_returns_reason(self):
+        """No subprocess in flight → 200 with ok=False, reason=not-running
+        and no attempt to kill anything."""
+        jobs._refresh_state["status"] = "idle"
+        jobs._refresh_state["proc"] = None
+        status, data = self._invoke()
+        self.assertEqual(status, 200)
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("reason"), "not-running")
+
+    def test_running_sigterms_process_group(self):
+        """A live subprocess → status flips to cancelling, killpg called
+        on the proc's pgid with SIGTERM."""
+        import signal as _signal
+        fake_proc = mock.MagicMock()
+        fake_proc.pid = 12345
+        jobs._refresh_state["status"] = "running"
+        jobs._refresh_state["proc"] = fake_proc
+        with mock.patch("os.killpg") as kp, \
+             mock.patch("os.getpgid", return_value=12345):
+            status, data = self._invoke()
+        self.assertEqual(status, 200)
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(jobs._refresh_state["status"], "cancelling")
+        kp.assert_called_once_with(12345, _signal.SIGTERM)
+
+
 class TestFetcherIntegration(unittest.TestCase):
     """End-to-end: a fetcher thread calls check_runaway, the test writes
     a decision file that mimics the browser modal, and the thread wakes

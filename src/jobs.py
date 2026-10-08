@@ -6256,6 +6256,22 @@ HTML_TEMPLATE = """<!doctype html>
       font-weight: 600;
     }
     #refresh-floater.visible { display: inline-flex; }
+    /* Hover-revealed stop button — SIGTERMs the fetcher subprocess
+       (and its Playwright/chromium children). Hidden by default so
+       the pill stays compact; appears when the user mouses over. */
+    #refresh-floater-cancel {
+      display: none;
+      width: 1.2rem; height: 1.2rem;
+      padding: 0; margin-left: 0.1rem;
+      background: transparent; color: var(--fg-muted);
+      border: 1px solid var(--border); border-radius: 50%;
+      font-size: 0.95rem; line-height: 1; cursor: pointer;
+      align-items: center; justify-content: center;
+    }
+    #refresh-floater:hover #refresh-floater-cancel,
+    #refresh-floater-cancel:focus-visible { display: inline-flex; }
+    #refresh-floater-cancel:hover { color: var(--severe); border-color: var(--severe); }
+    #refresh-floater-cancel:disabled { opacity: 0.5; cursor: wait; }
     /* One-shot pill shown after the onboarding wizard redirects here.
        Same geometry as #refresh-floater but green (success) and offset
        so both can co-exist if a refresh kicks off during the welcome. */
@@ -6321,6 +6337,8 @@ HTML_TEMPLATE = """<!doctype html>
       box-shadow: 0 10px 36px rgba(0,0,0,0.3);
     }
     #claude-paste-bar.done { border-color: var(--success); }
+    #claude-paste-bar.error { border-color: var(--danger); }
+    #claude-paste-bar.error #claude-paste-status { color: var(--danger); font-weight: 600; }
     .paste-bar-inner { display: grid; grid-template-columns: 1fr auto; gap: 0.3rem 0.6rem; align-items: start; }
     .paste-bar-label {
       grid-column: 1 / 2; font-size: 0.82rem; color: var(--fg-muted);
@@ -7325,18 +7343,44 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
   // visible no matter how far the user has scrolled. Shown for the
   // entire pollUntilDone lifecycle, hidden on terminal.
   const floater = document.getElementById('refresh-floater');
+  const floaterText = document.getElementById('refresh-floater-text');
+  const floaterCancel = document.getElementById('refresh-floater-cancel');
+  let _floaterMsg = '';
   function _showFloater(text) {
     if (!floater) return;
-    floater.textContent = text;
+    _floaterMsg = text;
+    if (floaterText) floaterText.textContent = text;
+    else floater.textContent = text;
     floater.classList.add('visible');
   }
   function _hideFloater() {
     if (!floater) return;
     floater.classList.remove('visible');
-    floater.textContent = '';
+    _floaterMsg = '';
+    if (floaterText) floaterText.textContent = '';
+    else floater.textContent = '';
+    if (floaterCancel) floaterCancel.disabled = false;
+  }
+  if (floaterCancel) {
+    floaterCancel.addEventListener('click', async () => {
+      if (floaterCancel.disabled) return;
+      floaterCancel.disabled = true;
+      _showFloater('Stopping…');
+      try {
+        await fetch(base() + '/refresh-cancel', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: '{}',
+        });
+      } catch (e) {
+        console.error('refresh-cancel failed', e);
+        floaterCancel.disabled = false;
+      }
+    });
   }
   async function pollUntilDone(label) {
     _runawayHandled.clear();
+    if (floaterCancel) floaterCancel.disabled = false;
     _showFloater(label + '…');
     try {
       while (true) {
@@ -7367,6 +7411,13 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
           const msg = parts.join(' · ');
           status.textContent = msg;
           _showFloater(msg);
+        } else if (s.status === 'cancelling') {
+          status.textContent = label + ' stopping…';
+          _showFloater(label + ' stopping…');
+        } else if (s.status === 'cancelled') {
+          status.textContent = label + ' stopped';
+          _showFloater(label + ' stopped');
+          return false;
         } else if (s.status === 'done') {
           status.textContent = label + ' done — reloading…';
           _showFloater(label + ' done — reloading…');
@@ -7381,10 +7432,10 @@ function wireOpenButton(btnId, selector, filename, emptyMsg, label) {
         }
       }
     } finally {
-      // Only auto-hide on failure/idle; the `done` path reloads the
-      // page, so leaving the pill up until reload gives the user
-      // confirmation that the refresh finished.
-      if (floater && !floater.textContent.includes('reloading')) {
+      // Only auto-hide on failure/idle/cancelled; the `done` path
+      // reloads the page, so leaving the pill up until reload gives
+      // the user confirmation that the refresh finished.
+      if (floater && !_floaterMsg.includes('reloading')) {
         _hideFloater();
       }
     }
@@ -7719,6 +7770,8 @@ function _buildClaudeScoringPrompt(urls) {
 // justification was being dropped by Claude). Two passes: score lines
 // first, then salary lines keyed by job index.
 const _CLAUDE_FIT_LINE_RE = /^[*\\s>-]*(\\d+)[.)]\\s*(\\d+)\\s*\\/\\s*10\\s*[—\\-–:]+\\s*(.*)$/gm;
+// Single-URL fallback: no leading "N." index. Only used when urls.length === 1.
+const _CLAUDE_FIT_BARE_RE = /^[*\\s>-]*(\\d+)\\s*\\/\\s*10\\s*[—\\-–:]+\\s*(.*)$/gm;
 const _CLAUDE_FIT_SAL_LINE_RE = /^[*\\s>-]*SAL\\s*(\\d+)\\s*[:\\-]\\s*(.+?)\\s*$/gim;
 // Also accept a legacy inline "— SAL: <value>" suffix on the score line
 // (older runs may have been pinned chats trained on the previous format).
@@ -7750,6 +7803,27 @@ function _parseClaudeFits(text, urls) {
     }
     if (idx >= 1 && idx <= urls.length && score >= 0 && score <= 10) {
       out[urls[idx - 1]] = { score, reason, salary, ts: new Date().toISOString() };
+    }
+  }
+  // Fallback for the single-URL "?" button: Claude often drops the "1." prefix
+  // ("9/10 — reason" instead of "1. 9/10 — reason") because there's only one
+  // job to score. Only kick in when pass 1 found nothing AND there's exactly
+  // one URL in the batch — otherwise a stray "7/10" in a reason could pollute.
+  if (Object.keys(out).length === 0 && urls.length === 1) {
+    _CLAUDE_FIT_BARE_RE.lastIndex = 0;
+    while ((m = _CLAUDE_FIT_BARE_RE.exec(text)) !== null) {
+      const score = parseInt(m[1], 10);
+      let reason = (m[2] || '').trim();
+      let salary = '';
+      const inline = _CLAUDE_FIT_SAL_INLINE_RE.exec(reason);
+      if (inline) {
+        reason = reason.slice(0, inline.index).trim();
+        salary = _cleanSalary(inline[1]);
+      }
+      if (score >= 0 && score <= 10) {
+        out[urls[0]] = { score, reason, salary, ts: new Date().toISOString() };
+        break;
+      }
     }
   }
   // Pass 2 — standalone "SAL N: value" lines overwrite the salary slot.
@@ -7810,8 +7884,11 @@ function _openClaudePasteBar(urls, promptMode) {
     const n = Object.keys(parsed).length;
     if (n === 0) {
       status.textContent = 'no scores parsed — expected "N. X/10 — reason"';
+      bar.classList.remove('done');
+      bar.classList.add('error');
       return;
     }
+    bar.classList.remove('error');
     const map = _loadClaudeFits();
     Object.assign(map, parsed);
     _saveClaudeFits(map);
@@ -9244,8 +9321,12 @@ async function openClaudeWithPrompt(prompt, statusEl, opts) {
   return 'failed';
 }
 // Per-job "?" button → single-URL prompt.
+// Uses the SAME strict reply format as the batch flow ("1. X/10 — reason" +
+// "SAL 1: value") so _parseClaudeFits can recognize the paste and the user
+// can store the score back without re-typing. Without this, Claude would
+// freely write "Score: 9/10" + prose and the paste bar wouldn't catch it.
 document.querySelectorAll('button.ask-claude').forEach(btn => {
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     const url = btn.dataset.url || '';
@@ -9273,17 +9354,26 @@ document.querySelectorAll('button.ask-claude').forEach(btn => {
     const prompt = (_getClaudeLang() === 'fr')
       ? (
         "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-        "Donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags). Base-toi sur la description ci-dessous — pas besoin de fetch.\\n\\n" +
+        "Base-toi sur la description ci-dessous — pas besoin de fetch.\\n\\n" +
+        "FORMAT STRICT — EXACTEMENT DEUX LIGNES :\\n" +
+        "1. X/10 — <justification 2-3 phrases sur une seule ligne couvrant missions, séniorité, techno, red flags>\\n" +
+        "SAL 1: <fourchette salariale en chiffres uniquement, ex: « 150k€-200k€ + equity », ou « none » si non publiée>\\n\\n" +
         meta + descBlock
       )
       : (
         "Is this job a good match for my profile? I'll share my profile on request.\\n" +
-        "Give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags). Use the description below — no need to fetch.\\n\\n" +
+        "Use the description below — no need to fetch.\\n\\n" +
+        "STRICT RESPONSE FORMAT — EXACTLY TWO LINES:\\n" +
+        "1. X/10 — <2-3 sentence justification on a single line covering missions, seniority, tech, red flags>\\n" +
+        "SAL 1: <salary range in numbers only, e.g. \\"$150k-$200k + equity\\", or \\"none\\" if not published>\\n\\n" +
         meta + descBlock
       );
     // Bypass any pinned chat URL — a one-shot per-job question works
     // better in a fresh conversation where ?q= pre-fills the prompt.
-    openClaudeWithPrompt(prompt, null, {forceFreshChat: true});
+    const mode = await openClaudeWithPrompt(prompt, null, {forceFreshChat: true});
+    // Surface the paste bar so the user can drop the reply back and
+    // persist the score — same mechanism as ⌘I / ⌘U, scoped to one URL.
+    _openClaudePasteBar([url], mode);
   });
 });
 
@@ -9837,7 +9927,7 @@ document.querySelectorAll('.unkeep').forEach(_wireUnkeepButton);
 # Global refresh state, used by the in-browser refresh button. The server
 # spawns `jobs.py --clear-cache list --no-serve --no-open` in a background
 # thread and the client polls /refresh-status until "done".
-_refresh_state = {"status": "idle", "started_at": None, "error": None, "log_tail": ""}
+_refresh_state = {"status": "idle", "started_at": None, "error": None, "log_tail": "", "proc": None}
 _refresh_lock = threading.Lock()
 
 
@@ -9931,27 +10021,53 @@ def _preserve_user_config_tail(content):
 
 
 def _run_refresh_subprocess(mode="refresh"):
-    """Regenerate jobs.html in a subprocess. Updates _refresh_state."""
+    """Regenerate jobs.html in a subprocess. Updates _refresh_state.
+
+    Uses Popen (not subprocess.run) and keeps the handle in
+    _refresh_state["proc"] so /refresh-cancel can SIGTERM the whole
+    process group. start_new_session=True puts the fetcher and its
+    Playwright children in their own session, so killpg takes down
+    chromium too instead of orphaning it."""
     global _refresh_state
     extra = ["--clear-cache", "list", "--interactive-runaway"]
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             [sys.executable, __file__, *extra, "--no-serve", "--no-open"],
-            capture_output=True, text=True, timeout=900,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            start_new_session=True,
         )
         with _refresh_lock:
-            tail = (proc.stdout or "")[-2000:]
-            if proc.returncode == 0:
+            _refresh_state["proc"] = proc
+        try:
+            stdout, stderr = proc.communicate(timeout=900)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            stdout, stderr = proc.communicate()
+            with _refresh_lock:
+                _refresh_state["status"] = "failed"
+                _refresh_state["error"] = "timed out after 900s"
+                _refresh_state["log_tail"] = (stdout or "")[-2000:]
+                _refresh_state["proc"] = None
+            return
+        with _refresh_lock:
+            tail = (stdout or "")[-2000:]
+            cancelled = _refresh_state["status"] == "cancelling"
+            _refresh_state["proc"] = None
+            if cancelled:
+                _refresh_state["status"] = "cancelled"
+                _refresh_state["log_tail"] = tail
+            elif proc.returncode == 0:
                 _refresh_state["status"] = "done"
                 _refresh_state["log_tail"] = tail
             else:
                 _refresh_state["status"] = "failed"
-                _refresh_state["error"] = (proc.stderr[-500:] or "unknown error").strip()
+                _refresh_state["error"] = (stderr[-500:] or "unknown error").strip()
                 _refresh_state["log_tail"] = tail
     except Exception as e:
         with _refresh_lock:
             _refresh_state["status"] = "failed"
             _refresh_state["error"] = str(e)[:500]
+            _refresh_state["proc"] = None
 
 
 def _build_group_filters():
@@ -10078,7 +10194,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             "/app-rejected", "/un-app-rejected",
             "/history", "/unhistory",
             "/to-review",
-            "/refresh", "/refresh-status", "/refresh-decision",
+            "/refresh", "/refresh-status", "/refresh-decision", "/refresh-cancel",
             "/claude-fit-paste",
             "/write-user-config", "/update-queries", "/unfollow",
             "/save-probe", "/save-open-selected",
@@ -10586,7 +10702,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 st = dict(_refresh_state)
                 # After a terminal state is READ once, reset to idle so a
                 # subsequent /refresh call can start fresh.
-                terminal = st["status"] in ("done", "failed")
+                terminal = st["status"] in ("done", "failed", "cancelled")
                 if terminal:
                     _refresh_state["status"] = "idle"
                     _refresh_state["started_at"] = None
@@ -10643,6 +10759,37 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
             except Exception as e:
                 err(f"/refresh-decision crashed: {e}")
+                body = json.dumps({"error": str(e)[:300]}).encode()
+                self.send_response(500)
+            self._cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers(); self.wfile.write(body); return
+        if self.path == "/refresh-cancel":
+            # Stop button on the floating "Refreshing…" pill. SIGTERM
+            # the subprocess's whole session so Playwright/chromium
+            # children die too; status flips to "cancelling", then
+            # _run_refresh_subprocess finalises it as "cancelled" once
+            # communicate() returns.
+            import signal as _signal
+            with _refresh_lock:
+                proc = _refresh_state.get("proc")
+                running = _refresh_state["status"] == "running" and proc is not None
+                if running:
+                    _refresh_state["status"] = "cancelling"
+            if not running:
+                body = json.dumps({"ok": False, "reason": "not-running"}).encode()
+                self.send_response(200); self._cors()
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers(); self.wfile.write(body); return
+            try:
+                os.killpg(os.getpgid(proc.pid), _signal.SIGTERM)
+                sys.stdout.write(f"refresh-cancel: SIGTERM pgid={os.getpgid(proc.pid)}\n")
+                body = json.dumps({"ok": True}).encode()
+                self.send_response(200)
+            except Exception as e:
+                err(f"/refresh-cancel crashed: {e}")
                 body = json.dumps({"error": str(e)[:300]}).encode()
                 self.send_response(500)
             self._cors()
@@ -11522,7 +11669,10 @@ def main():
         # user has scrolled. The in-flow #dump-status is kept for the
         # non-refresh messages ("copied to clipboard", "opening N URLs")
         # that are tied to a specific action.
-        f'  <div id="refresh-floater" role="status" aria-live="polite"></div>\n'
+        f'  <div id="refresh-floater" role="status" aria-live="polite">'
+        f'<span id="refresh-floater-text"></span>'
+        f'<button type="button" id="refresh-floater-cancel" title="Stop refresh" aria-label="Stop refresh">×</button>'
+        f'</div>\n'
     )
     # Build a "sources with problems" banner so you can see at a glance
     # which scrapers crashed or returned nothing this run. Broken (red) →

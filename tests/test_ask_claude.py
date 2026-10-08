@@ -180,5 +180,75 @@ class TestJobContextResolver(unittest.TestCase):
                 self.assertIn(hook, fn)
 
 
+class TestPasteBarErrorState(unittest.TestCase):
+    """When _parseClaudeFits returns 0 scores, the paste bar must flip
+    into a visible error state (red border + red status). Previously the
+    "no scores parsed" status blended into the normal label color and
+    the user missed it."""
+
+    def setUp(self):
+        with open(jobs.__file__, encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_error_class_toggled_on_parse_failure(self):
+        self.assertIn("bar.classList.add('error')", self.src)
+        self.assertIn("bar.classList.remove('error')", self.src)
+
+    def test_error_css_uses_danger_color(self):
+        # The red must come from the shared --danger token so dark/light
+        # themes stay in sync — not a hardcoded hex.
+        self.assertIn("#claude-paste-bar.error", self.src)
+        self.assertRegex(
+            self.src,
+            r"#claude-paste-bar\.error\s+#claude-paste-status\s*\{[^}]*var\(--danger\)",
+        )
+
+
+class TestClaudeFitBareFallback(unittest.TestCase):
+    """Single-URL `?` button: Claude often drops the leading "1." index
+    on single-job replies and sends "9/10 — reason" directly. The parser
+    must accept that shape when urls.length === 1 — otherwise the paste
+    bar reports "no scores parsed" and the user's score is dropped.
+
+    Reproduced against a real Claude reply pasted by the user on
+    2026-10-08 (Ledger Donjon Director role, 9/10)."""
+
+    REAL_REPLY = (
+        "9/10 — Correspondance quasi parfaite : diriger le Donjon "
+        "(red team hardware wallets, side-channel/fautes, reverse, "
+        "crypto embarquée) prolonge directement ton parcours.\n"
+        "SAL 1: 200k€ + 30% variable (~260k€ OTE) + equity"
+    )
+
+    def setUp(self):
+        with open(jobs.__file__, encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_bare_regex_defined(self):
+        self.assertIn("_CLAUDE_FIT_BARE_RE", self.src)
+
+    def test_fallback_scoped_to_single_url(self):
+        """The fallback must only engage when urls.length === 1 — a
+        stray "7/10" inside a reason for job 3 shouldn't be mis-assigned
+        in a batch paste."""
+        self.assertRegex(
+            self.src,
+            r"Object\.keys\(out\)\.length === 0 && urls\.length === 1",
+        )
+
+    def test_bare_regex_matches_real_reply(self):
+        """Mirror the JS regex in Python and run it against the actual
+        reply the user pasted. If this breaks, the paste bar breaks."""
+        import re
+        bare = re.compile(
+            r"^[*\s>-]*(\d+)\s*/\s*10\s*[\u2014\-\u2013:]+\s*(.*)$",
+            re.MULTILINE,
+        )
+        matches = list(bare.finditer(self.REAL_REPLY))
+        self.assertTrue(matches, "bare regex should match '9/10 — ...'")
+        self.assertEqual(matches[0].group(1), "9")
+        self.assertTrue(matches[0].group(2).startswith("Correspondance"))
+
+
 if __name__ == "__main__":
     unittest.main()
