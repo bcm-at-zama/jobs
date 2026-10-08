@@ -8834,8 +8834,8 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
       // filter to the keywords the user types. Overrides whatever was
       // in user_config.py for those companies on next Save.
       const raw = prompt(
-        'Keywords for every company in this group (comma-separated).\n' +
-        'Overrides their current filter on Save.\n\n' +
+        'Keywords for every company in this group (comma-separated).\\n' +
+        'Overrides their current filter on Save.\\n\\n' +
         'Example: CTO, VP, Head of',
         'CTO, VP'
       );
