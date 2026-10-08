@@ -5468,6 +5468,25 @@ HTML_TEMPLATE = """<!doctype html>
       font-size: 0.85rem;
     }
     .edit-sources-group .group-count.has-picks { color: var(--success); font-weight: 600; }
+    /* Short filter summary shown next to WTJ / YC group titles — the
+       `title` attribute on the chip carries the geekier "how to change
+       this filter" hint on hover. cursor: help signals the tooltip. */
+    .edit-sources-group .group-filter-chip {
+      margin-left: 0.6rem;
+      padding: 0.08rem 0.45rem;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-muted);
+      border-radius: 10px;
+      font-weight: normal;
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      cursor: help;
+      white-space: nowrap;
+    }
+    .edit-sources-group .group-filter-chip:hover {
+      border-color: var(--fg-muted);
+      color: var(--fg);
+    }
     .edit-sources-group .group-actions {
       padding: 0.2rem 0 0.5rem;
       display: flex;
@@ -6694,6 +6713,11 @@ const SOURCES_NAMES = __SOURCES_NAMES__;
 // read-only "📡 Discovered" section at the top of the Edit-companies
 // modal so the user can browse and decide which to add manually.
 const WTTJ_DISCOVERED = __WTTJ_DISCOVERED__;
+// Short filter summary + how-to-change hint per auto-populated group
+// (Welcome to the Jungle, Y Combinator). Rendered next to the group
+// title in the Edit-companies modal so the user sees at a glance what
+// filter produced the list, and on hover how to tune it.
+const GROUP_FILTERS = __GROUP_FILTERS__;
 // Server-side per-query runaway threshold (data/user_config.py or default).
 // Shown + editable on the ⚙ Settings page; POST /set-settings persists it.
 const RUNAWAY_THRESHOLD = __RUNAWAY_THRESHOLD__;
@@ -8743,8 +8767,18 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
     const summary = document.createElement('summary');
     summary.innerHTML =
       '<span class="group-name"></span>' +
+      '<span class="group-filter-chip" hidden></span>' +
       '<span class="group-count"><span class="n-on">0</span>/' + entries.length + '</span>';
     summary.querySelector('.group-name').textContent = groupName;
+    // Auto-populated groups (WTJ, YC) carry a filter summary + hover
+    // hint so the user sees how the list was produced and how to tune it.
+    const gf = (GROUP_FILTERS || {})[groupName];
+    if (gf && gf.chip) {
+      const chip = summary.querySelector('.group-filter-chip');
+      chip.textContent = 'filter: ' + gf.chip;
+      chip.title = gf.hint || '';
+      chip.hidden = false;
+    }
     details.appendChild(summary);
 
     const actions = document.createElement('div');
@@ -8801,7 +8835,7 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
       // in user_config.py for those companies on next Save.
       const raw = prompt(
         'Keywords for every company in this group (comma-separated).\n' +
-        'Overrides each company\'s current filter on Save.\n\n' +
+        'Overrides their current filter on Save.\n\n' +
         'Example: CTO, VP, Head of',
         'CTO, VP'
       );
@@ -9820,6 +9854,27 @@ def _refresh_progress():
     }
 
 
+def _preserve_user_config_tail(content):
+    """onboarding._build_user_config regenerates user_config.py from the
+    wizard's output and only writes HIGHLIGHTS / TITLE_BLACKLIST /
+    LOCATION_BLACKLIST / SOURCES — it drops BOARD_TITLE and
+    RUNAWAY_THRESHOLD, which the user can only set via /set-settings.
+    Append the current in-memory values so saving via the Edit Companies
+    modal (or /unfollow) doesn't silently clobber them."""
+    tail = []
+    bt = getattr(_cfg, "BOARD_TITLE", None)
+    if bt is not None:
+        tail.append(f"BOARD_TITLE = {bt!r}")
+    rt = getattr(_cfg, "RUNAWAY_THRESHOLD", None)
+    if rt is not None:
+        tail.append(f"RUNAWAY_THRESHOLD = {rt}")
+    if not tail:
+        return content
+    if content and not content.endswith("\n"):
+        content += "\n"
+    return content + "\n" + "\n".join(tail) + "\n"
+
+
 def _run_refresh_subprocess(mode="refresh"):
     """Regenerate jobs.html in a subprocess. Updates _refresh_state."""
     global _refresh_state
@@ -9842,6 +9897,56 @@ def _run_refresh_subprocess(mode="refresh"):
         with _refresh_lock:
             _refresh_state["status"] = "failed"
             _refresh_state["error"] = str(e)[:500]
+
+
+def _build_group_filters():
+    """Return a dict  group_name -> {chip: str, hint: str}  for every
+    catalog group whose membership was auto-populated by a discovery
+    probe. The chip is the short filter summary shown next to the group
+    title in the Edit-companies modal; the hint is the hover tooltip
+    with the file-path + make-target details for the user's own refresh.
+
+    Pulled dynamically from the discovery modules so edits to the
+    filter constants (e.g. adding a tag in DEFAULT_YC_FILTERS) propagate
+    without a parallel edit here."""
+    import urllib.parse
+    out = {}
+    try:
+        import wttj_discovery as _wd
+        # DEFAULT_SECTOR_FACETS entries look like
+        # "sectors_name.fr.Tech:Cybersécurité" — we only want the tail
+        # (the human-readable sector name).
+        facets = [f.split(":")[-1] for f in _wd.DEFAULT_SECTOR_FACETS]
+        out["Welcome to the Jungle"] = {
+            "chip": " + ".join(facets[:3]) + ("…" if len(facets) > 3 else ""),
+            "hint": ("Discovered via WTJ's public Algolia company directory. "
+                     "To change the filter: edit DEFAULT_SECTOR_FACETS in "
+                     "src/wttj_discovery.py, then run `make wttj-refresh`."),
+        }
+    except Exception:
+        pass
+    try:
+        import yc_discovery as _yd
+        # DEFAULT_YC_FILTERS entries look like "tags=Cybersecurity" —
+        # strip the param name + URL-decode for display.
+        tags = [urllib.parse.unquote(f.split("=", 1)[1]) for f in _yd.DEFAULT_YC_FILTERS]
+        quality = (
+            f"teams ≥{_yd.MIN_TEAM_SIZE}"
+            + (f" or batches {'/'.join(_yd.RECENT_BATCHES)}"
+               if _yd.RECENT_BATCHES else "")
+        )
+        out["Y Combinator"] = {
+            "chip": (" + ".join(tags[:3])
+                     + ("…" if len(tags) > 3 else "")
+                     + " · " + quality),
+            "hint": ("Discovered via api.ycombinator.com + per-company ATS "
+                     "detection. To change the filter: edit DEFAULT_YC_FILTERS "
+                     "/ MIN_TEAM_SIZE / RECENT_BATCHES in src/yc_discovery.py, "
+                     "then run `make yc-refresh`."),
+        }
+    except Exception:
+        pass
+    return out
 
 
 def _render_settings_html():
@@ -9977,6 +10082,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 sys.stdout.write(f"set-settings: write failed: {e}\n")
                 self.send_response(500); self._cors(); self.end_headers(); return
+            # Patch the live jobs.html so BOARD_TITLE changes appear
+            # immediately — without this the user has to click Refresh
+            # (and wait the full fetch) just to see a renamed board. Only
+            # BOARD_TITLE needs this; RUNAWAY_THRESHOLD only affects fetches.
+            if any(name == "BOARD_TITLE" for name, _, _ in updates):
+                _new_title = next(v for n, _, v in updates if n == "BOARD_TITLE")
+                try:
+                    if os.path.isfile(OUTPUT_HTML):
+                        with open(OUTPUT_HTML, "r", encoding="utf-8") as f:
+                            _html = f.read()
+                        _esc = html.escape(_new_title)
+                        _html = re.sub(
+                            r"<title>[^<]*</title>",
+                            f"<title>{_esc}</title>",
+                            _html,
+                            count=1,
+                        )
+                        _html = re.sub(
+                            r'(<h1 class="board-title" id="board-title">)[^<]*(</h1>)',
+                            lambda m: m.group(1) + _esc + m.group(2),
+                            _html,
+                            count=1,
+                        )
+                        with open(OUTPUT_HTML, "w", encoding="utf-8") as f:
+                            f.write(_html)
+                        sys.stdout.write(
+                            f"set-settings: patched {OUTPUT_HTML} with new title\n"
+                        )
+                except Exception as e:
+                    sys.stdout.write(f"set-settings: html patch failed: {e}\n")
             self.send_response(204); self._cors(); self.end_headers(); return
         if self.path == "/save-probe":
             script = payload.get("script") or ""
@@ -10090,6 +10225,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     location_blacklist=lb,
                     existing_queries=existing_q,
                 )
+                content = _preserve_user_config_tail(content)
                 os.makedirs(data_dir, exist_ok=True)
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(content)
@@ -10162,6 +10298,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     location_blacklist=lb,
                     existing_queries=existing_q,
                 )
+                content = _preserve_user_config_tail(content)
                 os.makedirs(data_dir, exist_ok=True)
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(content)
@@ -10230,6 +10367,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     location_blacklist=lb,
                     existing_queries=existing_q,
                 )
+                content = _preserve_user_config_tail(content)
                 os.makedirs(data_dir, exist_ok=True)
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(content)
@@ -11377,6 +11515,7 @@ def main():
     except Exception:
         _wttj_discovery_load = lambda _p: {}
     _sources_names = sorted({s.get("name") for s in SOURCES if s.get("name")})
+    _group_filters = _build_group_filters()
     html_output = (
         HTML_TEMPLATE
         .replace("__BODY__", html_body)
@@ -11391,6 +11530,7 @@ def main():
             (_wttj_discovery_load(os.path.join(DATA_DIR, "wttj_discovered.json"))
              or {}).get("candidates", [])
         ))
+        .replace("__GROUP_FILTERS__", json.dumps(_group_filters))
     )
 
     with open(OUTPUT_HTML, "w", encoding="utf-8") as f:

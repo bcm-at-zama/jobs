@@ -741,3 +741,5 @@ SOURCES = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'queries': []},
   'link_re': 'href="(https?://jobs\\.ashbyhq\\.com/[^"#?]+/[a-f0-9-]{20,}|/careers/[^"#?]+|https?://[^"]*(?:greenhouse|lever|workable|ashby)[^"]*)"',
   'origin': 'https://zeropath.com',
   'queries': []}]
+
+BOARD_TITLE = "Benoit's JobBoard"

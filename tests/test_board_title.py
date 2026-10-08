@@ -116,6 +116,28 @@ class TestSetSettingsPost(unittest.TestCase):
         self.assertEqual(status, 400)
 
 
+class TestPreserveUserConfigTail(unittest.TestCase):
+    """onboarding._build_user_config writes HIGHLIGHTS / TITLE_BLACKLIST /
+    LOCATION_BLACKLIST / SOURCES only — BOARD_TITLE + RUNAWAY_THRESHOLD
+    live outside the wizard's domain. Saving via /write-user-config or
+    /unfollow would silently drop them without _preserve_user_config_tail.
+    Regression test for the "lost title after Save in Edit Companies" bug."""
+
+    def test_appends_board_title_and_runaway(self):
+        with mock.patch.object(jobs._cfg, "BOARD_TITLE", "Benoit's Board"), \
+             mock.patch.object(jobs._cfg, "RUNAWAY_THRESHOLD", 200):
+            out = jobs._preserve_user_config_tail("SOURCES = []\n")
+        self.assertIn("BOARD_TITLE = \"Benoit's Board\"", out)
+        self.assertIn("RUNAWAY_THRESHOLD = 200", out)
+        # Original content must stay intact and come first.
+        self.assertTrue(out.startswith("SOURCES = []\n"))
+
+    def test_no_trailing_newline_still_appends(self):
+        with mock.patch.object(jobs._cfg, "BOARD_TITLE", "X"):
+            out = jobs._preserve_user_config_tail("SOURCES = []")
+        self.assertIn("BOARD_TITLE = 'X'", out)
+
+
 class TestOnboardingHeading(unittest.TestCase):
     """Onboarding stays neutral — the wizard isn't the place to collect
     the personalized title. Users set it from Settings afterwards."""
