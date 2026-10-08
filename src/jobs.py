@@ -5560,6 +5560,34 @@ HTML_TEMPLATE = """<!doctype html>
       font-size: 0.9rem;
       margin: 0;
     }
+    /* Companies-tracked count baked into the modal title so it's visible
+       at a glance (not just in the footer). Styled as a muted subheading. */
+    .es-head-count {
+      margin-left: 0.6rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+    }
+    /* Expand/collapse-all buttons live in the toolbar next to the mode
+       pills. Subtle outline so they don't compete with the primary pills. */
+    .es-bulk {
+      display: inline-flex;
+      gap: 0.3rem;
+      margin-left: auto;
+    }
+    .es-bulk button {
+      padding: 0.3rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg-muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .es-bulk button:hover {
+      background: var(--bg-subtle);
+      color: var(--fg);
+    }
     .edit-sources-grid .new-tag {
       font-size: 0.65rem;
       font-weight: 700;
@@ -8612,7 +8640,10 @@ function openEditCompaniesModal() {
     modal.innerHTML =
       '<div class="modal">' +
       '  <div class="modal-head">' +
-      '    <h3 style="margin:0 0 0.3rem">Edit companies</h3>' +
+      '    <h3 style="margin:0 0 0.3rem">' +
+      '      Edit companies' +
+      '      <span class="es-head-count" id="es-head-count"></span>' +
+      '    </h3>' +
       '    <div class="subtitle" style="color:var(--fg-muted); font-size:0.9rem; margin-bottom:0.8rem">' +
       '      Pick which companies you want to track. Your board rebuilds automatically after you save.' +
       '    </div>' +
@@ -8623,6 +8654,10 @@ function openEditCompaniesModal() {
       '        <button type="button" data-mode="missing">Only missing</button>' +
       '      </div>' +
       '      <input type="text" class="es-search" id="es-search" placeholder="Filter…">' +
+      '      <div class="es-bulk">' +
+      '        <button type="button" id="es-expand-all" title="Open every group">Expand all</button>' +
+      '        <button type="button" id="es-collapse-all" title="Close every group">Collapse all</button>' +
+      '      </div>' +
       '    </div>' +
       '  </div>' +
       '  <div class="modal-body" id="es-body"></div>' +
@@ -8659,6 +8694,16 @@ function openEditCompaniesModal() {
       _esFilter(modal);
     };
   });
+  // Bulk open/close of every group section at once. Scoped to the modal
+  // so it won't pop other <details> on the page.
+  const _expand = modal.querySelector('#es-expand-all');
+  const _collapse = modal.querySelector('#es-collapse-all');
+  if (_expand) _expand.onclick = () => {
+    modal.querySelectorAll('#es-body details').forEach(d => { d.open = true; });
+  };
+  if (_collapse) _collapse.onclick = () => {
+    modal.querySelectorAll('#es-body details').forEach(d => { d.open = false; });
+  };
   // Apply the default "Only new" filter on first paint.
   _esFilter(modal);
   // NOTE: we do NOT touch the "seen catalog" watermark here. The badge
@@ -8669,10 +8714,10 @@ function openEditCompaniesModal() {
 
 function _buildEditSourcesContent(modal, selected, effectiveSeen) {
   const body = modal.querySelector('#es-body');
-  // Discovered-on-WTJ section FIRST — companies the Algolia probe
-  // surfaced that are NOT already in the catalog or user's SOURCES.
-  // Read-only (link to WTJ page) — adding is a manual follow-up for
-  // now because each company needs a scraper-specific URL.
+  // Compute the Discovered-on-WTJ list first (needs catalog + current
+  // SOURCES to filter) but DEFER its DOM insertion to the end of the
+  // modal — the catalog groups go first since those are what the user
+  // acts on; Discover WTJ is a read-only "want more?" append.
   const catalogNames = new Set(CATALOG_FOR_EDIT.map(e => e.name.toLowerCase()));
   const inSources = new Set([...selected].map(n => n.toLowerCase()));
   const discovered = (WTTJ_DISCOVERED || []).filter(c => {
@@ -8680,6 +8725,116 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
     const sl = (c.slug || '').toLowerCase();
     return nm && !catalogNames.has(nm) && !inSources.has(nm) && !catalogNames.has(sl);
   });
+  // Group by `group`, sort groups by size DESC (matches onboarding UX).
+  const grouped = new Map();
+  for (const e of CATALOG_FOR_EDIT) {
+    if (!grouped.has(e.group)) grouped.set(e.group, []);
+    grouped.get(e.group).push(e);
+  }
+  const sortedGroups = [...grouped.entries()].sort((a, b) => b[1].length - a[1].length);
+
+  for (const [groupName, entries] of sortedGroups) {
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    const details = document.createElement('details');
+    details.className = 'edit-sources-group';
+    details.dataset.group = groupName;
+    details.open = true;
+
+    const summary = document.createElement('summary');
+    summary.innerHTML =
+      '<span class="group-name"></span>' +
+      '<span class="group-count"><span class="n-on">0</span>/' + entries.length + '</span>';
+    summary.querySelector('.group-name').textContent = groupName;
+    details.appendChild(summary);
+
+    const actions = document.createElement('div');
+    actions.className = 'group-actions';
+    actions.innerHTML =
+      '<button type="button" data-act="all">All in group</button>' +
+      '<button type="button" data-act="allkw">All in group with keywords…</button>' +
+      '<button type="button" data-act="none">None in group</button>';
+    details.appendChild(actions);
+
+    const grid = document.createElement('div');
+    grid.className = 'edit-sources-grid';
+    for (const e of entries) {
+      const label = document.createElement('label');
+      label.dataset.name = e.name.toLowerCase();
+      const isNew = !effectiveSeen.has(e.name);
+      if (isNew) label.dataset.isNew = '1';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'es-cb';
+      cb.dataset.name = e.name;
+      if (selected.has(e.name)) cb.checked = true;
+      cb.addEventListener('change', () => {
+        _esRefreshGroup(details);
+        // "Only missing" filter is dynamic — ticking a box should
+        // hide it immediately. Only reflows if that mode is active.
+        const modeInput = document.querySelector('input[name="es-mode"]:checked');
+        if (modeInput && modeInput.value === 'missing') {
+          const modal = document.getElementById('edit-sources-modal');
+          if (modal) _esFilter(modal);
+        }
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + e.name));
+      if (isNew) {
+        const tag = document.createElement('span');
+        tag.className = 'new-tag';
+        tag.textContent = 'NEW';
+        label.appendChild(tag);
+      }
+      grid.appendChild(label);
+    }
+    details.appendChild(grid);
+
+    actions.querySelector('[data-act="all"]').onclick = (ev) => {
+      ev.preventDefault();
+      details.querySelectorAll('.es-cb').forEach(cb => { cb.checked = true; });
+      _esRefreshGroup(details);
+    };
+    actions.querySelector('[data-act="allkw"]').onclick = (ev) => {
+      ev.preventDefault();
+      // Bulk-check every company in this group AND set their `queries`
+      // filter to the keywords the user types. Overrides whatever was
+      // in user_config.py for those companies on next Save.
+      const raw = prompt(
+        'Keywords for every company in this group (comma-separated).\n' +
+        'Overrides each company\'s current filter on Save.\n\n' +
+        'Example: CTO, VP, Head of',
+        'CTO, VP'
+      );
+      if (raw === null) return;
+      const kws = raw.split(',').map(s => s.trim()).filter(Boolean);
+      if (kws.length === 0) {
+        alert('Enter at least one keyword, or use "All in group" to leave filters as-is.');
+        return;
+      }
+      const serialized = JSON.stringify(kws);
+      details.querySelectorAll('.es-cb').forEach(cb => {
+        cb.checked = true;
+        cb.dataset.queriesOverride = serialized;
+        const lbl = cb.closest('label');
+        if (lbl) lbl.title = 'queries override on Save: ' + kws.join(', ');
+      });
+      _esRefreshGroup(details);
+    };
+    actions.querySelector('[data-act="none"]').onclick = (ev) => {
+      ev.preventDefault();
+      details.querySelectorAll('.es-cb').forEach(cb => { cb.checked = false; });
+      _esRefreshGroup(details);
+    };
+
+    body.appendChild(details);
+    _esRefreshGroup(details);
+  }
+
+  // Discovered-on-WTJ section at the END — read-only link list of
+  // companies the Algolia probe surfaced that aren't in the catalog or
+  // user's SOURCES yet. Adding is a manual follow-up (each company
+  // needs a scraper-specific URL), so this lives below the editable
+  // catalog groups.
   if (discovered.length) {
     const d = document.createElement('details');
     d.className = 'edit-sources-group edit-sources-discovered';
@@ -8727,83 +8882,6 @@ function _buildEditSourcesContent(modal, selected, effectiveSeen) {
     d.appendChild(grid);
     body.appendChild(d);
   }
-  // Group by `group`, sort groups by size DESC (matches onboarding UX).
-  const grouped = new Map();
-  for (const e of CATALOG_FOR_EDIT) {
-    if (!grouped.has(e.group)) grouped.set(e.group, []);
-    grouped.get(e.group).push(e);
-  }
-  const sortedGroups = [...grouped.entries()].sort((a, b) => b[1].length - a[1].length);
-
-  for (const [groupName, entries] of sortedGroups) {
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-    const details = document.createElement('details');
-    details.className = 'edit-sources-group';
-    details.dataset.group = groupName;
-    details.open = true;
-
-    const summary = document.createElement('summary');
-    summary.innerHTML =
-      '<span class="group-name"></span>' +
-      '<span class="group-count"><span class="n-on">0</span>/' + entries.length + '</span>';
-    summary.querySelector('.group-name').textContent = groupName;
-    details.appendChild(summary);
-
-    const actions = document.createElement('div');
-    actions.className = 'group-actions';
-    actions.innerHTML =
-      '<button type="button" data-act="all">All in group</button>' +
-      '<button type="button" data-act="none">None in group</button>';
-    details.appendChild(actions);
-
-    const grid = document.createElement('div');
-    grid.className = 'edit-sources-grid';
-    for (const e of entries) {
-      const label = document.createElement('label');
-      label.dataset.name = e.name.toLowerCase();
-      const isNew = !effectiveSeen.has(e.name);
-      if (isNew) label.dataset.isNew = '1';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.className = 'es-cb';
-      cb.dataset.name = e.name;
-      if (selected.has(e.name)) cb.checked = true;
-      cb.addEventListener('change', () => {
-        _esRefreshGroup(details);
-        // "Only missing" filter is dynamic — ticking a box should
-        // hide it immediately. Only reflows if that mode is active.
-        const modeInput = document.querySelector('input[name="es-mode"]:checked');
-        if (modeInput && modeInput.value === 'missing') {
-          const modal = document.getElementById('edit-sources-modal');
-          if (modal) _esFilter(modal);
-        }
-      });
-      label.appendChild(cb);
-      label.appendChild(document.createTextNode(' ' + e.name));
-      if (isNew) {
-        const tag = document.createElement('span');
-        tag.className = 'new-tag';
-        tag.textContent = 'NEW';
-        label.appendChild(tag);
-      }
-      grid.appendChild(label);
-    }
-    details.appendChild(grid);
-
-    actions.querySelector('[data-act="all"]').onclick = (ev) => {
-      ev.preventDefault();
-      details.querySelectorAll('.es-cb').forEach(cb => { cb.checked = true; });
-      _esRefreshGroup(details);
-    };
-    actions.querySelector('[data-act="none"]').onclick = (ev) => {
-      ev.preventDefault();
-      details.querySelectorAll('.es-cb').forEach(cb => { cb.checked = false; });
-      _esRefreshGroup(details);
-    };
-
-    body.appendChild(details);
-    _esRefreshGroup(details);
-  }
 }
 
 function _esRefreshGroup(details) {
@@ -8821,6 +8899,10 @@ function _esRefreshFooter() {
   const nNew = modal.querySelectorAll('.edit-sources-grid label[data-is-new="1"]').length;
   const nMissing = total - nSel;
   const mode = _currentEsMode(modal);
+  const headCount = modal.querySelector('#es-head-count');
+  if (headCount) {
+    headCount.textContent = '— you track ' + nSel + ' / ' + total;
+  }
   const counter = modal.querySelector('#es-counter');
   if (counter) {
     if (mode === 'new') {
@@ -8865,7 +8947,21 @@ function _esFilter(modal) {
 }
 
 async function _esSave(modal) {
-  const names = [...modal.querySelectorAll('.es-cb:checked')].map(cb => cb.dataset.name);
+  const checked = [...modal.querySelectorAll('.es-cb:checked')];
+  const names = checked.map(cb => cb.dataset.name);
+  // Per-company queries overrides set by "All in group with keywords…".
+  // Server merges these into the existing per-source `queries` map so
+  // only the touched companies get overwritten; everything else keeps
+  // its current filter.
+  const queries_overrides = {};
+  for (const cb of checked) {
+    if (cb.dataset.queriesOverride !== undefined) {
+      try {
+        const qs = JSON.parse(cb.dataset.queriesOverride);
+        if (Array.isArray(qs)) queries_overrides[cb.dataset.name] = qs;
+      } catch (e) { /* ignore malformed */ }
+    }
+  }
   const saveBtn = modal.querySelector('#es-save');
   const originalText = saveBtn.textContent;
   saveBtn.disabled = true;
@@ -8875,7 +8971,7 @@ async function _esSave(modal) {
     const r = await fetch(base + '/write-user-config', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({names}),
+      body: JSON.stringify({names, queries_overrides}),
     });
     if (!r.ok) throw new Error('http ' + r.status);
     await r.json();
@@ -9656,6 +9752,26 @@ _refresh_state = {"status": "idle", "started_at": None, "error": None, "log_tail
 _refresh_lock = threading.Lock()
 
 
+def _reload_user_sources():
+    """Re-read SOURCES from data/user_config.py and mutate the module-level
+    list in place so every reader (floater, /unfollow, modal pre-check, …)
+    sees the current file instead of the snapshot imported at process start.
+    Called from _refresh_progress so a hand-edit of user_config.py doesn't
+    require a server restart to update the "/N companies" count."""
+    import importlib.util as _ilu
+    path = os.path.join(DATA_DIR, "user_config.py")
+    if not os.path.isfile(path):
+        return
+    try:
+        spec = _ilu.spec_from_file_location("_jobs_user_config_reload", path)
+        mod = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        fresh = list(getattr(mod, "SOURCES", []))
+        SOURCES[:] = fresh
+    except Exception as e:
+        sys.stderr.write(f"[refresh] reload user_config failed: {e}\n")
+
+
 def _refresh_progress():
     """Mirror onboarding's _launch_progress: inspect LIST_CACHE_DIR for
     JSON files written since the refresh started, so the browser floater
@@ -9664,6 +9780,10 @@ def _refresh_progress():
     JSON file, so file count = completed source count."""
     with _refresh_lock:
         started = _refresh_state["started_at"]
+    # Pick up any manual edit to data/user_config.py since the server
+    # started — the subprocess re-imports from scratch so it already uses
+    # the fresh list, but the parent server's SOURCES is a stale snapshot.
+    _reload_user_sources()
     total = sum(1 for s in SOURCES if s.get("name"))
     slug_to_name = {slug(s["name"]): s["name"] for s in SOURCES if s.get("name")}
     done = []
@@ -9944,6 +10064,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 # unfiltered firehose of e.g. Salesforce (1500+ jobs).
                 existing_q = {s["name"]: s.get("queries") or []
                               for s in SOURCES if s.get("name")}
+                # Modal's "All in group with keywords…" button sends
+                # {name: [kw, …]} to overwrite the filter for every
+                # company it touched. Overrides win over existing_q.
+                overrides = payload.get("queries_overrides") or {}
+                _n_over = 0
+                if isinstance(overrides, dict):
+                    for _nm, _qs in overrides.items():
+                        if isinstance(_qs, list):
+                            existing_q[str(_nm)] = [str(x) for x in _qs]
+                            _n_over += 1
+                if _n_over:
+                    sys.stdout.write(
+                        f"write-user-config: {_n_over} queries overrides from modal\n"
+                    )
                 backup = None
                 if os.path.isfile(out_path):
                     backup = onboarding._backup_path(out_path)
