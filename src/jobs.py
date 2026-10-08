@@ -915,6 +915,40 @@ def _load_desc_cache():
         return {}
 
 
+def _load_private_positions():
+    """Positions reçues en conversation privée (hors funnel ATS). Chaque
+    entrée se greffe sur un source existant via `company`, le poste apparaît
+    dans la section de l'entreprise comme n'importe quel job scrapé — le
+    user peut le scorer / liker / rejeter normalement.
+
+    Fichier: data/private_positions.json — liste de dicts avec:
+      company, title, locations, url, description, blob, salary (optionnel),
+      pdf (optionnel, nom de fichier sous data/private_positions/).
+    Renvoie {} si le fichier n'existe pas ou est mal formé."""
+    path = os.path.join(DATA_DIR, "private_positions.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    out = {}
+    for e in entries or []:
+        name = e.get("company")
+        if not name:
+            continue
+        job = {
+            "title": e.get("title", ""),
+            "locations": list(e.get("locations") or []),
+            "url": e.get("url", ""),
+            "description": e.get("description", ""),
+            "blob": e.get("blob") or e.get("title", ""),
+        }
+        if e.get("salary"):
+            job["salary"] = e["salary"]
+        out.setdefault(name, []).append(job)
+    return out
+
+
 def _save_desc_cache_merge(new_entries):
     """Reload the on-disk cache, merge in-memory additions, save atomically.
     Guarded by a lock so parallel Playwright fetchers don't clobber each other."""
@@ -6555,39 +6589,6 @@ HTML_TEMPLATE = """<!doctype html>
     .role-long ul { margin: 0.15rem 0 0.35rem 0; padding-left: 1.2rem; }
     .role-long li { margin: 0.1rem 0; }
 
-    .undo-toast {
-      position: fixed;
-      bottom: 1.2rem;
-      left: 50%;
-      transform: translateX(-50%) translateY(120%);
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.6rem 1rem;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
-      font-size: 0.9rem;
-      z-index: 999;
-      transition: transform 0.2s ease;
-      max-width: 90vw;
-    }
-    .undo-toast.visible { transform: translateX(-50%) translateY(0); }
-    .undo-toast .undo-msg { color: inherit; }
-    .undo-toast em { font-style: normal; opacity: 0.85; }
-    .undo-btn {
-      background: var(--severe);
-      color: #ffffff;
-      border: none;
-      padding: 0.35rem 0.8rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-    .undo-btn:hover { background: #a04113; }
-
     .rejected-block {
       margin-top: 0.7rem;
       margin-left: 0.25rem;
@@ -7611,35 +7612,103 @@ function _collectUnscoredJobUrls() {
   return urls;
 }
 
-// Prompt for a batched Claude.ai scoring request. Claude fetches each URL
-// itself — this gives up-to-date, complete descriptions at the cost of a
-// per-domain permission prompt. User's call: our rendered HTML can be
-// stale/incomplete so forcing Claude to go to the source is preferred.
+// Resolve a job URL back to the full context already rendered in the
+// DOM (title, company, locations, salary, description). Returning the
+// data inline in prompts avoids Claude having to fetch each URL — WTJ
+// pages are JS-rendered + auth-walled and come up empty for Claude's
+// browser, which used to make it fall back to generic searches and
+// score the wrong role.
+function _resolveJobContext(url) {
+  const esc = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(url) : url.replace(/"/g, '\\\\"');
+  let btn = document.querySelector('li.job button.like[data-url="' + esc + '"]')
+         || document.querySelector('li.job button.reject[data-url="' + esc + '"]');
+  const li = btn?.closest('li.job');
+  if (li) {
+    const askBtn = li.querySelector('button.ask-claude');
+    const salEl = li.querySelector('.badge.salary');
+    const descEl = li.querySelector('.desc-body');
+    return {
+      url,
+      title: askBtn?.dataset.title || '',
+      company: askBtn?.dataset.company || li.closest('.company-section')?.querySelector('.board-link')?.textContent?.trim() || '',
+      locations: li.dataset.locations || '',
+      salary: (salEl?.textContent || '').replace(/^\\s*💰\\s*/, '').trim(),
+      description: (descEl?.textContent || '').trim(),
+    };
+  }
+  const spBtn = document.querySelector('.spontaneous-row button.spontaneous-like[data-url="' + esc + '"]');
+  const spRow = spBtn?.closest('.spontaneous-row');
+  if (spRow) {
+    return {
+      url,
+      title: 'Spontaneous application',
+      company: spRow.closest('.company-section')?.querySelector('.board-link')?.textContent?.trim() || '',
+      locations: '',
+      salary: '',
+      description: '',
+    };
+  }
+  return {url, title: '', company: '', locations: '', salary: '', description: ''};
+}
+
+function _formatJobBlock(ctx, idx) {
+  const lines = ['[' + idx + ']'];
+  if (ctx.title)       lines.push('Title: ' + ctx.title);
+  if (ctx.company)     lines.push('Company: ' + ctx.company);
+  if (ctx.locations)   lines.push('Locations: ' + ctx.locations);
+  if (ctx.salary)      lines.push('Salary: ' + ctx.salary);
+  if (ctx.url)         lines.push('URL: ' + ctx.url);
+  if (ctx.description) lines.push('Description: ' + ctx.description);
+  return lines.join('\\n');
+}
+
+// Prompt for a batched Claude.ai scoring request. Job data is inlined
+// from the local DOM so Claude doesn't need to fetch anything —
+// previously Claude had to open each URL, which failed silently for
+// JS-rendered boards (WTJ) and sent it searching unrelated greenhouse
+// pages for the wrong role.
+// Build the batch scoring prompt. We treat `private://` URLs specially:
+// Claude can't fetch them (synthetic scheme for jobs received through
+// back-channels), so for those we inline the full job block. For regular
+// public URLs we only ship the URL — Claude fetches the page itself and
+// we avoid inflating the prompt with hundreds of inline descriptions.
 function _buildClaudeScoringPrompt(urls) {
-  const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
+  const blocks = urls.map((u, i) => {
+    const idx = i + 1;
+    if (u.startsWith('private://')) {
+      return _formatJobBlock(_resolveJobContext(u), idx);
+    }
+    return '[' + idx + '] ' + u;
+  }).join('\\n\\n');
   if (_getClaudeLang() === 'fr') {
     return (
       "Évalue le fit de chacun de ces " + urls.length + " jobs par rapport à mon profil (je te le partage sur demande).\\n" +
-      "Pour chaque job, va chercher la description sur le site, puis :\\n" +
+      "Pour chaque job :\\n" +
+      " • si seule l'URL est fournie, va chercher la description sur le site ;\\n" +
+      " • si un bloc Title/Company/Description est fourni (pour les jobs private://), base-toi dessus — ces URLs ne sont pas fetchables.\\n" +
+      "Puis :\\n" +
       " 1) donne un score de fit sur 10 et une justification de 2-3 phrases couvrant les points clés (missions, séniorité, techno, red flags) ;\\n" +
       " 2) extrait la fourchette salariale UNIQUEMENT en chiffres (ex: « $150k-$200k », « 70k€ », « £80k-£120k + equity »). Pas de phrase, pas de \\"Base salary:\\", pas de \\"Annual compensation range:\\". Juste les montants + la devise + \\"+ equity\\" si applicable. Si aucun salaire n'est publié, écris « none ».\\n\\n" +
       "FORMAT STRICT — EXACTEMENT DEUX LIGNES PAR JOB (score sur une ligne, salaire sur la suivante) :\\n" +
       "N. X/10 — <justification 2-3 phrases sur une seule ligne>\\n" +
       "SAL N: <chiffres uniquement ou none>\\n\\n" +
       "Jobs :\\n" +
-      numbered
+      blocks
     );
   }
   return (
     "Rate the fit of each of these " + urls.length + " jobs against my profile (I'll share my profile on request).\\n" +
-    "For each job, fetch the description from the site, then:\\n" +
+    "For each job:\\n" +
+    " • if only a URL is provided, go fetch the description from the site;\\n" +
+    " • if a Title/Company/Description block is provided (for private:// jobs), use it — those URLs can't be fetched.\\n" +
+    "Then:\\n" +
     " 1) give a fit score out of 10 and a 2-3 sentence justification covering the key points (missions, seniority, tech, red flags);\\n" +
     " 2) extract the salary range in NUMBERS ONLY (e.g. \\"$150k-$200k\\", \\"70k€\\", \\"£80k-£120k + equity\\"). No sentence, no \\"Base salary:\\", no \\"Annual compensation range:\\". Just the amounts + currency + \\"+ equity\\" if applicable. If no salary is published, write \\"none\\".\\n\\n" +
     "STRICT RESPONSE FORMAT — EXACTLY TWO LINES PER JOB (score on one line, salary on the next):\\n" +
     "N. X/10 — <2-3 sentence justification on a single line>\\n" +
     "SAL N: <numbers only or none>\\n\\n" +
     "Jobs:\\n" +
-    numbered
+    blocks
   );
 }
 
@@ -8515,34 +8584,34 @@ document.querySelectorAll('button.salary-edit').forEach(btn => {
 function buildClaudePromptForUrls(urls) {
   if (!urls || !urls.length) return '';
   const lang = _getClaudeLang();
+  const blocks = urls.map((u, i) => _formatJobBlock(_resolveJobContext(u), i + 1)).join('\\n\\n');
   if (urls.length === 1) {
     if (lang === 'fr') {
       return (
         "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-        "Donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags).\\n\\n" +
-        urls[0]
+        "Donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags). Base-toi sur les infos ci-dessous — pas besoin de fetch.\\n\\n" +
+        blocks
       );
     }
     return (
       "Is this job a good match for my profile? I'll share my profile on request.\\n" +
-      "Give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n\\n" +
-      urls[0]
+      "Give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags). Use the info below — no need to fetch.\\n\\n" +
+      blocks
     );
   }
-  const numbered = urls.map((u, i) => (i + 1) + ". " + u).join('\\n');
   if (lang === 'fr') {
     return (
       "Est-ce que ces " + urls.length + " jobs sont bons pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-      "Pour chaque job, donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags).\\n" +
-      "Reprends les numéros ci-dessous (1 à " + urls.length + ") pour que je puisse faire le lien.\\n\\n" +
-      numbered
+      "Pour chaque job, donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags). Base-toi sur les infos ci-dessous — pas besoin de fetch.\\n" +
+      "Reprends les numéros [1] à [" + urls.length + "] pour que je puisse faire le lien.\\n\\n" +
+      blocks
     );
   }
   return (
     "Are these " + urls.length + " jobs a good match for my profile? I'll share my profile on request.\\n" +
-    "For each job, give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n" +
-    "Please reuse the numbers below (1 to " + urls.length + ") so I can map responses back to jobs.\\n\\n" +
-    numbered
+    "For each job, give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags). Use the info below — no need to fetch.\\n" +
+    "Please reuse the numbers [1] to [" + urls.length + "] so I can map responses back to jobs.\\n\\n" +
+    blocks
   );
 }
 // Open claude.ai/new in a new TAB — never a popup window. `window.open` is
@@ -9181,17 +9250,36 @@ document.querySelectorAll('button.ask-claude').forEach(btn => {
     e.stopPropagation();
     const url = btn.dataset.url || '';
     if (!url) return;
-    // URL-only — Claude fetches the page itself (fresh / complete info).
+    // Build the prompt from LOCAL data so Claude doesn't have to fetch
+    // (WTJ pages are JS-rendered and often come up empty for Claude's
+    // browser — before this, Claude would fall back to generic searches
+    // and score the wrong role).
+    const li = btn.closest('li.job');
+    const title = btn.dataset.title || '';
+    const company = btn.dataset.company || '';
+    const locations = li?.dataset.locations || '';
+    const salEl = li?.querySelector('.badge.salary');
+    const salary = (salEl?.textContent || '').replace(/^\\s*💰\\s*/, '').trim();
+    const descEl = li?.querySelector('.desc-body');
+    const description = (descEl?.textContent || '').trim();
+    const metaLines = [];
+    if (title)       metaLines.push('Title: ' + title);
+    if (company)     metaLines.push('Company: ' + company);
+    if (locations)   metaLines.push('Locations: ' + locations);
+    if (salary)      metaLines.push('Salary: ' + salary);
+    if (url)         metaLines.push('URL: ' + url);
+    const meta = metaLines.join('\\n');
+    const descBlock = description ? ('\\n\\nDescription:\\n' + description) : '';
     const prompt = (_getClaudeLang() === 'fr')
       ? (
         "Est-ce que ce job est bon pour mon profil ? Je te partagerai mon profil sur demande.\\n" +
-        "Va chercher la description sur le site, puis donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags).\\n\\n" +
-        url
+        "Donne-moi un score de fit sur 10 et une justification de 2-3 phrases (missions, séniorité, techno, red flags). Base-toi sur la description ci-dessous — pas besoin de fetch.\\n\\n" +
+        meta + descBlock
       )
       : (
         "Is this job a good match for my profile? I'll share my profile on request.\\n" +
-        "Fetch the description from the site, then give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags).\\n\\n" +
-        url
+        "Give me a fit score out of 10 and a 2-3 sentence justification (missions, seniority, tech, red flags). Use the description below — no need to fetch.\\n\\n" +
+        meta + descBlock
       );
     // Bypass any pinned chat URL — a one-shot per-job question works
     // better in a fresh conversation where ?q= pre-fills the prompt.
@@ -9360,37 +9448,6 @@ function updateCounters(sid, deltaVisible, deltaRejected) {
   if (typeof refreshGroupHeadings === 'function') refreshGroupHeadings();
 }
 
-let undoToastTimer = null;
-
-function showUndoToast() {
-  let toast = document.getElementById('undo-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'undo-toast';
-    toast.className = 'undo-toast';
-    document.body.appendChild(toast);
-  }
-  if (undoToastTimer) { clearTimeout(undoToastTimer); undoToastTimer = null; }
-  const count = rejectUndoStack.length;
-  if (count === 0) {
-    toast.classList.remove('visible');
-    return;
-  }
-  const last = rejectUndoStack[rejectUndoStack.length - 1];
-  const title = last.li.querySelector('.title')?.textContent?.trim() || 'job';
-  toast.innerHTML =
-    '<span class="undo-msg">Rejected <em>' + title.slice(0, 60) + '</em></span>' +
-    '<button id="undo-btn" class="undo-btn">Undo (' + count + ')</button>';
-  toast.classList.add('visible');
-  document.getElementById('undo-btn').addEventListener('click', undoLastReject);
-  // Auto-hide after 5s. The undo stack itself stays alive so Cmd-Z still
-  // works even after the toast has faded.
-  undoToastTimer = setTimeout(() => {
-    toast.classList.remove('visible');
-    undoToastTimer = null;
-  }, 5000);
-}
-
 async function undoLastReject() {
   const last = rejectUndoStack.pop();
   if (!last) return;
@@ -9420,7 +9477,6 @@ async function undoLastReject() {
   } else {
     updateCounters(last.sid, +1, -1);
   }
-  showUndoToast();
 }
 
 document.querySelectorAll('.reject').forEach(btn => {
@@ -9440,7 +9496,6 @@ document.querySelectorAll('.reject').forEach(btn => {
       rejectUndoStack.push({url, sid, li, next, ul});
       li.remove();
       updateCounters(sid, -1, +1);
-      showUndoToast();
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
@@ -9467,8 +9522,8 @@ document.querySelectorAll('.reject-section').forEach(btn => {
       'li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected)'
     )];
     if (rows.length === 0) return;
-    // No confirm — Cmd+Z brings every reject back (see rejectUndoStack
-    // + showUndoToast), so a misclick is cheap to undo.
+    // No confirm — Cmd+Z brings every reject back (see rejectUndoStack),
+    // so a misclick is cheap to undo.
     btn.disabled = true;
     for (const li of rows) {
       const rowBtn = li.querySelector('button.reject');
@@ -9488,7 +9543,6 @@ document.querySelectorAll('.reject-section').forEach(btn => {
       }
     }
     btn.disabled = false;
-    showUndoToast();
   });
 });
 
@@ -9543,7 +9597,7 @@ document.querySelectorAll('button.review').forEach(btn => {
         body: JSON.stringify({url, title}),
       });
       if (!res.ok) throw new Error('http ' + res.status);
-      // Track this like a reject so the undo toast + Cmd-Z bring it back.
+      // Track this like a reject so Cmd-Z brings it back.
       // /to-review both rejects the URL and appends the title to
       // planning/TOREVIEW.md; the planning/TOREVIEW.md line is not auto-removed on undo
       // (user cleans up manually), but the /unreject call on undo pulls
@@ -9553,7 +9607,6 @@ document.querySelectorAll('button.review').forEach(btn => {
       rejectUndoStack.push({url, sid, li, next, ul});
       li.remove();
       if (sid) updateCounters(sid, -1, +1);
-      showUndoToast();
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
@@ -9720,7 +9773,7 @@ document.querySelectorAll('button.keep').forEach(btn => {
     const salaryHtml = salaryBadge ? salaryBadge.outerHTML : '';
     try {
       await apiPost('/history', url);
-      // Reuse the reject undo stack — the toast is identical semantics.
+      // Reuse the reject undo stack — Cmd-Z semantics are identical.
       const next = li.nextElementSibling;
       rejectUndoStack.push({url, sid, li, next, ul, kind: 'history'});
       li.remove();
@@ -9728,7 +9781,6 @@ document.querySelectorAll('button.keep').forEach(btn => {
       // Mirror the server-side render: move the row into the section's
       // history block so the user sees it right away without a refresh.
       _addToHistoryBlock(sid, {url, title, locations, salaryHtml});
-      showUndoToast();
     } catch (err) {
       btn.disabled = false;
       li.style.opacity = '1';
@@ -11087,6 +11139,22 @@ def main():
                 }
     t_fetch = time.perf_counter() - t_fetch_start
     timing(f"[timing] fetch (all sources, parallel) → {t_fetch:.1f}s")
+
+    # Merge positions received via private conversations (not scraped). They
+    # live in data/private_positions.json keyed by company and get appended
+    # to the matching source's job list — scoring / like / reject all work
+    # identically because the pipeline downstream only cares about the dict
+    # shape, not where it came from. Skipped silently if the file is missing.
+    private = _load_private_positions()
+    for name, jobs in private.items():
+        if name in results:
+            results[name]["jobs"] = list(results[name]["jobs"]) + jobs
+            sys.stdout.write(f"[private] +{len(jobs)} job(s) merged into {name}\n")
+        else:
+            sys.stdout.write(
+                f"[private] skipped {name}: no matching source in SOURCES\n"
+            )
+    sys.stdout.flush()
 
     print("=" * 70, file=sys.stdout)
     print("Step 2 — hydrate cached scores: no LLM call. The AI button in the UI", file=sys.stdout)
