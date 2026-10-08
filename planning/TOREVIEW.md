@@ -52,3 +52,4 @@
 - Senior Market Manager
 - Technical Trainer / Certified Instructor (VCI) – VMware Cloud Foundation (VCF)
 - Creator Campaign Manager
+- Senior Director of Security Governance
