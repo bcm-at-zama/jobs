@@ -5054,8 +5054,8 @@ HTML_TEMPLATE = """<!doctype html>
       display: none;
     }
     /* Visual grouping inside the Ranked controls bar: a thin vertical
-       divider separates the "show spontaneous / show marks" pair from
-       the per-status filter row that follows. */
+       divider separates the per-status filters (controlled by all/none)
+       from the "marks" toggle (which all/none must not touch). */
     .ranked-controls-divider {
       width: 1px; height: 1rem;
       background: var(--border);
@@ -11851,8 +11851,6 @@ def main():
         # it hosts the "show spontaneous" checkbox; both are hidden on
         # every tab EXCEPT ranked via CSS.
         + '  <div id="ranked-controls" class="ranked-controls">\n'
-        + '    <label class="filter-check"><input type="checkbox" id="ranked-show-marks" checked> Show marks</label>\n'
-        + '    <span class="ranked-controls-divider" aria-hidden="true"></span>\n'
         + '    <span class="ranked-filter-label">Show:</span>\n'
         + '    <button type="button" id="ranked-check-all" class="ranked-mini-btn" title="Check all status filters">all</button>\n'
         + '    <button type="button" id="ranked-check-none" class="ranked-mini-btn" title="Uncheck all status filters">none</button>\n'
@@ -11862,6 +11860,8 @@ def main():
         + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="applied" checked> Applied</label>\n'
         + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="app-rejected" checked> Reject</label>\n'
         + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="spontaneous" checked> Spontaneous</label>\n'
+        + '    <span class="ranked-controls-divider" aria-hidden="true"></span>\n'
+        + '    <label class="filter-check"><input type="checkbox" id="ranked-show-marks" checked> marks</label>\n'
         + '  </div>\n'
         + '  <ul id="ranked-list" class="ranked-list"></ul>\n'
         + "\n".join(html_sections)

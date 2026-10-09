@@ -518,7 +518,7 @@ SOURCES = [{'name': 'AMI', 'kind': 'ashby', 'slug': 'ami', 'queries': ['CTO', 'V
   'slug': 'huggingface',
   'board': 'https://apply.workable.com/huggingface/',
   'queries': []},
- {'name': 'Mistral', 'kind': 'ashby', 'slug': 'mistral.ai', 'queries': ['security', 'cryptography', 'CTO', 'VP']},
+ {'name': 'Mistral', 'kind': 'ashby', 'slug': 'mistral.ai', 'queries': ['security', 'cryptography', 'CTO', 'VP', 'manager']},
  {'name': 'OpenAI', 'kind': 'ashby', 'slug': 'openai', 'queries': ['security', 'codex', 'cryptography', 'CTO', 'VP']},
  {'name': 'Scale AI',
   'kind': 'scale',
