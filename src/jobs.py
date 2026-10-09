@@ -5035,17 +5035,11 @@ HTML_TEMPLATE = """<!doctype html>
     }
     body:not(.tab-ranked) #ranked-list,
     body:not(.tab-ranked) #ranked-controls { display: none; }
-    /* "Show spontaneous" checkbox: when off, hide every spontaneous row
-       inside the ranked list. Spontaneous li.job are regular jobs — this
-       only applies to .spontaneous-row entries that _buildRankedView
-       moved in. */
-    body.tab-ranked.hide-ranked-spontaneous #ranked-list .spontaneous-row {
-      display: none;
-    }
     /* Per-status visibility in Ranked. Each body class (rk-hide-*) is
        toggled by a checkbox in #ranked-controls. "no status" means a row
        with none of the four state classes — those are jobs the user
-       hasn't touched yet. */
+       hasn't touched yet. "spontaneous" hides every .spontaneous-row
+       regardless of state. */
     body.tab-ranked.rk-hide-liked #ranked-list li.job.liked,
     body.tab-ranked.rk-hide-liked #ranked-list .spontaneous-row.liked,
     body.tab-ranked.rk-hide-toapply #ranked-list li.job.toapply,
@@ -5055,7 +5049,8 @@ HTML_TEMPLATE = """<!doctype html>
     body.tab-ranked.rk-hide-app-rejected #ranked-list li.job.app-rejected,
     body.tab-ranked.rk-hide-app-rejected #ranked-list .spontaneous-row.app-rejected,
     body.tab-ranked.rk-hide-untouched #ranked-list li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected),
-    body.tab-ranked.rk-hide-untouched #ranked-list .spontaneous-row:not(.liked):not(.toapply):not(.applied):not(.app-rejected) {
+    body.tab-ranked.rk-hide-untouched #ranked-list .spontaneous-row:not(.liked):not(.toapply):not(.applied):not(.app-rejected),
+    body.tab-ranked.rk-hide-spontaneous #ranked-list .spontaneous-row {
       display: none;
     }
     /* Visual grouping inside the Ranked controls bar: a thin vertical
@@ -8325,7 +8320,7 @@ function _computeTabCounts() {
     toapply:     q('li.job.toapply') + q('.spontaneous-row.toapply'),
     pipeline:    q('li.job.applied, li.job.app-rejected')
                  + q('.spontaneous-row.applied, .spontaneous-row.app-rejected'),
-    ranked:      q('li.job') + (document.body.classList.contains('hide-ranked-spontaneous')
+    ranked:      q('li.job') + (document.body.classList.contains('rk-hide-spontaneous')
                                    ? 0
                                    : q('.spontaneous-row:has(.badge.claude-fit)')),
     spontaneous: q('.spontaneous-row'),
@@ -8351,25 +8346,6 @@ function _updateTabCounts() {
     if (el) el.textContent = counts[active] ?? counts.all;
   }
 }
-// "Show spontaneous" checkbox inside the Ranked tab. Persisted so the
-// user's last setting sticks. Reading happens before activateTab so the
-// body class is correct on first paint of the Ranked view.
-const RANKED_SHOW_SPONT_KEY = 'jobs:ranked-show-spontaneous';
-(() => {
-  const cb = document.getElementById('ranked-show-spontaneous');
-  if (!cb) return;
-  let saved = null;
-  try { saved = localStorage.getItem(RANKED_SHOW_SPONT_KEY); } catch (e) {}
-  // Default on; only unchecked when the saved value is explicitly '0'.
-  cb.checked = saved !== '0';
-  document.body.classList.toggle('hide-ranked-spontaneous', !cb.checked);
-  cb.addEventListener('change', () => {
-    document.body.classList.toggle('hide-ranked-spontaneous', !cb.checked);
-    try { localStorage.setItem(RANKED_SHOW_SPONT_KEY, cb.checked ? '1' : '0'); } catch (e) {}
-    _updateTabCounts();
-  });
-})();
-
 // "Show marks" checkbox inside the Ranked tab. When off, hides the
 // state buttons (+1 / TA / ✓ / R / K) so Ranked becomes a clean
 // title+score list. Persisted alongside the spontaneous toggle.
@@ -11875,10 +11851,9 @@ def main():
         # it hosts the "show spontaneous" checkbox; both are hidden on
         # every tab EXCEPT ranked via CSS.
         + '  <div id="ranked-controls" class="ranked-controls">\n'
-        + '    <label class="filter-check"><input type="checkbox" id="ranked-show-spontaneous" checked> Show spontaneous</label>\n'
         + '    <label class="filter-check"><input type="checkbox" id="ranked-show-marks" checked> Show marks</label>\n'
         + '    <span class="ranked-controls-divider" aria-hidden="true"></span>\n'
-        + '    <span class="ranked-filter-label">Statuses:</span>\n'
+        + '    <span class="ranked-filter-label">Show:</span>\n'
         + '    <button type="button" id="ranked-check-all" class="ranked-mini-btn" title="Check all status filters">all</button>\n'
         + '    <button type="button" id="ranked-check-none" class="ranked-mini-btn" title="Uncheck all status filters">none</button>\n'
         + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="untouched" checked> no status</label>\n'
@@ -11886,6 +11861,7 @@ def main():
         + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="toapply" checked> TA</label>\n'
         + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="applied" checked> Applied</label>\n'
         + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="app-rejected" checked> Reject</label>\n'
+        + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="spontaneous" checked> Spontaneous</label>\n'
         + '  </div>\n'
         + '  <ul id="ranked-list" class="ranked-list"></ul>\n'
         + "\n".join(html_sections)
