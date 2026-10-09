@@ -5042,6 +5042,40 @@ HTML_TEMPLATE = """<!doctype html>
     body.tab-ranked.hide-ranked-spontaneous #ranked-list .spontaneous-row {
       display: none;
     }
+    /* Per-status visibility in Ranked. Each body class (rk-hide-*) is
+       toggled by a checkbox in #ranked-controls. "no status" means a row
+       with none of the four state classes — those are jobs the user
+       hasn't touched yet. */
+    body.tab-ranked.rk-hide-liked #ranked-list li.job.liked,
+    body.tab-ranked.rk-hide-liked #ranked-list .spontaneous-row.liked,
+    body.tab-ranked.rk-hide-toapply #ranked-list li.job.toapply,
+    body.tab-ranked.rk-hide-toapply #ranked-list .spontaneous-row.toapply,
+    body.tab-ranked.rk-hide-applied #ranked-list li.job.applied,
+    body.tab-ranked.rk-hide-applied #ranked-list .spontaneous-row.applied,
+    body.tab-ranked.rk-hide-app-rejected #ranked-list li.job.app-rejected,
+    body.tab-ranked.rk-hide-app-rejected #ranked-list .spontaneous-row.app-rejected,
+    body.tab-ranked.rk-hide-untouched #ranked-list li.job:not(.liked):not(.toapply):not(.applied):not(.app-rejected),
+    body.tab-ranked.rk-hide-untouched #ranked-list .spontaneous-row:not(.liked):not(.toapply):not(.applied):not(.app-rejected) {
+      display: none;
+    }
+    /* Visual grouping inside the Ranked controls bar: a thin vertical
+       divider separates the "show spontaneous / show marks" pair from
+       the per-status filter row that follows. */
+    .ranked-controls-divider {
+      width: 1px; height: 1rem;
+      background: var(--border);
+      display: inline-block;
+    }
+    .ranked-filter-label { color: var(--fg-muted); font-size: 0.85rem; }
+    .ranked-mini-btn {
+      font: inherit; font-size: 0.8rem;
+      padding: 0.1rem 0.5rem;
+      background: var(--bg-subtle); color: var(--fg);
+      border: 1px solid var(--border); border-radius: 4px;
+      cursor: pointer;
+    }
+    .ranked-mini-btn:hover { background: var(--bg); border-color: var(--accent); }
+    .ranked-controls { flex-wrap: wrap; }
     /* Per-element hide toggles from the top bar. Each driven by a body
        class so they apply across every tab, not just All. */
     body.hide-seniority .badge.seniority,
@@ -6256,20 +6290,18 @@ HTML_TEMPLATE = """<!doctype html>
       font-weight: 600;
     }
     #refresh-floater.visible { display: inline-flex; }
-    /* Hover-revealed stop button — SIGTERMs the fetcher subprocess
-       (and its Playwright/chromium children). Hidden by default so
-       the pill stays compact; appears when the user mouses over. */
+    /* Stop button on the floating refresh pill — SIGTERMs the fetcher
+       subprocess (and its Playwright/chromium children). Always visible
+       while the pill is on screen so it's discoverable at a glance. */
     #refresh-floater-cancel {
-      display: none;
+      display: inline-flex;
       width: 1.2rem; height: 1.2rem;
-      padding: 0; margin-left: 0.1rem;
+      padding: 0; margin-left: 0.2rem;
       background: transparent; color: var(--fg-muted);
       border: 1px solid var(--border); border-radius: 50%;
       font-size: 0.95rem; line-height: 1; cursor: pointer;
       align-items: center; justify-content: center;
     }
-    #refresh-floater:hover #refresh-floater-cancel,
-    #refresh-floater-cancel:focus-visible { display: inline-flex; }
     #refresh-floater-cancel:hover { color: var(--severe); border-color: var(--severe); }
     #refresh-floater-cancel:disabled { opacity: 0.5; cursor: wait; }
     /* One-shot pill shown after the onboarding wizard redirects here.
@@ -8353,6 +8385,43 @@ const RANKED_SHOW_MARKS_KEY = 'jobs:ranked-show-marks';
     document.body.classList.toggle('hide-ranked-marks', !cb.checked);
     try { localStorage.setItem(RANKED_SHOW_MARKS_KEY, cb.checked ? '1' : '0'); } catch (e) {}
   });
+})();
+
+// Per-status filters in Ranked (no status / +1 / TA / Applied / Reject).
+// Each checkbox toggles a body class rk-hide-<status>; CSS hides matching
+// rows in #ranked-list. All five default to checked (= show everything).
+// Persisted per-status so the user's last choice sticks across reloads.
+const RANKED_STATUS_KEY = 'jobs:ranked-status-filter';  // "<status>" slot
+(() => {
+  const cbs = [...document.querySelectorAll('.ranked-status-cb')];
+  if (!cbs.length) return;
+  const apply = (cb) => {
+    const status = cb.dataset.status;
+    document.body.classList.toggle('rk-hide-' + status, !cb.checked);
+    try {
+      localStorage.setItem(RANKED_STATUS_KEY + ':' + status, cb.checked ? '1' : '0');
+    } catch (e) {}
+  };
+  for (const cb of cbs) {
+    let saved = null;
+    try { saved = localStorage.getItem(RANKED_STATUS_KEY + ':' + cb.dataset.status); } catch (e) {}
+    if (saved !== null) cb.checked = saved !== '0';
+    document.body.classList.toggle('rk-hide-' + cb.dataset.status, !cb.checked);
+    cb.addEventListener('change', () => {
+      apply(cb);
+      _updateTabCounts();
+    });
+  }
+  const setAll = (val) => {
+    for (const cb of cbs) {
+      if (cb.checked === val) continue;
+      cb.checked = val;
+      apply(cb);
+    }
+    _updateTabCounts();
+  };
+  document.getElementById('ranked-check-all')?.addEventListener('click', () => setAll(true));
+  document.getElementById('ranked-check-none')?.addEventListener('click', () => setAll(false));
 })();
 
 // Init: restore last-used tab (defaults to 'all' on first load). Runs AFTER
@@ -11808,6 +11877,15 @@ def main():
         + '  <div id="ranked-controls" class="ranked-controls">\n'
         + '    <label class="filter-check"><input type="checkbox" id="ranked-show-spontaneous" checked> Show spontaneous</label>\n'
         + '    <label class="filter-check"><input type="checkbox" id="ranked-show-marks" checked> Show marks</label>\n'
+        + '    <span class="ranked-controls-divider" aria-hidden="true"></span>\n'
+        + '    <span class="ranked-filter-label">Statuses:</span>\n'
+        + '    <button type="button" id="ranked-check-all" class="ranked-mini-btn" title="Check all status filters">all</button>\n'
+        + '    <button type="button" id="ranked-check-none" class="ranked-mini-btn" title="Uncheck all status filters">none</button>\n'
+        + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="untouched" checked> no status</label>\n'
+        + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="liked" checked> +1</label>\n'
+        + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="toapply" checked> TA</label>\n'
+        + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="applied" checked> Applied</label>\n'
+        + '    <label class="filter-check"><input type="checkbox" class="ranked-status-cb" data-status="app-rejected" checked> Reject</label>\n'
         + '  </div>\n'
         + '  <ul id="ranked-list" class="ranked-list"></ul>\n'
         + "\n".join(html_sections)

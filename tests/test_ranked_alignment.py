@@ -141,5 +141,57 @@ class TestRankedAlignmentHooks(unittest.TestCase):
         )
 
 
+class TestRankedStatusFilters(unittest.TestCase):
+    """Per-status visibility toggles in Ranked (no status / +1 / TA /
+    Applied / Reject + all/none buttons). Each checkbox adds a
+    rk-hide-<status> body class; CSS hides matching rows."""
+
+    def setUp(self):
+        self.js = _inline_script()
+        self.css = jobs.HTML_TEMPLATE
+        with open(jobs.__file__, encoding="utf-8") as f:
+            self.src = f.read()
+
+    def test_css_hides_each_status(self):
+        for status in ("liked", "toapply", "applied", "app-rejected"):
+            with self.subTest(status=status):
+                self.assertRegex(
+                    self.css,
+                    r"body\.tab-ranked\.rk-hide-" + re.escape(status)
+                    + r"\s+#ranked-list\s+li\.job\." + re.escape(status),
+                    f"missing CSS to hide .{status} rows when rk-hide-{status} is set",
+                )
+
+    def test_css_hides_untouched_rows(self):
+        # "no status" = row with none of the four state classes. The
+        # :not() chain must match li.job AND .spontaneous-row.
+        self.assertRegex(
+            self.css,
+            r"body\.tab-ranked\.rk-hide-untouched\s+#ranked-list\s+li\.job"
+            r":not\(\.liked\):not\(\.toapply\):not\(\.applied\):not\(\.app-rejected\)",
+            "rk-hide-untouched must target li.job without any state class",
+        )
+
+    def test_controls_markup_present(self):
+        # The 5 status checkboxes + the two bulk buttons must be in the
+        # generated HTML body — this is the only hook JS has to wire the
+        # body classes.
+        for status in ("untouched", "liked", "toapply", "applied", "app-rejected"):
+            with self.subTest(status=status):
+                self.assertIn(
+                    f'data-status="{status}"', self.src,
+                    f"ranked-controls missing checkbox data-status={status!r}",
+                )
+        self.assertIn('id="ranked-check-all"', self.src)
+        self.assertIn('id="ranked-check-none"', self.src)
+
+    def test_js_wires_checkboxes_to_body_class(self):
+        self.assertIn("ranked-status-cb", self.js)
+        self.assertIn("rk-hide-", self.js)
+        # all / none buttons must flip every checkbox in the group.
+        self.assertIn("ranked-check-all", self.js)
+        self.assertIn("ranked-check-none", self.js)
+
+
 if __name__ == "__main__":
     unittest.main()
